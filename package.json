@@ -1,0 +1,15 @@
+{
+  "name": "mangaka-ai-workspace",
+  "version": "1.0.0",
+  "description": "MANGAKA AI - Plateforme de création de manga avec IA",
+  "scripts": {
+    "dev": "cd mangaka-ai && npm run dev",
+    "build": "cd mangaka-ai && npm run build",
+    "start": "cd mangaka-ai && npm run start",
+    "lint": "cd mangaka-ai && npm run lint",
+    "install-deps": "cd mangaka-ai && npm install"
+  },
+  "keywords": ["manga", "ai", "nextjs", "supabase"],
+  "author": "MANGAKA AI Team",
+  "license": "MIT"
+}
