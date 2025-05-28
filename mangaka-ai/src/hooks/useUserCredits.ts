@@ -5,9 +5,11 @@ import { createClient } from '@/lib/supabase/client'
 import { User } from '@supabase/supabase-js'
 
 interface UserCredits {
-  credits_remaining: number
-  credits_total: number
-  subscription_tier: 'free' | 'pro'
+  monthly_generations_used: number
+  monthly_generations_limit: number
+  comic_panels_used: number
+  comic_panels_limit: number
+  reset_date: string
 }
 
 export function useUserCredits() {
@@ -19,33 +21,38 @@ export function useUserCredits() {
   const fetchCredits = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
-        .from('user_credits')
-        .select('credits_remaining, credits_total, subscription_tier')
+        .from('user_quotas')
+        .select('monthly_generations_used, monthly_generations_limit, comic_panels_used, comic_panels_limit, reset_date')
         .eq('user_id', userId)
         .single()
 
       if (error) {
-        // If user credits don't exist, create them with default values
+        // If user quotas don't exist, create them with default values
         if (error.code === 'PGRST116') {
-          const { data: newCredits, error: insertError } = await supabase
-            .from('user_credits')
+          const resetDate = new Date()
+          resetDate.setMonth(resetDate.getMonth() + 1)
+
+          const { data: newQuotas, error: insertError } = await supabase
+            .from('user_quotas')
             .insert({
               user_id: userId,
-              credits_remaining: 5,
-              credits_total: 5,
-              subscription_tier: 'free'
+              monthly_generations_used: 0,
+              monthly_generations_limit: 5,
+              comic_panels_used: 0,
+              comic_panels_limit: 10,
+              reset_date: resetDate.toISOString()
             })
-            .select('credits_remaining, credits_total, subscription_tier')
+            .select('monthly_generations_used, monthly_generations_limit, comic_panels_used, comic_panels_limit, reset_date')
             .single()
 
           if (insertError) {
-            console.error('Error creating user credits:', insertError)
+            console.error('Error creating user quotas:', insertError)
             return
           }
 
-          setCredits(newCredits)
+          setCredits(newQuotas)
         } else {
-          console.error('Error fetching user credits:', error)
+          console.error('Error fetching user quotas:', error)
         }
       } else {
         setCredits(data)

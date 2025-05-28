@@ -179,10 +179,10 @@ export default function SceneCreator({ onSceneCreated }: SceneCreatorProps = {})
         ) : credits && (
           <div className="inline-flex items-center bg-primary-500/10 border border-primary-500/20 rounded-lg px-4 py-2">
             <span className="text-primary-500 font-medium">
-              {credits.credits_remaining} crédits restants
+              {credits.comic_panels_limit - credits.comic_panels_used} panneaux restants
             </span>
             <span className="text-dark-400 text-sm ml-2">
-              (Création de scène: 2 crédits)
+              (Création de scène: 1 panneau)
             </span>
           </div>
         )}

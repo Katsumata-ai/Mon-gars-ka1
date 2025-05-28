@@ -65,8 +65,8 @@ export default function GenerationPanel({ onImageGenerated }: GenerationPanelPro
       return
     }
 
-    if (!credits || credits.credits_remaining < 1) {
-      setError('Crédits insuffisants. Passez au plan Pro pour continuer à créer.')
+    if (!credits || (credits.monthly_generations_limit - credits.monthly_generations_used) < 1) {
+      setError('Générations insuffisantes. Passez au plan Pro pour continuer à créer.')
       return
     }
 
@@ -133,10 +133,10 @@ export default function GenerationPanel({ onImageGenerated }: GenerationPanelPro
           ) : credits && (
             <div className="mt-4 inline-flex items-center bg-primary-500/10 border border-primary-500/20 rounded-lg px-4 py-2">
               <span className="text-primary-500 font-medium">
-                {credits.credits_remaining} crédits restants
+                {credits.monthly_generations_limit - credits.monthly_generations_used} générations restantes
               </span>
               <span className="text-dark-400 text-sm ml-2">
-                ({credits.subscription_tier === 'free' ? 'Gratuit' : 'Pro'})
+                ({credits.monthly_generations_used}/{credits.monthly_generations_limit})
               </span>
             </div>
           )}
@@ -199,7 +199,7 @@ export default function GenerationPanel({ onImageGenerated }: GenerationPanelPro
         {/* Generate Button */}
         <button
           onClick={handleGenerate}
-          disabled={loading || !prompt.trim() || !user || !credits || credits.credits_remaining < 1}
+          disabled={loading || !prompt.trim() || !user || !credits || (credits.monthly_generations_limit - credits.monthly_generations_used) < 1}
           className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-primary-500/50 text-white py-4 rounded-lg font-semibold text-lg transition-all transform hover:scale-105 disabled:transform-none manga-shadow-lg"
         >
           {loading ? (

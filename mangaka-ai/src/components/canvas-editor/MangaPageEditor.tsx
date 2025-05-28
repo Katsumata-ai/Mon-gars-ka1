@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { fabric } from 'fabric'
+import { Canvas, Textbox } from 'fabric'
 import CanvasEditor from './CanvasEditor'
 import ImageLibrary from './ImageLibrary'
 
@@ -11,12 +11,12 @@ interface MangaPageEditorProps {
 }
 
 export default function MangaPageEditor({ projectId, onSave }: MangaPageEditorProps) {
-  const [canvas, setCanvas] = useState<fabric.Canvas | null>(null)
+  const [canvas, setCanvas] = useState<Canvas | null>(null)
   const [showImageLibrary, setShowImageLibrary] = useState(true)
   const [pageTitle, setPageTitle] = useState('Nouvelle Page')
   const [saving, setSaving] = useState(false)
 
-  const handleCanvasReady = (fabricCanvas: fabric.Canvas) => {
+  const handleCanvasReady = (fabricCanvas: Canvas) => {
     setCanvas(fabricCanvas)
   }
 
@@ -46,7 +46,7 @@ export default function MangaPageEditor({ projectId, onSave }: MangaPageEditorPr
     try {
       // Export canvas as JSON for later editing
       const canvasData = canvas.toJSON()
-      
+
       const pageData = {
         title: pageTitle,
         canvasData,
@@ -56,10 +56,10 @@ export default function MangaPageEditor({ projectId, onSave }: MangaPageEditorPr
 
       // In a real app, you would save this to your database
       console.log('Page data to save:', pageData)
-      
+
       // For now, just download as JSON file
-      const blob = new Blob([JSON.stringify(pageData, null, 2)], { 
-        type: 'application/json' 
+      const blob = new Blob([JSON.stringify(pageData, null, 2)], {
+        type: 'application/json'
       })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -86,7 +86,7 @@ export default function MangaPageEditor({ projectId, onSave }: MangaPageEditorPr
     reader.onload = (e) => {
       try {
         const pageData = JSON.parse(e.target?.result as string)
-        
+
         // Load canvas data
         canvas.loadFromJSON(pageData.canvasData, () => {
           canvas.renderAll()
@@ -98,14 +98,14 @@ export default function MangaPageEditor({ projectId, onSave }: MangaPageEditorPr
       }
     }
     reader.readAsText(file)
-    
+
     // Reset input
     event.target.value = ''
   }
 
   const clearCanvas = () => {
     if (!canvas) return
-    
+
     if (confirm('Êtes-vous sûr de vouloir effacer toute la page ?')) {
       canvas.clear()
       canvas.setBackgroundColor('#ffffff', canvas.renderAll.bind(canvas))
@@ -115,7 +115,7 @@ export default function MangaPageEditor({ projectId, onSave }: MangaPageEditorPr
   const addTextBox = () => {
     if (!canvas) return
 
-    const text = new fabric.Textbox('Tapez votre texte ici...', {
+    const text = new Textbox('Tapez votre texte ici...', {
       left: 100,
       top: 100,
       width: 200,
@@ -158,14 +158,14 @@ export default function MangaPageEditor({ projectId, onSave }: MangaPageEditorPr
             <button
               onClick={() => setShowImageLibrary(!showImageLibrary)}
               className={`px-4 py-2 rounded-lg transition-colors ${
-                showImageLibrary 
-                  ? 'bg-primary-500 text-white' 
+                showImageLibrary
+                  ? 'bg-primary-500 text-white'
                   : 'bg-dark-700 text-dark-200 hover:bg-dark-600'
               }`}
             >
               🖼️ Images
             </button>
-            
+
             <label className="bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer">
               📁 Charger
               <input

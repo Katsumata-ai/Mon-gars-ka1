@@ -44,54 +44,95 @@ export interface Database {
           created_at?: string
         }
       }
-      user_credits: {
-        Row: {
-          user_id: string
-          credits_remaining: number
-          credits_total: number
-          last_reset: string
-          subscription_tier: 'free' | 'pro'
-        }
-        Insert: {
-          user_id: string
-          credits_remaining?: number
-          credits_total?: number
-          last_reset?: string
-          subscription_tier?: 'free' | 'pro'
-        }
-        Update: {
-          user_id?: string
-          credits_remaining?: number
-          credits_total?: number
-          last_reset?: string
-          subscription_tier?: 'free' | 'pro'
-        }
-      }
-      manga_projects: {
+      user_quotas: {
         Row: {
           id: string
           user_id: string
-          title: string
-          description: string | null
-          pages: Json
+          monthly_generations_used: number
+          monthly_generations_limit: number
+          comic_panels_used: number
+          comic_panels_limit: number
+          reset_date: string
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          title: string
-          description?: string | null
-          pages?: Json
+          monthly_generations_used?: number
+          monthly_generations_limit?: number
+          comic_panels_used?: number
+          comic_panels_limit?: number
+          reset_date?: string
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          title?: string
+          monthly_generations_used?: number
+          monthly_generations_limit?: number
+          comic_panels_used?: number
+          comic_panels_limit?: number
+          reset_date?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      projects: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          description: string | null
+          cover_image: string | null
+          pages_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
           description?: string | null
-          pages?: Json
+          cover_image?: string | null
+          pages_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          description?: string | null
+          cover_image?: string | null
+          pages_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      profiles: {
+        Row: {
+          id: string
+          full_name: string | null
+          email: string | null
+          avatar_url: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          full_name?: string | null
+          email?: string | null
+          avatar_url?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          full_name?: string | null
+          email?: string | null
+          avatar_url?: string | null
           created_at?: string
           updated_at?: string
         }

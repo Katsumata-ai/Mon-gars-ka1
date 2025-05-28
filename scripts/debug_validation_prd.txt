@@ -1,0 +1,86 @@
+# MANGAKA AI - Debug & Validation Plan
+
+## Project Overview
+MANGAKA AI est une plateforme de création de manga assistée par IA qui permet aux utilisateurs de créer des histoires manga professionnelles sans savoir dessiner.
+
+## Problèmes Identifiés et Corrigés
+
+### 1. Base de Données
+- **Problème**: Incohérence entre les tables `user_credits` (dans les migrations) et `user_quotas` (dans la DB actuelle)
+- **Solution**: Mis à jour tous les hooks et API routes pour utiliser `user_quotas`
+- **Status**: ✅ CORRIGÉ
+
+### 2. Hook useUserCredits
+- **Problème**: Cherchait la table `user_credits` inexistante
+- **Solution**: Modifié pour utiliser `user_quotas` avec les bons champs
+- **Status**: ✅ CORRIGÉ
+
+### 3. API Route Generate Image
+- **Problème**: Utilisait l'ancienne table `user_credits`
+- **Solution**: Mis à jour pour utiliser `user_quotas` et gérer les quotas correctement
+- **Status**: ✅ CORRIGÉ
+
+### 4. Composants UI
+- **Problème**: Affichaient des informations incorrectes sur les crédits
+- **Solution**: Mis à jour GenerationPanel et SceneCreator pour afficher les quotas corrects
+- **Status**: ✅ CORRIGÉ
+
+### 5. Styles CSS
+- **Problème**: Couleurs manquantes et syntaxe Tailwind v4 incorrecte
+- **Solution**: Ajouté les couleurs manquantes et corrigé la syntaxe @theme
+- **Status**: ✅ CORRIGÉ
+
+## Plan de Validation
+
+### Phase 1: Tests Fonctionnels de Base
+1. Vérifier que le site se charge sans erreurs
+2. Tester la navigation entre les pages
+3. Vérifier l'authentification Supabase
+4. Tester la création de compte utilisateur
+
+### Phase 2: Tests de Génération d'Images
+1. Tester la génération d'images avec un utilisateur connecté
+2. Vérifier la déduction des quotas
+3. Tester les limites de quotas
+4. Vérifier la sauvegarde des images générées
+
+### Phase 3: Tests de l'Interface Utilisateur
+1. Vérifier l'affichage des quotas utilisateur
+2. Tester la responsivité mobile
+3. Vérifier les animations et transitions
+4. Tester l'accessibilité
+
+### Phase 4: Tests de Sécurité
+1. Vérifier les politiques RLS
+2. Tester l'isolation des données utilisateur
+3. Vérifier la protection des API routes
+4. Tester la gestion des sessions
+
+### Phase 5: Tests de Performance
+1. Mesurer les temps de chargement
+2. Tester la génération d'images
+3. Vérifier l'optimisation des images
+4. Tester la mise en cache
+
+## Critères de Succès
+- ✅ Aucune erreur JavaScript dans la console
+- ✅ Toutes les pages se chargent correctement
+- ✅ L'authentification fonctionne
+- ✅ La génération d'images fonctionne
+- ✅ Les quotas sont correctement gérés
+- ✅ L'interface est responsive
+- ✅ Les données sont sécurisées
+
+## Outils de Test
+- Playwright pour les tests E2E
+- Supabase pour les tests de base de données
+- GitHub pour le suivi des problèmes
+- Console du navigateur pour les erreurs JS
+- Lighthouse pour les performances
+
+## Prochaines Étapes
+1. Exécuter les tests automatisés
+2. Valider manuellement chaque fonctionnalité
+3. Corriger les problèmes restants
+4. Optimiser les performances
+5. Déployer en production

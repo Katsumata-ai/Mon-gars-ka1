@@ -1,442 +1,421 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUserCredits } from '@/hooks/useUserCredits'
 
-interface ScriptChapter {
+// Types simplifiés et professionnels
+interface ScriptLine {
+  id: string
+  type: 'page' | 'panel' | 'description' | 'dialogue' | 'character'
+  content: string
+  pageNumber?: number
+  panelNumber?: number
+  character?: string
+  lineNumber: number
+}
+
+interface ScriptDocument {
   id: string
   title: string
-  scenes: ScriptScene[]
+  lines: ScriptLine[]
+  characters: string[]
+  stats: {
+    pages: number
+    panels: number
+    words: number
+    characters: number
+  }
 }
 
-interface ScriptScene {
-  id: string
-  title: string
-  description: string
-  panels: ScriptPanel[]
-}
-
-interface ScriptPanel {
-  id: string
-  description: string
-  dialogue: string
-  notes: string
-}
-
-interface ScriptProject {
-  id: string
-  title: string
-  description: string
-  chapters: ScriptChapter[]
-  createdAt: string
-  updatedAt: string
-}
-
-export default function ScriptEditor() {
-  const [project, setProject] = useState<ScriptProject>({
+export default function ScriptEditor({ projectId = 'default' }: { projectId?: string }) {
+  // État principal du document
+  const [document, setDocument] = useState<ScriptDocument>({
     id: crypto.randomUUID(),
-    title: 'Nouveau Projet',
-    description: '',
-    chapters: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    title: 'Script Sans Titre',
+    lines: [],
+    characters: [],
+    stats: { pages: 0, panels: 0, words: 0, characters: 0 }
   })
-  
-  const [selectedChapter, setSelectedChapter] = useState<string | null>(null)
-  const [selectedScene, setSelectedScene] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
 
-  const { user } = useUserCredits()
+  // États de l'interface
+  const [currentLine, setCurrentLine] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showCharacters, setShowCharacters] = useState(false)
+  const [autoSaving, setAutoSaving] = useState(false)
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
+
+  // Références
+  const editorRef = useRef<HTMLTextAreaElement>(null)
+  const lineNumbersRef = useRef<HTMLDivElement>(null)
+
+  const { } = useUserCredits()
   const supabase = createClient()
 
-  const addChapter = () => {
-    const newChapter: ScriptChapter = {
-      id: crypto.randomUUID(),
-      title: `Chapitre ${project.chapters.length + 1}`,
-      scenes: []
-    }
+  // Fonctions utilitaires pour le parsing du script
+  const parseScriptContent = useCallback((content: string): ScriptLine[] => {
+    const lines = content.split('\n')
+    const scriptLines: ScriptLine[] = []
+    let currentPage = 1
+    let currentPanel = 1
 
-    setProject(prev => ({
-      ...prev,
-      chapters: [...prev.chapters, newChapter],
-      updatedAt: new Date().toISOString()
-    }))
+    lines.forEach((line, index) => {
+      const trimmedLine = line.trim()
+      if (!trimmedLine) return
 
-    setSelectedChapter(newChapter.id)
-  }
+      let type: ScriptLine['type'] = 'description'
+      let character: string | undefined
 
-  const addScene = (chapterId: string) => {
-    const newScene: ScriptScene = {
-      id: crypto.randomUUID(),
-      title: 'Nouvelle Scène',
-      description: '',
-      panels: []
-    }
+      // Détection automatique du type de ligne
+      if (trimmedLine.startsWith('PAGE ') || trimmedLine.startsWith('Page ')) {
+        type = 'page'
+        currentPage = parseInt(trimmedLine.split(' ')[1]) || currentPage
+        currentPanel = 1
+      } else if (trimmedLine.startsWith('PANEL ') || trimmedLine.startsWith('Panel ')) {
+        type = 'panel'
+        currentPanel = parseInt(trimmedLine.split(' ')[1]) || currentPanel
+      } else if (trimmedLine.includes(':') && !trimmedLine.startsWith('(')) {
+        // Dialogue avec personnage
+        type = 'dialogue'
+        character = trimmedLine.split(':')[0].trim()
+      } else if (trimmedLine.startsWith('(') && trimmedLine.endsWith(')')) {
+        // Description d'action
+        type = 'description'
+      }
 
-    setProject(prev => ({
-      ...prev,
-      chapters: prev.chapters.map(chapter =>
-        chapter.id === chapterId
-          ? { ...chapter, scenes: [...chapter.scenes, newScene] }
-          : chapter
-      ),
-      updatedAt: new Date().toISOString()
-    }))
-
-    setSelectedScene(newScene.id)
-  }
-
-  const addPanel = (chapterId: string, sceneId: string) => {
-    const newPanel: ScriptPanel = {
-      id: crypto.randomUUID(),
-      description: '',
-      dialogue: '',
-      notes: ''
-    }
-
-    setProject(prev => ({
-      ...prev,
-      chapters: prev.chapters.map(chapter =>
-        chapter.id === chapterId
-          ? {
-              ...chapter,
-              scenes: chapter.scenes.map(scene =>
-                scene.id === sceneId
-                  ? { ...scene, panels: [...scene.panels, newPanel] }
-                  : scene
-              )
-            }
-          : chapter
-      ),
-      updatedAt: new Date().toISOString()
-    }))
-  }
-
-  const updateProject = (updates: Partial<ScriptProject>) => {
-    setProject(prev => ({
-      ...prev,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    }))
-  }
-
-  const updateChapter = (chapterId: string, updates: Partial<ScriptChapter>) => {
-    setProject(prev => ({
-      ...prev,
-      chapters: prev.chapters.map(chapter =>
-        chapter.id === chapterId ? { ...chapter, ...updates } : chapter
-      ),
-      updatedAt: new Date().toISOString()
-    }))
-  }
-
-  const updateScene = (chapterId: string, sceneId: string, updates: Partial<ScriptScene>) => {
-    setProject(prev => ({
-      ...prev,
-      chapters: prev.chapters.map(chapter =>
-        chapter.id === chapterId
-          ? {
-              ...chapter,
-              scenes: chapter.scenes.map(scene =>
-                scene.id === sceneId ? { ...scene, ...updates } : scene
-              )
-            }
-          : chapter
-      ),
-      updatedAt: new Date().toISOString()
-    }))
-  }
-
-  const updatePanel = (chapterId: string, sceneId: string, panelId: string, updates: Partial<ScriptPanel>) => {
-    setProject(prev => ({
-      ...prev,
-      chapters: prev.chapters.map(chapter =>
-        chapter.id === chapterId
-          ? {
-              ...chapter,
-              scenes: chapter.scenes.map(scene =>
-                scene.id === sceneId
-                  ? {
-                      ...scene,
-                      panels: scene.panels.map(panel =>
-                        panel.id === panelId ? { ...panel, ...updates } : panel
-                      )
-                    }
-                  : scene
-              )
-            }
-          : chapter
-      ),
-      updatedAt: new Date().toISOString()
-    }))
-  }
-
-  const saveProject = async () => {
-    setSaving(true)
-    try {
-      // For now, just download as JSON
-      const blob = new Blob([JSON.stringify(project, null, 2)], { 
-        type: 'application/json' 
+      scriptLines.push({
+        id: crypto.randomUUID(),
+        type,
+        content: trimmedLine,
+        pageNumber: currentPage,
+        panelNumber: currentPanel,
+        character,
+        lineNumber: index + 1
       })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.download = `${project.title.replace(/\s+/g, '_')}_script.json`
-      link.href = url
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+    })
+
+    return scriptLines
+  }, [])
+
+  // Calcul des statistiques en temps réel
+  const calculateStats = useCallback((lines: ScriptLine[]) => {
+    const pages = Math.max(...lines.filter(l => l.pageNumber).map(l => l.pageNumber!), 0)
+    const panels = lines.filter(l => l.type === 'panel').length
+    const content = lines.map(l => l.content).join(' ')
+    const words = content.split(/\s+/).filter(w => w.length > 0).length
+    const characters = content.length
+
+    return { pages, panels, words, characters }
+  }, [])
+
+  // Extraction automatique des personnages
+  const extractCharacters = useCallback((lines: ScriptLine[]) => {
+    const characters = new Set<string>()
+    lines.forEach(line => {
+      if (line.type === 'dialogue' && line.character) {
+        characters.add(line.character)
+      }
+    })
+    return Array.from(characters).sort()
+  }, [])
+
+  // Gestion du contenu de l'éditeur
+  const handleContentChange = useCallback((content: string) => {
+    const lines = parseScriptContent(content)
+    const stats = calculateStats(lines)
+    const characters = extractCharacters(lines)
+
+    setDocument(prev => ({
+      ...prev,
+      lines,
+      stats,
+      characters
+    }))
+  }, [parseScriptContent, calculateStats, extractCharacters])
+
+  // Auto-sauvegarde
+  const autoSave = useCallback(async () => {
+    if (!document.lines.length) return
+
+    setAutoSaving(true)
+    try {
+      const content = document.lines.map(l => l.content).join('\n')
+
+      const { error } = await supabase
+        .from('manga_scripts')
+        .upsert({
+          project_id: projectId,
+          title: document.title,
+          script_data: {
+            content,
+            lines: document.lines,
+            characters: document.characters,
+            stats: document.stats
+          },
+          updated_at: new Date().toISOString()
+        })
+
+      if (!error) {
+        setLastSaved(new Date())
+      }
     } catch (error) {
-      console.error('Error saving project:', error)
+      console.error('Erreur auto-sauvegarde:', error)
     } finally {
-      setSaving(false)
+      setAutoSaving(false)
     }
-  }
+  }, [document, projectId, supabase])
 
-  const loadProject = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  // Auto-sauvegarde toutes les 30 secondes
+  useEffect(() => {
+    const interval = setInterval(autoSave, 30000)
+    return () => clearInterval(interval)
+  }, [autoSave])
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const loadedProject = JSON.parse(e.target?.result as string)
-        setProject(loadedProject)
-        setSelectedChapter(null)
-        setSelectedScene(null)
-      } catch (error) {
-        console.error('Error loading project:', error)
-        alert('Erreur lors du chargement du projet')
+  // Fonctions d'export
+  const exportToTXT = useCallback(() => {
+    const content = document.lines.map(l => l.content).join('\n')
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.download = `${document.title.replace(/\s+/g, '_')}_script.txt`
+    link.href = url
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }, [document])
+
+  const exportToJSON = useCallback(() => {
+    const blob = new Blob([JSON.stringify(document, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.download = `${document.title.replace(/\s+/g, '_')}_script.json`
+    link.href = url
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }, [document])
+
+  // Raccourcis clavier
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key) {
+          case 's':
+            e.preventDefault()
+            autoSave()
+            break
+          case 'f':
+            e.preventDefault()
+            // Focus sur la recherche
+            break
+        }
       }
     }
-    reader.readAsText(file)
-    
-    // Reset input
-    event.target.value = ''
-  }
 
-  const selectedChapterData = project.chapters.find(c => c.id === selectedChapter)
-  const selectedSceneData = selectedChapterData?.scenes.find(s => s.id === selectedScene)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [autoSave])
 
   return (
-    <div className="h-screen flex bg-dark-900 text-dark-50">
-      {/* Sidebar - Project Structure */}
-      <div className="w-80 bg-dark-800 border-r border-dark-700 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-dark-700">
+    <div className="h-screen flex bg-gray-900 text-gray-100 font-mono">
+      {/* Sidebar minimaliste */}
+      <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+        {/* Header avec titre */}
+        <div className="p-4 border-b border-gray-700">
           <input
             type="text"
-            value={project.title}
-            onChange={(e) => updateProject({ title: e.target.value })}
-            className="w-full bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-white font-bold text-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
-          <textarea
-            value={project.description}
-            onChange={(e) => updateProject({ description: e.target.value })}
-            placeholder="Description du projet..."
-            className="w-full mt-2 bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-            rows={2}
+            value={document.title}
+            onChange={(e) => setDocument(prev => ({ ...prev, title: e.target.value }))}
+            className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white font-bold text-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            placeholder="Titre du script"
           />
         </div>
 
-        {/* Actions */}
-        <div className="p-4 border-b border-dark-700 flex gap-2">
-          <button
-            onClick={addChapter}
-            className="flex-1 bg-primary-500 hover:bg-primary-600 text-white px-3 py-2 rounded-lg text-sm transition-colors"
-          >
-            + Chapitre
-          </button>
-          <label className="flex-1 bg-dark-700 hover:bg-dark-600 text-white px-3 py-2 rounded-lg text-sm transition-colors cursor-pointer text-center">
-            📁 Charger
-            <input
-              type="file"
-              accept=".json"
-              onChange={loadProject}
-              className="hidden"
-            />
-          </label>
-          <button
-            onClick={saveProject}
-            disabled={saving}
-            className="flex-1 bg-accent-500 hover:bg-accent-600 disabled:bg-accent-500/50 text-white px-3 py-2 rounded-lg text-sm transition-colors"
-          >
-            {saving ? '💾' : '💾 Sauver'}
-          </button>
+        {/* Recherche rapide */}
+        <div className="p-4 border-b border-gray-700">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Rechercher..."
+            className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent"
+          />
         </div>
 
-        {/* Chapter List */}
-        <div className="flex-1 overflow-auto p-4">
-          {project.chapters.map((chapter) => (
-            <div key={chapter.id} className="mb-4">
-              <div
-                onClick={() => setSelectedChapter(selectedChapter === chapter.id ? null : chapter.id)}
-                className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                  selectedChapter === chapter.id
-                    ? 'bg-primary-500/20 border border-primary-500'
-                    : 'bg-dark-700 hover:bg-dark-600 border border-dark-600'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{chapter.title}</span>
-                  <span className="text-xs text-dark-400">{chapter.scenes.length} scènes</span>
-                </div>
-              </div>
-
-              {selectedChapter === chapter.id && (
-                <div className="mt-2 ml-4 space-y-2">
-                  <button
-                    onClick={() => addScene(chapter.id)}
-                    className="w-full p-2 bg-dark-600 hover:bg-dark-500 text-white rounded text-sm transition-colors"
-                  >
-                    + Ajouter Scène
-                  </button>
-                  
-                  {chapter.scenes.map((scene) => (
-                    <div
-                      key={scene.id}
-                      onClick={() => setSelectedScene(selectedScene === scene.id ? null : scene.id)}
-                      className={`p-2 rounded cursor-pointer transition-colors ${
-                        selectedScene === scene.id
-                          ? 'bg-accent-500/20 border border-accent-500'
-                          : 'bg-dark-600 hover:bg-dark-500 border border-dark-500'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">{scene.title}</span>
-                        <span className="text-xs text-dark-400">{scene.panels.length} panels</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Statistiques en temps réel */}
+        <div className="p-4 border-b border-gray-700">
+          <h3 className="text-sm font-semibold mb-2 text-gray-300">Statistiques</h3>
+          <div className="space-y-1 text-xs text-gray-400">
+            <div className="flex justify-between">
+              <span>Pages:</span>
+              <span className="text-red-400 font-semibold">{document.stats.pages}</span>
             </div>
-          ))}
+            <div className="flex justify-between">
+              <span>Panels:</span>
+              <span className="text-red-400 font-semibold">{document.stats.panels}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Mots:</span>
+              <span className="text-red-400 font-semibold">{document.stats.words}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Caractères:</span>
+              <span className="text-red-400 font-semibold">{document.stats.characters}</span>
+            </div>
+          </div>
+        </div>
 
-          {project.chapters.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-dark-400 mb-4">Aucun chapitre</p>
-              <button
-                onClick={addChapter}
-                className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Créer le premier chapitre
-              </button>
+        {/* Personnages */}
+        <div className="p-4 border-b border-gray-700">
+          <button
+            onClick={() => setShowCharacters(!showCharacters)}
+            className="w-full flex items-center justify-between text-sm font-semibold text-gray-300 hover:text-white transition-colors"
+          >
+            <span>Personnages ({document.characters.length})</span>
+            <span className={`transform transition-transform ${showCharacters ? 'rotate-90' : ''}`}>▶</span>
+          </button>
+          {showCharacters && (
+            <div className="mt-2 space-y-1">
+              {document.characters.map((character, index) => (
+                <div key={index} className="text-xs text-gray-400 px-2 py-1 bg-gray-700 rounded">
+                  {character}
+                </div>
+              ))}
+              {document.characters.length === 0 && (
+                <div className="text-xs text-gray-500 italic">Aucun personnage détecté</div>
+              )}
             </div>
           )}
         </div>
+
+        {/* Actions d'export */}
+        <div className="p-4 space-y-2">
+          <button
+            onClick={exportToTXT}
+            className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm transition-colors"
+          >
+            📄 Export TXT
+          </button>
+          <button
+            onClick={exportToJSON}
+            className="w-full bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm transition-colors"
+          >
+            📋 Export JSON
+          </button>
+        </div>
+
+        {/* Indicateur de sauvegarde */}
+        <div className="p-4 border-t border-gray-700">
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>{autoSaving ? '💾 Sauvegarde...' : lastSaved ? `💾 ${lastSaved.toLocaleTimeString()}` : '💾 Non sauvé'}</span>
+            <span>Ctrl+S</span>
+          </div>
+        </div>
       </div>
 
-      {/* Main Editor */}
+      {/* Zone d'éditeur principale */}
       <div className="flex-1 flex flex-col">
-        {selectedChapterData && selectedSceneData ? (
-          <>
-            {/* Scene Header */}
-            <div className="p-4 border-b border-dark-700 bg-dark-800">
-              <input
-                type="text"
-                value={selectedSceneData.title}
-                onChange={(e) => updateScene(selectedChapter!, selectedScene!, { title: e.target.value })}
-                className="w-full bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-white font-bold text-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-2"
-              />
-              <textarea
-                value={selectedSceneData.description}
-                onChange={(e) => updateScene(selectedChapter!, selectedScene!, { description: e.target.value })}
-                placeholder="Description de la scène..."
-                className="w-full bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                rows={2}
-              />
-              <button
-                onClick={() => addPanel(selectedChapter!, selectedScene!)}
-                className="mt-2 bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                + Ajouter Panel
-              </button>
-            </div>
-
-            {/* Panels */}
-            <div className="flex-1 overflow-auto p-4">
-              {selectedSceneData.panels.map((panel, index) => (
-                <div key={panel.id} className="mb-6 bg-dark-800 rounded-lg p-4 border border-dark-700">
-                  <div className="flex items-center mb-3">
-                    <span className="bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Panel {index + 1}
-                    </span>
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Description visuelle</label>
-                      <textarea
-                        value={panel.description}
-                        onChange={(e) => updatePanel(selectedChapter!, selectedScene!, panel.id, { description: e.target.value })}
-                        placeholder="Décrivez ce qui se passe visuellement..."
-                        className="w-full bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                        rows={3}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium mb-2">Dialogue</label>
-                      <textarea
-                        value={panel.dialogue}
-                        onChange={(e) => updatePanel(selectedChapter!, selectedScene!, panel.id, { dialogue: e.target.value })}
-                        placeholder="Dialogues et textes..."
-                        className="w-full bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                        rows={3}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium mb-2">Notes</label>
-                    <textarea
-                      value={panel.notes}
-                      onChange={(e) => updatePanel(selectedChapter!, selectedScene!, panel.id, { notes: e.target.value })}
-                      placeholder="Notes de réalisation, références..."
-                      className="w-full bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
-                      rows={2}
-                    />
-                  </div>
-                </div>
-              ))}
-
-              {selectedSceneData.panels.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-dark-400 mb-4">Aucun panel dans cette scène</p>
-                  <button
-                    onClick={() => addPanel(selectedChapter!, selectedScene!)}
-                    className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition-colors"
-                  >
-                    Créer le premier panel
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold mb-4">Script Editor</h2>
-              <p className="text-dark-400 mb-6">
-                Organisez votre histoire en chapitres, scènes et panels
-              </p>
-              {project.chapters.length === 0 ? (
-                <button
-                  onClick={addChapter}
-                  className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg transition-colors"
-                >
-                  Créer le premier chapitre
-                </button>
-              ) : (
-                <p className="text-dark-500">
-                  Sélectionnez un chapitre et une scène pour commencer à écrire
-                </p>
-              )}
+        {/* Header de l'éditeur */}
+        <div className="h-12 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-lg font-bold text-white">Script Editor</h1>
+            <div className="text-sm text-gray-400">
+              Ligne {currentLine + 1} • {document.lines.length} lignes
             </div>
           </div>
-        )}
+          <div className="flex items-center space-x-2">
+            <div className="text-xs text-gray-500">
+              {autoSaving ? 'Sauvegarde automatique...' : 'Prêt'}
+            </div>
+            <div className={`w-2 h-2 rounded-full ${autoSaving ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
+          </div>
+        </div>
+
+        {/* Zone d'écriture principale */}
+        <div className="flex-1 flex">
+          {/* Numéros de ligne */}
+          <div
+            ref={lineNumbersRef}
+            className="w-12 bg-gray-800 border-r border-gray-700 py-4 text-right text-xs text-gray-500 select-none"
+          >
+            {Array.from({ length: Math.max(20, document.lines.length + 5) }, (_, i) => (
+              <div key={i} className="h-6 leading-6 px-2">
+                {i + 1}
+              </div>
+            ))}
+          </div>
+
+          {/* Éditeur de texte principal */}
+          <div className="flex-1 relative">
+            <textarea
+              ref={editorRef}
+              className="w-full h-full bg-gray-900 text-gray-100 p-4 font-mono text-sm leading-6 resize-none border-none outline-none focus:ring-0"
+              placeholder={`Commencez à écrire votre script...
+
+Format suggéré:
+PAGE 1
+
+PANEL 1
+(Description de l'action)
+PERSONNAGE: Dialogue du personnage
+
+PANEL 2
+(Nouvelle action)
+AUTRE_PERSONNAGE: Autre dialogue
+
+PAGE 2
+...`}
+              value={document.lines.map(l => l.content).join('\n')}
+              onChange={(e) => handleContentChange(e.target.value)}
+              onScroll={(e) => {
+                // Synchroniser le scroll des numéros de ligne
+                if (lineNumbersRef.current) {
+                  lineNumbersRef.current.scrollTop = e.currentTarget.scrollTop
+                }
+              }}
+              onSelectionChange={(e) => {
+                // Mettre à jour la ligne courante
+                const textarea = e.target as HTMLTextAreaElement
+                const lines = textarea.value.substring(0, textarea.selectionStart).split('\n')
+                setCurrentLine(lines.length - 1)
+              }}
+              spellCheck={false}
+            />
+
+            {/* Overlay pour la coloration syntaxique */}
+            <div className="absolute inset-0 pointer-events-none p-4 font-mono text-sm leading-6 whitespace-pre-wrap">
+              {document.lines.map((line) => (
+                <div key={line.id} className="h-6">
+                  <span className={
+                    line.type === 'page' ? 'text-red-400 font-bold' :
+                    line.type === 'panel' ? 'text-yellow-400 font-semibold' :
+                    line.type === 'dialogue' ? 'text-blue-400' :
+                    line.type === 'character' ? 'text-green-400 font-semibold' :
+                    'text-gray-300'
+                  }>
+                    {line.content}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Barre d'aide en bas */}
+        <div className="h-8 bg-gray-800 border-t border-gray-700 flex items-center justify-between px-4 text-xs text-gray-500">
+          <div className="flex items-center space-x-4">
+            <span>PAGE: Nouvelle page</span>
+            <span>PANEL: Nouveau panel</span>
+            <span>PERSONNAGE: Dialogue</span>
+            <span>(Action): Description</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <span>Ctrl+S: Sauvegarder</span>
+            <span>Ctrl+F: Rechercher</span>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 
 
 export default function SignupPage() {
@@ -15,6 +16,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const router = useRouter()
   const supabase = createClient()
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -46,7 +48,9 @@ export default function SignupPage() {
       if (error) {
         setError(error.message)
       } else {
-        setSuccess(true)
+        // Redirection directe vers le dashboard après inscription
+        router.push('/dashboard')
+        router.refresh()
       }
     } catch {
       setError('Une erreur inattendue s\'est produite')

@@ -1,21 +1,22 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { fabric } from 'fabric'
+import { Canvas, Rect, Circle, Path, Text, Group, Ellipse } from 'fabric'
+import ClientOnly from '@/components/common/ClientOnly'
 
 interface CanvasEditorProps {
   width?: number
   height?: number
-  onCanvasReady?: (canvas: fabric.Canvas) => void
+  onCanvasReady?: (canvas: Canvas) => void
 }
 
-export default function CanvasEditor({ 
-  width = 800, 
-  height = 1200, 
-  onCanvasReady 
+export default function CanvasEditor({
+  width = 800,
+  height = 1200,
+  onCanvasReady
 }: CanvasEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [canvas, setCanvas] = useState<fabric.Canvas | null>(null)
+  const [canvas, setCanvas] = useState<Canvas | null>(null)
   const [selectedTool, setSelectedTool] = useState<string>('select')
   const [isDrawingPanel, setIsDrawingPanel] = useState(false)
 
@@ -23,7 +24,7 @@ export default function CanvasEditor({
     if (!canvasRef.current) return
 
     // Initialize Fabric.js canvas
-    const fabricCanvas = new fabric.Canvas(canvasRef.current, {
+    const fabricCanvas = new Canvas(canvasRef.current, {
       width,
       height,
       backgroundColor: '#ffffff',
@@ -47,7 +48,7 @@ export default function CanvasEditor({
   const addRectPanel = () => {
     if (!canvas) return
 
-    const rect = new fabric.Rect({
+    const rect = new Rect({
       left: 50,
       top: 50,
       width: 200,
@@ -67,7 +68,7 @@ export default function CanvasEditor({
   const addCirclePanel = () => {
     if (!canvas) return
 
-    const circle = new fabric.Circle({
+    const circle = new Circle({
       left: 100,
       top: 100,
       radius: 75,
@@ -86,8 +87,8 @@ export default function CanvasEditor({
 
     // Create speech bubble using path
     const bubblePath = 'M 50 50 Q 50 25 75 25 L 175 25 Q 200 25 200 50 L 200 100 Q 200 125 175 125 L 100 125 L 75 150 L 90 125 L 75 125 Q 50 125 50 100 Z'
-    
-    const bubble = new fabric.Path(bubblePath, {
+
+    const bubble = new Path(bubblePath, {
       left: 100,
       top: 100,
       fill: '#ffffff',
@@ -98,7 +99,7 @@ export default function CanvasEditor({
     })
 
     // Add text inside bubble
-    const text = new fabric.Text('Dialogue...', {
+    const text = new Text('Dialogue...', {
       left: 125,
       top: 125,
       fontSize: 16,
@@ -109,7 +110,7 @@ export default function CanvasEditor({
       originY: 'center',
     })
 
-    const group = new fabric.Group([bubble, text], {
+    const group = new Group([bubble, text], {
       left: 100,
       top: 100,
     })
@@ -123,7 +124,7 @@ export default function CanvasEditor({
     if (!canvas) return
 
     // Create thought bubble with cloud-like shape
-    const bubble = new fabric.Ellipse({
+    const bubble = new Ellipse({
       left: 100,
       top: 100,
       rx: 80,
@@ -134,7 +135,7 @@ export default function CanvasEditor({
       strokeDashArray: [5, 5],
     })
 
-    const text = new fabric.Text('Pensée...', {
+    const text = new Text('Pensée...', {
       left: 140,
       top: 130,
       fontSize: 14,
@@ -146,7 +147,7 @@ export default function CanvasEditor({
       fontStyle: 'italic',
     })
 
-    const group = new fabric.Group([bubble, text], {
+    const group = new Group([bubble, text], {
       left: 100,
       top: 100,
     })
@@ -196,7 +197,7 @@ export default function CanvasEditor({
 
   const handleToolClick = (toolId: string) => {
     setSelectedTool(toolId)
-    
+
     switch (toolId) {
       case 'rect-panel':
         addRectPanel()
@@ -216,11 +217,30 @@ export default function CanvasEditor({
   }
 
   return (
-    <div className="flex h-full bg-dark-900">
-      {/* Toolbar */}
-      <div className="w-64 bg-dark-800 border-r border-dark-700 p-4">
+    <ClientOnly fallback={
+      <div className="flex h-full bg-dark-900">
+        <div className="w-64 bg-dark-800 border-r border-dark-700 p-4">
+          <div className="animate-pulse">
+            <div className="h-6 bg-dark-700 rounded mb-4"></div>
+            <div className="space-y-2">
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="h-12 bg-dark-700 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 bg-dark-700 p-4">
+          <div className="flex justify-center">
+            <div className="w-96 h-64 bg-white rounded-lg animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <div className="flex h-full bg-dark-900">
+        {/* Toolbar */}
+        <div className="w-64 bg-dark-800 border-r border-dark-700 p-4">
         <h3 className="text-lg font-bold mb-4 text-white">Outils</h3>
-        
+
         {/* Tools */}
         <div className="space-y-2 mb-6">
           {tools.map((tool) => (
@@ -289,6 +309,7 @@ export default function CanvasEditor({
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ClientOnly>
   )
 }

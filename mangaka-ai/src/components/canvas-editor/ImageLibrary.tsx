@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUserCredits } from '@/hooks/useUserCredits'
-import { fabric } from 'fabric'
+import { Canvas, FabricImage } from 'fabric'
 
 interface GeneratedImage {
   id: string
@@ -15,7 +15,7 @@ interface GeneratedImage {
 }
 
 interface ImageLibraryProps {
-  canvas: fabric.Canvas | null
+  canvas: Canvas | null
   onImageAdded?: (image: GeneratedImage) => void
 }
 
@@ -81,7 +81,9 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
 
     try {
       // Load image and add to canvas
-      fabric.Image.fromURL(image.image_url, (fabricImage) => {
+      FabricImage.fromURL(image.image_url, {
+        crossOrigin: 'anonymous'
+      }).then((fabricImage) => {
         // Scale image to fit nicely in canvas
         const maxWidth = 300
         const maxHeight = 300
@@ -103,8 +105,6 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
         canvas.renderAll()
 
         onImageAdded?.(image)
-      }, {
-        crossOrigin: 'anonymous'
       })
     } catch (err) {
       console.error('Error adding image to canvas:', err)
@@ -128,7 +128,7 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-dark-700">
         <h3 className="text-lg font-bold mb-4 text-white">Bibliothèque d'Images</h3>
-        
+
         {/* Search Bar */}
         <div className="mb-4">
           <input
@@ -196,7 +196,7 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
                   alt={image.original_prompt}
                   className="w-full h-full object-cover"
                 />
-                
+
                 {/* Type Badge */}
                 <div className="absolute top-1 left-1 bg-dark-900/80 rounded px-1 py-0.5 text-xs">
                   <span className="mr-1">{getTypeIcon(image.image_type)}</span>
@@ -207,7 +207,7 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
                 <div className="absolute inset-0 bg-dark-900/0 hover:bg-dark-900/60 transition-all flex items-center justify-center opacity-0 hover:opacity-100">
                   <div className="text-center p-2">
                     <p className="text-white text-xs font-medium mb-1">
-                      {image.original_prompt.length > 30 
+                      {image.original_prompt.length > 30
                         ? image.original_prompt.substring(0, 30) + '...'
                         : image.original_prompt
                       }

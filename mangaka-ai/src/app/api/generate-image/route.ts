@@ -75,54 +75,59 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check user credits
-    const { data: userCredits, error: creditsError } = await supabase
-      .from('user_credits')
-      .select('credits_remaining')
+    // Check user quotas
+    const { data: userQuotas, error: quotasError } = await supabase
+      .from('user_quotas')
+      .select('monthly_generations_used, monthly_generations_limit')
       .eq('user_id', user.id)
       .single()
 
-    if (creditsError) {
-      // If user credits don't exist, create them
+    if (quotasError) {
+      // If user quotas don't exist, create them
+      const resetDate = new Date()
+      resetDate.setMonth(resetDate.getMonth() + 1)
+
       const { error: insertError } = await supabase
-        .from('user_credits')
+        .from('user_quotas')
         .insert({
           user_id: user.id,
-          credits_remaining: 5,
-          credits_total: 5,
-          subscription_tier: 'free'
+          monthly_generations_used: 0,
+          monthly_generations_limit: 5,
+          comic_panels_used: 0,
+          comic_panels_limit: 10,
+          reset_date: resetDate.toISOString()
         })
 
       if (insertError) {
         return NextResponse.json(
-          { error: 'Failed to initialize user credits', success: false },
+          { error: 'Failed to initialize user quotas', success: false },
           { status: 500 }
         )
       }
 
-      // Retry getting credits
-      const { data: newUserCredits, error: retryError } = await supabase
-        .from('user_credits')
-        .select('credits_remaining')
+      // Retry getting quotas
+      const { data: newUserQuotas, error: retryError } = await supabase
+        .from('user_quotas')
+        .select('monthly_generations_used, monthly_generations_limit')
         .eq('user_id', user.id)
         .single()
 
-      if (retryError || !newUserCredits) {
+      if (retryError || !newUserQuotas) {
         return NextResponse.json(
-          { error: 'Failed to get user credits', success: false },
+          { error: 'Failed to get user quotas', success: false },
           { status: 500 }
         )
       }
 
-      if (newUserCredits.credits_remaining < 1) {
+      if ((newUserQuotas.monthly_generations_limit - newUserQuotas.monthly_generations_used) < 1) {
         return NextResponse.json(
-          { error: 'Insufficient credits', success: false },
+          { error: 'Insufficient generations remaining', success: false },
           { status: 402 }
         )
       }
-    } else if (!userCredits || userCredits.credits_remaining < 1) {
+    } else if (!userQuotas || (userQuotas.monthly_generations_limit - userQuotas.monthly_generations_used) < 1) {
       return NextResponse.json(
-        { error: 'Insufficient credits', success: false },
+        { error: 'Insufficient generations remaining', success: false },
         { status: 402 }
       )
     }
@@ -164,24 +169,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Deduct credit
-    const currentCredits = userCredits?.credits_remaining || 5
+    // Update generation count
+    const currentUsed = userQuotas?.monthly_generations_used || 0
     const { error: updateError } = await supabase
-      .from('user_credits')
+      .from('user_quotas')
       .update({
-        credits_remaining: currentCredits - 1
+        monthly_generations_used: currentUsed + 1
       })
       .eq('user_id', user.id)
 
     if (updateError) {
-      console.error('Failed to update credits:', updateError)
+      console.error('Failed to update quotas:', updateError)
       // Don't fail the request, but log the error
     }
 
-    // Get updated credits
-    const { data: updatedCredits } = await supabase
-      .from('user_credits')
-      .select('credits_remaining')
+    // Get updated quotas
+    const { data: updatedQuotas } = await supabase
+      .from('user_quotas')
+      .select('monthly_generations_used, monthly_generations_limit')
       .eq('user_id', user.id)
       .single()
 
@@ -193,7 +198,7 @@ export async function POST(request: NextRequest) {
         originalPrompt: prompt,
         optimizedPrompt: finalPrompt,
         creditsUsed: 1,
-        creditsRemaining: updatedCredits?.credits_remaining || 0,
+        creditsRemaining: updatedQuotas ? (updatedQuotas.monthly_generations_limit - updatedQuotas.monthly_generations_used) : 0,
         generationTimeMs: generationTime
       }
     })

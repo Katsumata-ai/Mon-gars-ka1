@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
-import { User } from '@supabase/supabase-js'
+import { useAuth } from '@/hooks/useAuth'
+import ClientOnly from '@/components/common/ClientOnly'
+import { User, Settings, LogOut } from 'lucide-react'
 
 interface NavigationProps {
   variant?: 'landing' | 'app'
@@ -11,34 +12,12 @@ interface NavigationProps {
 }
 
 export default function Navigation({ variant = 'landing', currentPage }: NavigationProps) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const supabase = createClient()
-
-  useEffect(() => {
-    // Get initial user
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
-    }
-
-    getUser()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null)
-        setLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [supabase.auth])
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const { user, loading, signOut } = useAuth()
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    await signOut()
     window.location.href = '/'
   }
 
@@ -63,55 +42,61 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
                 Tarifs
               </Link>
 
-              {loading ? (
+              <ClientOnly fallback={
                 <div className="flex items-center space-x-4">
                   <div className="w-20 h-8 bg-dark-700 rounded animate-pulse"></div>
                   <div className="w-32 h-10 bg-dark-700 rounded animate-pulse"></div>
                 </div>
-              ) : user ? (
-                // Authenticated user navigation
-                <div className="flex items-center space-x-6">
+              }>
+                {loading ? (
+                  <div className="flex items-center space-x-4">
+                    <div className="w-20 h-8 bg-dark-700 rounded animate-pulse"></div>
+                    <div className="w-32 h-10 bg-dark-700 rounded animate-pulse"></div>
+                  </div>
+                ) : user ? (
+                // Authenticated user - only Dashboard and Settings
+                <div className="flex items-center space-x-4">
                   <Link
                     href="/dashboard"
-                    className="text-dark-200 hover:text-primary-500 transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-dark-200 hover:text-primary-400 transition-colors"
                   >
                     Dashboard
                   </Link>
-                  <Link
-                    href="/generate"
-                    className="text-dark-200 hover:text-primary-500 transition-colors"
-                  >
-                    Générer
-                  </Link>
-                  <Link
-                    href="/scene-creator"
-                    className="text-dark-200 hover:text-primary-500 transition-colors"
-                  >
-                    Créer Scènes
-                  </Link>
-                  <Link
-                    href="/page-editor"
-                    className="text-dark-200 hover:text-primary-500 transition-colors"
-                  >
-                    Éditeur Pages
-                  </Link>
-                  <Link
-                    href="/script-editor"
-                    className="text-dark-200 hover:text-primary-500 transition-colors"
-                  >
-                    Script Editor
-                  </Link>
 
-                  <div className="flex items-center space-x-4">
-                    <span className="text-dark-200 text-sm">
-                      {user.email}
-                    </span>
+                  {/* User Menu */}
+                  <div className="relative">
                     <button
-                      onClick={handleSignOut}
-                      className="bg-dark-700 hover:bg-dark-600 text-dark-200 px-4 py-2 rounded-lg transition-colors text-sm"
+                      onClick={() => setUserMenuOpen(!userMenuOpen)}
+                      className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-dark-800 hover:bg-dark-700 transition-colors"
                     >
-                      Déconnexion
+                      <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-sm text-dark-200">{user.email?.split('@')[0]}</span>
                     </button>
+
+                    {userMenuOpen && (
+                      <div className="absolute right-0 mt-2 w-48 bg-dark-800 rounded-lg shadow-lg border border-dark-700 py-2 z-50">
+                        <Link
+                          href="/settings"
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-dark-200 hover:bg-dark-700 transition-colors"
+                          onClick={() => setUserMenuOpen(false)}
+                        >
+                          <Settings className="w-4 h-4" />
+                          <span>Paramètres</span>
+                        </Link>
+                        <button
+                          onClick={() => {
+                            handleSignOut()
+                            setUserMenuOpen(false)
+                          }}
+                          className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-dark-200 hover:bg-dark-700 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Déconnexion</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -128,6 +113,7 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
                   </Link>
                 </>
               )}
+              </ClientOnly>
             </div>
 
             {/* Mobile menu button */}
@@ -260,61 +246,50 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
             >
               Dashboard
             </Link>
-            <Link
-              href="/projects"
-              className={`text-dark-200 hover:text-primary-500 transition-colors ${
-                currentPage === 'projects' ? 'text-primary-500 font-medium' : ''
-              }`}
-            >
-              Mes Projets
-            </Link>
-            <Link
-              href="/generate"
-              className={`text-dark-200 hover:text-primary-500 transition-colors ${
-                currentPage === 'generate' ? 'text-primary-500 font-medium' : ''
-              }`}
-            >
-              Générer
-            </Link>
-            <Link
-              href="/scene-creator"
-              className={`text-dark-200 hover:text-primary-500 transition-colors ${
-                currentPage === 'scene-creator' ? 'text-primary-500 font-medium' : ''
-              }`}
-            >
-              Créer Scènes
-            </Link>
-            <Link
-              href="/page-editor"
-              className={`text-dark-200 hover:text-primary-500 transition-colors ${
-                currentPage === 'page-editor' ? 'text-primary-500 font-medium' : ''
-              }`}
-            >
-              Éditeur Pages
-            </Link>
-            <Link
-              href="/script-editor"
-              className={`text-dark-200 hover:text-primary-500 transition-colors ${
-                currentPage === 'script-editor' ? 'text-primary-500 font-medium' : ''
-              }`}
-            >
-              Script Editor
-            </Link>
 
             <div className="flex items-center space-x-4">
-              {user && (
-                <span className="text-dark-200 text-sm">
-                  {user.email}
-                </span>
-              )}
-              <form action="/auth/signout" method="post">
+              {/* Upsell Button */}
+              <button className="px-4 py-2 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-lg transition-all duration-300 text-sm font-medium">
+                Upgrade Pro
+              </button>
+
+              {/* User Menu */}
+              <div className="relative">
                 <button
-                  type="submit"
-                  className="bg-dark-700 hover:bg-dark-600 text-dark-200 px-4 py-2 rounded-lg transition-colors text-sm"
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-dark-700 hover:bg-dark-600 transition-colors"
                 >
-                  Déconnexion
+                  <div className="w-6 h-6 bg-primary-500 rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                  {user && (
+                    <span className="text-sm text-dark-200">{user.email?.split('@')[0]}</span>
+                  )}
                 </button>
-              </form>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-dark-800 rounded-lg shadow-lg border border-dark-700 py-2 z-50">
+                    <Link
+                      href="/settings"
+                      className="flex items-center space-x-2 px-4 py-2 text-sm text-dark-200 hover:bg-dark-700 transition-colors"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Paramètres</span>
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleSignOut()
+                        setUserMenuOpen(false)
+                      }}
+                      className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-dark-200 hover:bg-dark-700 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Déconnexion</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

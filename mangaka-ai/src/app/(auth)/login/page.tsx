@@ -30,7 +30,9 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else {
-        router.push('/dashboard')
+        // Redirection vers le dashboard après connexion réussie
+        const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/dashboard'
+        router.push(redirectTo)
         router.refresh()
       }
     } catch {
