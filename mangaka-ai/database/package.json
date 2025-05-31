@@ -1,0 +1,18 @@
+{
+  "name": "mangaka-ai-database-migration",
+  "version": "1.0.0",
+  "description": "Scripts de migration pour séparer les tables d'images",
+  "main": "run_migration.js",
+  "scripts": {
+    "migrate": "node run_migration.js",
+    "test-migration": "node test_migration.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {},
+  "keywords": ["migration", "supabase", "database"],
+  "author": "MANGAKA-AI",
+  "license": "MIT"
+}

@@ -1,17 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    optimizePackageImports: ['fabric'],
-  },
-  turbopack: {
-    rules: {
-      '*.svg': {
-        loaders: ['@svgr/webpack'],
-        as: '*.js',
-      },
-    },
-  },
   images: {
     remotePatterns: [
       {
@@ -20,17 +9,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.externals = [...(config.externals || []), { canvas: 'canvas' }];
-    }
-    return config;
-  },
-  // Optimisations pour la performance
+  // Configuration simplifiée pour éviter les problèmes de démarrage
+  reactStrictMode: false,
   compress: true,
   poweredByHeader: false,
-  // Optimisations pour l'hydratation
-  reactStrictMode: true,
 };
 
 export default nextConfig;

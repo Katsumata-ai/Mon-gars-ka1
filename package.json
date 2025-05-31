@@ -9,7 +9,18 @@
     "lint": "cd mangaka-ai && npm run lint",
     "install-deps": "cd mangaka-ai && npm install"
   },
-  "keywords": ["manga", "ai", "nextjs", "supabase"],
+  "keywords": [
+    "manga",
+    "ai",
+    "nextjs",
+    "supabase"
+  ],
   "author": "MANGAKA AI Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@types/lodash": "^4.17.17",
+    "date-fns": "^4.1.0",
+    "react-hot-toast": "^2.5.2",
+    "zustand": "^5.0.5"
+  }
 }

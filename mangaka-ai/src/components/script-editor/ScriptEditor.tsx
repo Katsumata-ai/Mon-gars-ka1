@@ -176,24 +176,24 @@ export default function ScriptEditor({ projectId = 'default' }: { projectId?: st
     const content = document.lines.map(l => l.content).join('\n')
     const blob = new Blob([content], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
+    const link = window.document.createElement('a')
     link.download = `${document.title.replace(/\s+/g, '_')}_script.txt`
     link.href = url
-    document.body.appendChild(link)
+    window.document.body.appendChild(link)
     link.click()
-    document.body.removeChild(link)
+    window.document.body.removeChild(link)
     URL.revokeObjectURL(url)
   }, [document])
 
   const exportToJSON = useCallback(() => {
     const blob = new Blob([JSON.stringify(document, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
+    const link = window.document.createElement('a')
     link.download = `${document.title.replace(/\s+/g, '_')}_script.json`
     link.href = url
-    document.body.appendChild(link)
+    window.document.body.appendChild(link)
     link.click()
-    document.body.removeChild(link)
+    window.document.body.removeChild(link)
     URL.revokeObjectURL(url)
   }, [document])
 
@@ -375,7 +375,7 @@ PAGE 2
                   lineNumbersRef.current.scrollTop = e.currentTarget.scrollTop
                 }
               }}
-              onSelectionChange={(e) => {
+              onSelect={(e) => {
                 // Mettre à jour la ligne courante
                 const textarea = e.target as HTMLTextAreaElement
                 const lines = textarea.value.substring(0, textarea.selectionStart).split('\n')

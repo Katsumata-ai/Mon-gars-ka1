@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, createContext, useContext, useMemo } from 'react'
 import {
   FileText,
   Users,
@@ -25,7 +25,8 @@ import {
   Download,
   Upload,
   Settings,
-  Zap
+  Zap,
+  LogOut
 } from 'lucide-react'
 
 // Import de la fonction cn pour combiner les classes CSS
@@ -36,10 +37,22 @@ import MangaButton from '@/components/ui/MangaButton'
 import AssetSidebar from '@/components/editor/AssetSidebar'
 import PagesSidebar from '@/components/editor/PagesSidebar'
 import ScriptEditorPanel from '@/components/editor/ScriptEditorPanel'
-import CharacterGeneratorPanel from '@/components/editor/CharacterGeneratorPanel'
-import BackgroundGeneratorPanel from '@/components/editor/BackgroundGeneratorPanel'
+import CachedMangaCharacterStudio from '@/components/character/CachedMangaCharacterStudio'
+import CachedMangaDecorStudio from '@/components/decor/CachedMangaDecorStudio'
 import SceneComposerPanel from '@/components/editor/SceneComposerPanel'
 import CanvasAssemblyPanel from '@/components/editor/CanvasAssemblyPanel'
+
+// Import des composants mobile
+import MobileBottomNavigation from '@/components/mobile/MobileBottomNavigation'
+import MobileHamburgerMenu from '@/components/mobile/MobileHamburgerMenu'
+import MobileDrawer from '@/components/mobile/MobileDrawer'
+
+// Import du système de persistance
+import SaveButton from '@/components/save/SaveButton'
+import { useProjectStore } from '@/stores/projectStore'
+
+// Import du correcteur d'accessibilité
+import AccessibilityFixer from '@/components/ui/AccessibilityFixer'
 
 interface ModernUnifiedEditorProps {
   projectId: string
@@ -47,6 +60,62 @@ interface ModernUnifiedEditorProps {
 }
 
 type EditorTab = 'script' | 'characters' | 'backgrounds' | 'scenes' | 'assembly'
+
+// Types pour le cache des données
+interface Character {
+  id: string
+  name: string
+  description: string
+  prompt: string
+  image_url?: string
+  traits: string[]
+  style: string
+  created_at: string
+  metadata?: any
+}
+
+interface Decor {
+  id: string
+  name: string
+  description: string
+  prompt: string
+  image_url?: string
+  traits: string[]
+  style: string
+  created_at: string
+  metadata?: any
+}
+
+interface DataCache {
+  characters: Character[]
+  decors: Decor[]
+  charactersLoaded: boolean
+  decorsLoaded: boolean
+  charactersLoading: boolean
+  decorsLoading: boolean
+}
+
+interface DataCacheContextType {
+  cache: DataCache
+  loadCharacters: () => Promise<void>
+  loadDecors: () => Promise<void>
+  addCharacter: (character: Character) => void
+  addDecor: (decor: Decor) => void
+  removeCharacter: (id: string) => void
+  removeDecor: (id: string) => void
+}
+
+// Contexte pour le cache des données
+const DataCacheContext = createContext<DataCacheContextType | null>(null)
+
+// Hook pour utiliser le cache
+export const useDataCache = () => {
+  const context = useContext(DataCacheContext)
+  if (!context) {
+    throw new Error('useDataCache must be used within a DataCacheProvider')
+  }
+  return context
+}
 
 const editorTabs = [
   {
@@ -96,6 +165,104 @@ const editorTabs = [
   }
 ] as const
 
+// Provider de cache des données
+function DataCacheProvider({ children, projectId }: { children: React.ReactNode, projectId: string }) {
+  const [cache, setCache] = useState<DataCache>({
+    characters: [],
+    decors: [],
+    charactersLoaded: false,
+    decorsLoaded: false,
+    charactersLoading: false,
+    decorsLoading: false
+  })
+
+  const loadCharacters = async () => {
+    if (cache.charactersLoaded || cache.charactersLoading) return
+
+    setCache(prev => ({ ...prev, charactersLoading: true }))
+    try {
+      const response = await fetch(`/api/projects/${projectId}/characters`)
+      if (response.ok) {
+        const data = await response.json()
+        setCache(prev => ({
+          ...prev,
+          characters: data.characters || [],
+          charactersLoaded: true,
+          charactersLoading: false
+        }))
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des personnages:', error)
+      setCache(prev => ({ ...prev, charactersLoading: false }))
+    }
+  }
+
+  const loadDecors = async () => {
+    if (cache.decorsLoaded || cache.decorsLoading) return
+
+    setCache(prev => ({ ...prev, decorsLoading: true }))
+    try {
+      const response = await fetch(`/api/projects/${projectId}/decors`)
+      if (response.ok) {
+        const data = await response.json()
+        setCache(prev => ({
+          ...prev,
+          decors: data.decors || [],
+          decorsLoaded: true,
+          decorsLoading: false
+        }))
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des décors:', error)
+      setCache(prev => ({ ...prev, decorsLoading: false }))
+    }
+  }
+
+  const addCharacter = (character: Character) => {
+    setCache(prev => ({
+      ...prev,
+      characters: [character, ...prev.characters]
+    }))
+  }
+
+  const addDecor = (decor: Decor) => {
+    setCache(prev => ({
+      ...prev,
+      decors: [decor, ...prev.decors]
+    }))
+  }
+
+  const removeCharacter = (id: string) => {
+    setCache(prev => ({
+      ...prev,
+      characters: prev.characters.filter(c => c.id !== id)
+    }))
+  }
+
+  const removeDecor = (id: string) => {
+    setCache(prev => ({
+      ...prev,
+      decors: prev.decors.filter(d => d.id !== id)
+    }))
+  }
+
+  const contextValue = useMemo(() => ({
+    cache,
+    loadCharacters,
+    loadDecors,
+    addCharacter,
+    addDecor,
+    removeCharacter,
+    removeDecor
+  }), [cache])
+
+  return (
+    <DataCacheContext.Provider value={contextValue}>
+      {children}
+    </DataCacheContext.Provider>
+  )
+}
+
 export default function ModernUnifiedEditor({ projectId, projectName }: ModernUnifiedEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>('script')
   const [currentPage, setCurrentPage] = useState(1)
@@ -103,67 +270,139 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [assetSidebarVisible, setAssetSidebarVisible] = useState(false)
   const [pagesSidebarVisible, setPagesSidebarVisible] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
 
+  // États pour mobile
+  const [mobilePageDrawerOpen, setMobilePageDrawerOpen] = useState(false)
+  const [mobileAssetDrawerOpen, setMobileAssetDrawerOpen] = useState(false)
+
+  // Store de persistance global
+  const { initializeProject, loadFromDatabase } = useProjectStore()
+
+  // Initialisation du projet au montage
+  useEffect(() => {
+    const initProject = async () => {
+      try {
+        // Initialiser le store avec les IDs du projet
+        initializeProject(projectId, '00000000-0000-0000-0000-000000000001', projectName) // Mode démo pour l'instant
+
+        // Charger les données existantes (en mode dégradé si API non disponible)
+        await loadFromDatabase()
+      } catch (error) {
+        console.warn('Initialisation en mode dégradé:', error)
+      }
+    }
+
+    if (projectId) {
+      initProject()
+    }
+  }, [projectId, initializeProject, loadFromDatabase])
+
+  // Fonction pour ajouter une page avec renumérotation automatique
   const addPage = () => {
-    const newPageNumber = Math.max(...pages) + 1
-    setPages([...pages, newPageNumber])
+    const newPages = [...pages, pages.length + 1]
+    setPages(newPages)
   }
 
+  // Fonction pour supprimer une page avec renumérotation automatique
   const deletePage = (pageNumber: number) => {
-    if (pages.length <= 1) return
-    setPages(pages.filter(p => p !== pageNumber))
+    if (pages.length <= 1) return // Empêcher la suppression de la dernière page
+
+    const pageIndex = pages.indexOf(pageNumber)
+    if (pageIndex === -1) return
+
+    // Supprimer la page et renuméroter automatiquement
+    const newPages = pages
+      .filter(p => p !== pageNumber)
+      .map((_, index) => index + 1)
+
+    setPages(newPages)
+
+    // Ajuster la page active si nécessaire
     if (currentPage === pageNumber) {
-      setCurrentPage(pages[0] === pageNumber ? pages[1] : pages[0])
+      // Si on supprime la page active, sélectionner la page précédente ou la première
+      const newActivePage = pageIndex > 0 ? pageIndex : 1
+      setCurrentPage(Math.min(newActivePage, newPages.length))
+    } else if (currentPage > pageNumber) {
+      // Si la page active est après la page supprimée, décrémenter
+      setCurrentPage(currentPage - 1)
     }
   }
 
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      // Logique de sauvegarde
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setLastSaved(new Date())
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error)
-    } finally {
-      setSaving(false)
+  // Fonction pour dupliquer une page avec renumérotation automatique
+  const duplicatePage = (pageNumber: number) => {
+    const pageIndex = pages.indexOf(pageNumber)
+    if (pageIndex === -1) return
+
+    // Insérer la nouvelle page après la page dupliquée
+    const newPages = [
+      ...pages.slice(0, pageIndex + 1),
+      pageNumber + 1,
+      ...pages.slice(pageIndex + 1)
+    ].map((_, index) => index + 1) // Renuméroter automatiquement
+
+    setPages(newPages)
+
+    // Ajuster la page active si nécessaire
+    if (currentPage > pageNumber) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  // Fonction pour réorganiser les pages
+  const reorderPages = (newOrder: number[]) => {
+    setPages(newOrder)
+  }
+
+  const handleExit = () => {
+    if (window.confirm('Êtes-vous sûr de vouloir quitter l\'éditeur ? Les modifications non sauvegardées seront perdues.')) {
+      window.location.href = '/dashboard'
     }
   }
 
   const toggleAssetSidebar = () => {
-    setAssetSidebarVisible(!assetSidebarVisible)
-    // Fermer l'autre sidebar si ouverte
-    if (!assetSidebarVisible && pagesSidebarVisible) {
-      setPagesSidebarVisible(false)
+    // Sur mobile, utiliser les drawers
+    if (window.innerWidth < 768) {
+      setMobileAssetDrawerOpen(!mobileAssetDrawerOpen)
+      setMobilePageDrawerOpen(false) // Fermer l'autre drawer
+    } else {
+      // Sur desktop, comportement normal
+      setAssetSidebarVisible(!assetSidebarVisible)
+      if (!assetSidebarVisible && pagesSidebarVisible) {
+        setPagesSidebarVisible(false)
+      }
     }
   }
 
   const togglePagesSidebar = () => {
-    setPagesSidebarVisible(!pagesSidebarVisible)
-    // Fermer l'autre sidebar si ouverte
-    if (!pagesSidebarVisible && assetSidebarVisible) {
-      setAssetSidebarVisible(false)
+    // Sur mobile, utiliser les drawers
+    if (window.innerWidth < 768) {
+      setMobilePageDrawerOpen(!mobilePageDrawerOpen)
+      setMobileAssetDrawerOpen(false) // Fermer l'autre drawer
+    } else {
+      // Sur desktop, comportement normal
+      setPagesSidebarVisible(!pagesSidebarVisible)
+      if (!pagesSidebarVisible && assetSidebarVisible) {
+        setAssetSidebarVisible(false)
+      }
     }
   }
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'script':
-        return <ScriptEditorPanel projectId={projectId} onSave={handleSave} />
+        return <ScriptEditorPanel projectId={projectId} />
 
       case 'characters':
-        return <CharacterGeneratorPanel projectId={projectId} />
+        return <CachedMangaCharacterStudio projectId={projectId} />
 
       case 'backgrounds':
-        return <BackgroundGeneratorPanel projectId={projectId} />
+        return <CachedMangaDecorStudio projectId={projectId} />
 
       case 'scenes':
         return <SceneComposerPanel projectId={projectId} />
 
       case 'assembly':
-        return <CanvasAssemblyPanel projectId={projectId} currentPage={currentPage} onSave={handleSave} />
+        return <CanvasAssemblyPanel projectId={projectId} currentPage={currentPage} />
 
       default:
         return (
@@ -179,19 +418,38 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
   }
 
   return (
-    <div className="h-screen bg-dark-900 flex overflow-hidden">
-      {/* Navbar Gauche - Taille Fixe */}
-      <div className="w-64 bg-dark-800 border-r border-dark-700 flex flex-col flex-shrink-0">
-        {/* Header Navbar */}
-        <div className="p-4 border-b border-dark-700">
+    <DataCacheProvider projectId={projectId}>
+      {/* Correcteur automatique d'accessibilité */}
+      <AccessibilityFixer />
+
+      <div className="h-screen bg-dark-900 flex overflow-hidden">
+      {/* Navbar Gauche - Desktop uniquement */}
+      <div className="hidden md:flex w-64 bg-dark-800 border-r border-dark-700 flex-col flex-shrink-0">
+        {/* Header Navbar - Design Élégant et Professionnel */}
+        <div className="p-4 border-b border-dark-700 bg-gradient-to-r from-dark-800 to-dark-750">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-white" />
+            {/* Logo/Icône avec effet moderne */}
+            <div className="relative">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-dark-800"></div>
             </div>
-            <div>
-              <h1 className="text-sm font-semibold text-white truncate">{projectName}</h1>
-              <p className="text-xs text-dark-400">Studio Manga</p>
+
+            {/* Texte avec hiérarchie typographique moderne */}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base font-bold text-white truncate leading-tight tracking-wide">
+                {projectName}
+              </h1>
+              <p className="text-xs text-primary-400 font-medium tracking-wider uppercase">
+                Manga Studio
+              </p>
             </div>
+          </div>
+
+          {/* Barre de progression subtile pour l'effet visuel */}
+          <div className="mt-3 h-0.5 bg-dark-600 rounded-full overflow-hidden">
+            <div className="h-full w-3/4 bg-gradient-to-r from-primary-500 to-primary-400 rounded-full"></div>
           </div>
         </div>
 
@@ -232,10 +490,20 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
 
       {/* Zone Principale */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header Fixe */}
-        <div className="bg-dark-800 border-b border-dark-700 p-4 flex-shrink-0">
+        {/* Header Amélioré avec design professionnel et ergonomique */}
+        <div className="bg-gradient-to-r from-gray-800 to-gray-750 border-b border-gray-600 px-3 md:px-6 py-3 flex-shrink-0 shadow-lg">
           <div className="flex items-center justify-between">
+            {/* Section gauche - Menu mobile et titre uniquement */}
             <div className="flex items-center space-x-4">
+              {/* Menu Hamburger Mobile */}
+              <MobileHamburgerMenu
+                projectName={projectName}
+                onPagesToggle={togglePagesSidebar}
+                onAssetsToggle={toggleAssetSidebar}
+                pagesVisible={mobilePageDrawerOpen}
+                assetsVisible={mobileAssetDrawerOpen}
+              />
+
               <h2 className="text-xl font-bold text-white">
                 {editorTabs.find(tab => tab.id === activeTab)?.name || 'Éditeur'}
               </h2>
@@ -244,48 +512,64 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
               )}
             </div>
 
-            <div className="flex items-center space-x-2">
-              {/* Toggle Pages Sidebar */}
-              <MangaButton
-                onClick={togglePagesSidebar}
-                size="sm"
-                variant={pagesSidebarVisible ? "primary" : "ghost"}
-                icon={<FileText className="w-4 h-4" />}
-              >
-                Pages
-              </MangaButton>
+            {/* Section droite - Boutons ergonomiques et compacts */}
+            <div className="flex items-center gap-3">
+              {/* Bouton Page unifié avec indicateur et œil - Desktop uniquement */}
+              <div className="hidden md:block">
+                <MangaButton
+                  onClick={togglePagesSidebar}
+                  size="sm"
+                  variant={pagesSidebarVisible ? "primary" : "ghost"}
+                  icon={pagesSidebarVisible ? <Eye className="w-4 h-4 text-black" /> : <EyeOff className="w-4 h-4" />}
+                  title={pagesSidebarVisible ? 'Masquer le menu des pages' : 'Afficher le menu des pages'}
+                  className={pagesSidebarVisible ? "!bg-white !text-black !border-white hover:!bg-gray-100 !shadow-none focus:!ring-white focus:!ring-2 focus:!ring-offset-0" : ""}
+                >
+                  <span className="flex items-center space-x-2">
+                    <span className={pagesSidebarVisible ? "text-black" : ""}>Page</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                      pagesSidebarVisible
+                        ? "bg-gray-200 text-black"
+                        : "bg-gray-600/50"
+                    }`}>
+                      {currentPage}/{pages.length}
+                    </span>
+                  </span>
+                </MangaButton>
+              </div>
 
-              {/* Toggle Asset Sidebar */}
-              <MangaButton
-                onClick={toggleAssetSidebar}
-                size="sm"
-                variant={assetSidebarVisible ? "primary" : "ghost"}
-                icon={<Grid className="w-4 h-4" />}
-              >
-                Assets
-              </MangaButton>
+              {/* Bouton Save Global Rouge - Desktop uniquement */}
+              <div className="hidden md:block">
+                <SaveButton
+                  size="sm"
+                  showTimestamp={true}
+                  variant="full"
+                />
+              </div>
 
-              {/* Save Button */}
-              <MangaButton
-                onClick={handleSave}
-                loading={saving}
-                size="sm"
-                icon={<Save className="w-4 h-4" />}
-              >
-                Sauvegarder
-              </MangaButton>
+              {/* Bouton Exit - Desktop uniquement */}
+              <div className="hidden md:block">
+                <MangaButton
+                  onClick={handleExit}
+                  size="sm"
+                  variant="ghost"
+                  icon={<LogOut className="w-4 h-4" />}
+                  title="Retourner au dashboard"
+                >
+                  Exit
+                </MangaButton>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Zone de Contenu avec Sidebars */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden pb-16 md:pb-0">
           {/* Contenu Principal - Scrollable à l'intérieur */}
           <div className="flex-1 overflow-hidden">
             {renderTabContent()}
           </div>
 
-          {/* Sidebars Droites */}
+          {/* Sidebars Droites - Desktop uniquement */}
           {pagesSidebarVisible && (
             <PagesSidebar
               isVisible={pagesSidebarVisible}
@@ -294,10 +578,10 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
               onPageSelect={setCurrentPage}
               onAddPage={addPage}
               onDeletePage={deletePage}
-              onDuplicatePage={(page) => {
-                const newPageNumber = Math.max(...pages) + 1
-                setPages([...pages, newPageNumber])
-              }}
+              onDuplicatePage={duplicatePage}
+              onReorderPages={reorderPages}
+              onClose={() => setPagesSidebarVisible(false)}
+              className="hidden md:flex"
             />
           )}
 
@@ -306,12 +590,53 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
               projectId={projectId}
               isVisible={assetSidebarVisible}
               activeTab={activeTab}
+              className="hidden md:flex"
             />
           )}
         </div>
 
+        {/* Navigation Mobile Bottom */}
+        <MobileBottomNavigation
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
+        {/* Drawers Mobile */}
+        <MobileDrawer
+          isOpen={mobilePageDrawerOpen}
+          onClose={() => setMobilePageDrawerOpen(false)}
+          title="Pages du Manga"
+          position="right"
+        >
+          <PagesSidebar
+            isVisible={true}
+            currentPage={currentPage}
+            pages={pages}
+            onPageSelect={setCurrentPage}
+            onAddPage={addPage}
+            onDeletePage={deletePage}
+            onDuplicatePage={duplicatePage}
+            onReorderPages={reorderPages}
+            onClose={() => setMobilePageDrawerOpen(false)}
+            className="border-0"
+          />
+        </MobileDrawer>
+
+        <MobileDrawer
+          isOpen={mobileAssetDrawerOpen}
+          onClose={() => setMobileAssetDrawerOpen(false)}
+          title="Assets Générés"
+          position="right"
+        >
+          <AssetSidebar
+            projectId={projectId}
+            isVisible={true}
+            activeTab={activeTab}
+            className="border-0"
+          />
+        </MobileDrawer>
       </div>
     </div>
+    </DataCacheProvider>
   )
 }

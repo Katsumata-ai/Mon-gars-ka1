@@ -47,10 +47,10 @@ const MangaButton = forwardRef<HTMLButtonElement, MangaButtonProps>(
     }
 
     const sizes = {
-      sm: 'px-3 py-1.5 text-sm',
-      md: 'px-4 py-2 text-sm',
-      lg: 'px-6 py-3 text-base',
-      xl: 'px-8 py-4 text-lg'
+      sm: 'px-3 py-1.5 text-sm touch-target md:min-h-0 md:min-w-0',
+      md: 'px-4 py-2 text-sm touch-target md:min-h-0 md:min-w-0',
+      lg: 'px-6 py-3 text-base touch-target-lg md:min-h-0 md:min-w-0',
+      xl: 'px-8 py-4 text-lg touch-target-lg md:min-h-0 md:min-w-0'
     }
 
     const iconSizes = {

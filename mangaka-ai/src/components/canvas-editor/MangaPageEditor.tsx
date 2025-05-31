@@ -108,7 +108,8 @@ export default function MangaPageEditor({ projectId, onSave }: MangaPageEditorPr
 
     if (confirm('Êtes-vous sûr de vouloir effacer toute la page ?')) {
       canvas.clear()
-      canvas.setBackgroundColor('#ffffff', canvas.renderAll.bind(canvas))
+      canvas.backgroundColor = '#ffffff'
+      canvas.renderAll()
     }
   }
 

@@ -1,16 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  Plus, 
-  Trash2, 
+import {
+  Plus,
+  Trash2,
   Copy,
   FileText,
-  Grid,
   Eye,
-  Download,
-  Upload,
-  MoreVertical
+  X
 } from 'lucide-react'
 import MangaButton from '@/components/ui/MangaButton'
 import { cn } from '@/lib/utils'
@@ -23,182 +20,245 @@ interface PagesSidebarProps {
   onAddPage: () => void
   onDeletePage: (page: number) => void
   onDuplicatePage?: (page: number) => void
+  onReorderPages?: (newOrder: number[]) => void
+  onClose?: () => void
   className?: string
 }
 
-export default function PagesSidebar({ 
-  isVisible, 
-  currentPage, 
-  pages, 
-  onPageSelect, 
-  onAddPage, 
+export default function PagesSidebar({
+  isVisible,
+  currentPage,
+  pages,
+  onPageSelect,
+  onAddPage,
   onDeletePage,
   onDuplicatePage,
-  className 
+  onReorderPages,
+  onClose,
+  className
 }: PagesSidebarProps) {
   const [draggedPage, setDraggedPage] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
-  const handleDragStart = (page: number) => {
+  // Créer un tableau ordonné des pages avec leurs index
+  const orderedPages = pages.map((page, index) => ({ page, index }))
+
+  const handleDragStart = (e: React.DragEvent, page: number) => {
     setDraggedPage(page)
+    setIsDragging(true)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', page.toString())
   }
 
   const handleDragEnd = () => {
     setDraggedPage(null)
+    setDragOverIndex(null)
+    setIsDragging(false)
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverIndex(index)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverIndex(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    const draggedPageNumber = parseInt(e.dataTransfer.getData('text/plain'))
+
+    if (draggedPageNumber && onReorderPages) {
+      const currentIndex = pages.indexOf(draggedPageNumber)
+      if (currentIndex !== -1 && currentIndex !== targetIndex) {
+        const newPages = [...pages]
+        const [movedPage] = newPages.splice(currentIndex, 1)
+        newPages.splice(targetIndex, 0, movedPage)
+
+        // Renuméroter automatiquement les pages
+        const renumberedPages = newPages.map((_, index) => index + 1)
+        onReorderPages(renumberedPages)
+
+        // Ajuster la page active si nécessaire
+        if (currentPage === draggedPageNumber) {
+          onPageSelect(targetIndex + 1)
+        } else if (currentPage > currentIndex && currentPage <= targetIndex) {
+          onPageSelect(currentPage - 1)
+        } else if (currentPage < currentIndex && currentPage >= targetIndex) {
+          onPageSelect(currentPage + 1)
+        }
+      }
+    }
+
+    handleDragEnd()
   }
 
   const handleDuplicatePage = (page: number) => {
     onDuplicatePage?.(page)
   }
 
+  const handleDeletePage = (page: number) => {
+    if (pages.length <= 1) return // Empêcher la suppression de la dernière page
+
+    const pageIndex = pages.indexOf(page)
+    onDeletePage(page)
+
+    // Ajuster la page active si nécessaire
+    if (currentPage === page) {
+      // Si on supprime la page active, sélectionner la page précédente ou suivante
+      const newActivePage = pageIndex > 0 ? pageIndex : 1
+      onPageSelect(Math.min(newActivePage, pages.length - 1))
+    } else if (currentPage > page) {
+      // Si la page active est après la page supprimée, décrémenter
+      onPageSelect(currentPage - 1)
+    }
+  }
+
   if (!isVisible) return null
 
   return (
     <div className={cn(
-      'w-80 bg-dark-800 border-l border-dark-700 flex flex-col h-full',
+      'w-72 bg-dark-800 border-l border-dark-700 flex flex-col h-full',
       className
     )}>
-      {/* Header */}
+      {/* Header simplifié avec croix */}
       <div className="p-4 border-b border-dark-700">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white flex items-center">
-            <FileText className="w-5 h-5 mr-2 text-accent-400" />
-            Pages du Manga
+            <FileText className="w-5 h-5 mr-2 text-blue-400" />
+            Pages
           </h3>
-          <MangaButton
-            size="sm"
-            variant="ghost"
-            icon={<Plus className="w-4 h-4" />}
-            onClick={onAddPage}
-          />
+          <div className="flex items-center space-x-2">
+            <MangaButton
+              size="sm"
+              variant="ghost"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={onAddPage}
+              title="Ajouter une page"
+            />
+            {onClose && (
+              <MangaButton
+                size="sm"
+                variant="ghost"
+                icon={<X className="w-4 h-4" />}
+                onClick={onClose}
+                title="Fermer le menu"
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
+              />
+            )}
+          </div>
         </div>
-
-        <div className="text-sm text-dark-400">
+        <div className="text-sm text-dark-400 mt-2">
           {pages.length} page{pages.length !== 1 ? 's' : ''} • Page {currentPage} active
         </div>
       </div>
 
-      {/* Actions rapides */}
-      <div className="p-4 border-b border-dark-700">
-        <div className="grid grid-cols-2 gap-2">
-          <MangaButton
-            size="sm"
-            variant="secondary"
-            icon={<Copy className="w-4 h-4" />}
-            onClick={() => handleDuplicatePage(currentPage)}
-            className="text-xs"
-          >
-            Dupliquer
-          </MangaButton>
-          <MangaButton
-            size="sm"
-            variant="ghost"
-            icon={<Download className="w-4 h-4" />}
-            className="text-xs"
-          >
-            Exporter
-          </MangaButton>
-        </div>
-      </div>
-
-      {/* Liste des pages */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-3">
-          {pages.map((page) => (
-            <div
-              key={page}
-              draggable
-              onDragStart={() => handleDragStart(page)}
-              onDragEnd={handleDragEnd}
-              className={cn(
-                'group relative bg-dark-700 rounded-lg p-4 cursor-pointer transition-all hover:bg-dark-600',
-                currentPage === page && 'ring-2 ring-primary-500 bg-primary-500/10',
-                draggedPage === page && 'opacity-50'
+      {/* Liste des pages avec glisser-déposer */}
+      <div className="flex-1 overflow-y-auto p-3">
+        <div className="space-y-2">
+          {pages.map((page, index) => (
+            <div key={page} className="relative">
+              {/* Zone de dépôt supérieure */}
+              {dragOverIndex === index && draggedPage !== page && (
+                <div className="absolute -top-1 left-0 right-0 h-0.5 bg-blue-500 rounded-full z-10 animate-pulse" />
               )}
-              onClick={() => onPageSelect(page)}
-            >
-              {/* Miniature de la page */}
-              <div className="w-full h-32 bg-white rounded-lg mb-3 flex items-center justify-center relative overflow-hidden">
-                <div className="text-gray-400 text-sm">
-                  Page {page}
+
+              <div
+                draggable
+                onDragStart={(e) => handleDragStart(e, page)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
+                className={cn(
+                  'group relative bg-dark-700 rounded-lg p-3 cursor-pointer transition-all duration-200 border select-none',
+                  currentPage === page
+                    ? 'ring-2 ring-blue-500 bg-blue-500/10 border-blue-500/30'
+                    : 'border-dark-600 hover:border-dark-500',
+                  draggedPage === page && 'opacity-50 scale-95 rotate-1',
+                  isDragging && draggedPage !== page && 'hover:bg-dark-600/50',
+                  dragOverIndex === index && draggedPage !== page && 'transform translate-y-1'
+                )}
+                onClick={() => !isDragging && onPageSelect(page)}
+              >
+                {/* Contenu de la page avec indicateur de glissement */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    {/* Indicateur de glissement */}
+                    <div className="flex flex-col space-y-0.5 text-dark-500 group-hover:text-dark-400 transition-colors cursor-grab active:cursor-grabbing">
+                      <div className="w-1 h-1 bg-current rounded-full"></div>
+                      <div className="w-1 h-1 bg-current rounded-full"></div>
+                      <div className="w-1 h-1 bg-current rounded-full"></div>
+                      <div className="w-1 h-1 bg-current rounded-full"></div>
+                    </div>
+
+                    {/* Numéro de page avec indicateur visuel */}
+                    <div className={cn(
+                      'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all duration-200',
+                      currentPage === page
+                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
+                        : 'bg-dark-600 text-gray-300 group-hover:bg-dark-500'
+                    )}>
+                      {page}
+                    </div>
+
+                    {/* Informations de la page */}
+                    <div>
+                      <h4 className="text-white font-medium text-sm">Page {page}</h4>
+                      {page === 1 && (
+                        <p className="text-dark-400 text-xs">Couverture</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions compactes */}
+                  <div className={cn(
+                    'flex items-center space-x-1 transition-opacity duration-200',
+                    isDragging ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
+                  )}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDuplicatePage(page)
+                      }}
+                      className="p-1.5 hover:bg-dark-500 rounded text-dark-400 hover:text-white transition-colors duration-150"
+                      title="Dupliquer la page"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+
+                    {pages.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeletePage(page)
+                        }}
+                        className="p-1.5 hover:bg-red-500/20 rounded text-dark-400 hover:text-red-400 transition-colors duration-150"
+                        title="Supprimer la page"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {/* Overlay pour la page active */}
+
+                {/* Indicateur de page active */}
                 {currentPage === page && (
-                  <div className="absolute inset-0 bg-primary-500/20 flex items-center justify-center">
-                    <Eye className="w-6 h-6 text-primary-400" />
+                  <div className="absolute top-2 right-2">
+                    <Eye className="w-4 h-4 text-blue-400 animate-pulse" />
                   </div>
                 )}
               </div>
 
-              {/* Informations de la page */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-white font-medium text-sm">Page {page}</h4>
-                  <p className="text-dark-400 text-xs">
-                    {page === 1 ? 'Page de couverture' : 
-                     page === 2 ? 'Introduction' : 
-                     `Chapitre ${Math.ceil((page - 2) / 4)}`}
-                  </p>
-                </div>
-
-                {/* Actions de la page */}
-                <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDuplicatePage(page)
-                    }}
-                    className="p-1 hover:bg-dark-500 rounded text-dark-400 hover:text-white"
-                    title="Dupliquer"
-                  >
-                    <Copy className="w-3 h-3" />
-                  </button>
-                  
-                  {pages.length > 1 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDeletePage(page)
-                      }}
-                      className="p-1 hover:bg-red-500/20 rounded text-dark-400 hover:text-red-400"
-                      title="Supprimer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Indicateur de statut */}
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full" title="Script terminé" />
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full" title="Assets en cours" />
-                  <div className="w-2 h-2 bg-gray-500 rounded-full" title="Assemblage à faire" />
-                </div>
-                <span className="text-xs text-dark-500">
-                  {page === currentPage ? 'Active' : 'Prête'}
-                </span>
-              </div>
+              {/* Zone de dépôt inférieure pour le dernier élément */}
+              {index === pages.length - 1 && dragOverIndex === pages.length && (
+                <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-blue-500 rounded-full z-10 animate-pulse" />
+              )}
             </div>
           ))}
-        </div>
-      </div>
-
-      {/* Footer avec statistiques */}
-      <div className="p-4 border-t border-dark-700 bg-dark-900">
-        <div className="text-xs text-dark-400 space-y-1">
-          <div className="flex justify-between">
-            <span>Pages terminées:</span>
-            <span className="text-green-400">2/{pages.length}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>En cours:</span>
-            <span className="text-yellow-400">1/{pages.length}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>À faire:</span>
-            <span className="text-gray-400">{pages.length - 3}/{pages.length}</span>
-          </div>
         </div>
       </div>
     </div>

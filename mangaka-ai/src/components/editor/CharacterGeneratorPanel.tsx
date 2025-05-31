@@ -3,22 +3,15 @@
 import { useState, useEffect } from 'react'
 import {
   Users,
-  Plus,
   Wand2,
-  Sparkles,
-  Edit3,
-  Trash2,
-  Download,
-  Copy,
-  Heart,
-  Zap,
-  Palette,
-  Eye
+  Zap
 } from 'lucide-react'
 import MangaButton from '@/components/ui/MangaButton'
 import { createClient } from '@/lib/supabase/client'
 import { useUserCredits } from '@/hooks/useUserCredits'
 import { cn } from '@/lib/utils'
+import ArchetypeSelector, { ARCHETYPES, type Archetype } from '@/components/character/ArchetypeSelector'
+import CharacterGallery from '@/components/character/CharacterGallery'
 
 interface Character {
   id: string
@@ -29,6 +22,12 @@ interface Character {
   traits: string[]
   style: string
   created_at: string
+  metadata?: {
+    archetype?: string
+    mood?: string
+    pose?: string
+    [key: string]: unknown
+  }
 }
 
 interface CharacterGeneratorPanelProps {
@@ -45,12 +44,6 @@ const CHARACTER_STYLES = [
   { value: 'realistic', label: 'Réaliste', description: 'Style semi-réaliste' }
 ]
 
-const CHARACTER_ARCHETYPES = [
-  'Héros déterminé', 'Rival mystérieux', 'Mentor sage', 'Antagoniste charismatique',
-  'Ami fidèle', 'Génie excentrique', 'Guerrier stoïque', 'Magicien puissant',
-  'Princesse rebelle', 'Voleur au grand cœur', 'Assassin repenti', 'Enfant prodige'
-]
-
 const TRAIT_SUGGESTIONS = [
   'Cheveux noirs', 'Yeux bleus', 'Cicatrice', 'Lunettes', 'Tatouage',
   'Cape', 'Armure', 'Épée', 'Bâton magique', 'Masque', 'Bandeau',
@@ -62,15 +55,16 @@ export default function CharacterGeneratorPanel({
   onCharacterGenerated
 }: CharacterGeneratorPanelProps) {
   const [characters, setCharacters] = useState<Character[]>([])
-  const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null)
+  const [favorites, setFavorites] = useState<string[]>([])
 
   // Formulaire de génération
   const [characterName, setCharacterName] = useState('')
   const [characterDescription, setCharacterDescription] = useState('')
   const [selectedStyle, setSelectedStyle] = useState('shonen')
   const [selectedTraits, setSelectedTraits] = useState<string[]>([])
+  const [selectedArchetype, setSelectedArchetype] = useState<string>('')
   const [customPrompt, setCustomPrompt] = useState('')
 
   const { credits, user, refreshCredits } = useUserCredits()
@@ -82,7 +76,6 @@ export default function CharacterGeneratorPanel({
 
   const loadCharacters = async () => {
     try {
-      setLoading(true)
       const { data, error } = await supabase
         .from('generated_images')
         .select('*')
@@ -101,16 +94,40 @@ export default function CharacterGeneratorPanel({
         image_url: item.image_url,
         traits: item.metadata?.traits || [],
         style: item.metadata?.style || 'shonen',
-        created_at: item.created_at
+        created_at: item.created_at,
+        metadata: item.metadata || {}
       }))
 
       setCharacters(transformedCharacters)
     } catch (error) {
       console.error('Erreur lors du chargement des personnages:', error)
-    } finally {
-      setLoading(false)
     }
   }
+
+  const loadFavorites = async () => {
+    if (!user?.id) return
+
+    try {
+      const { data, error } = await supabase
+        .from('user_favorites')
+        .select('item_id')
+        .eq('user_id', user.id)
+        .eq('item_type', 'character')
+
+      if (error) throw error
+
+      setFavorites(data?.map(fav => fav.item_id) || [])
+    } catch (error) {
+      console.error('Erreur lors du chargement des favoris:', error)
+    }
+  }
+
+  useEffect(() => {
+    if (projectId) {
+      loadCharacters()
+      loadFavorites()
+    }
+  }, [projectId, user?.id])
 
   const generateCharacter = async () => {
     if (!characterName.trim() || !characterDescription.trim()) {
@@ -132,9 +149,11 @@ export default function CharacterGeneratorPanel({
       // Construire le prompt optimisé
       const styleInfo = CHARACTER_STYLES.find(s => s.value === selectedStyle)
       const traitsText = selectedTraits.length > 0 ? `, ${selectedTraits.join(', ')}` : ''
+      const archetypeInfo = ARCHETYPES.find(a => a.id === selectedArchetype)
+      const archetypePrompt = archetypeInfo ? `, ${archetypeInfo.promptTemplate}` : ''
 
       const finalPrompt = customPrompt ||
-        `${characterDescription}, style ${styleInfo?.label} manga${traitsText}, high quality anime art, detailed character design`
+        `${characterDescription}${archetypePrompt}, style ${styleInfo?.label} manga${traitsText}, high quality anime art, detailed character design`
 
       const response = await fetch('/api/generate-image', {
         method: 'POST',
@@ -151,7 +170,7 @@ export default function CharacterGeneratorPanel({
             name: characterName,
             style: selectedStyle,
             traits: selectedTraits,
-            archetype: characterDescription
+            archetype: selectedArchetype || characterDescription
           }
         })
       })
@@ -182,6 +201,7 @@ export default function CharacterGeneratorPanel({
         setCharacterName('')
         setCharacterDescription('')
         setSelectedTraits([])
+        setSelectedArchetype('')
         setCustomPrompt('')
       }
     } catch (error) {
@@ -200,8 +220,101 @@ export default function CharacterGeneratorPanel({
     )
   }
 
-  const selectArchetype = (archetype: string) => {
-    setCharacterDescription(archetype)
+
+
+  const handleArchetypeSelect = (archetype: Archetype) => {
+    setSelectedArchetype(archetype.id)
+    setCharacterDescription(archetype.description)
+    setSelectedTraits(archetype.traits.slice(0, 3)) // Prendre les 3 premiers traits
+  }
+
+  const handleFavoriteToggle = async (character: Character) => {
+    try {
+      const isFavorite = favorites.includes(character.id)
+
+      if (isFavorite) {
+        // Retirer des favoris
+        setFavorites(prev => prev.filter(id => id !== character.id))
+
+        // Mettre à jour en base de données
+        await supabase
+          .from('user_favorites')
+          .delete()
+          .eq('user_id', user?.id)
+          .eq('item_id', character.id)
+          .eq('item_type', 'character')
+      } else {
+        // Ajouter aux favoris
+        setFavorites(prev => [...prev, character.id])
+
+        // Mettre à jour en base de données
+        await supabase
+          .from('user_favorites')
+          .insert({
+            user_id: user?.id,
+            item_id: character.id,
+            item_type: 'character'
+          })
+      }
+    } catch (error) {
+      console.error('Erreur lors de la gestion des favoris:', error)
+    }
+  }
+
+  const handleCharacterEdit = (character: Character) => {
+    // Pré-remplir le formulaire avec les données du personnage
+    setCharacterName(character.name)
+    setCharacterDescription(character.description)
+    setSelectedStyle(character.style)
+    setSelectedTraits(character.traits)
+    setSelectedArchetype(character.metadata?.archetype || '')
+    setCustomPrompt(character.prompt)
+  }
+
+  const handleCharacterDelete = async (character: Character) => {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer le personnage "${character.name}" ?`)) {
+      return
+    }
+
+    try {
+      // Supprimer de la base de données
+      const { error } = await supabase
+        .from('generated_images')
+        .delete()
+        .eq('id', character.id)
+
+      if (error) throw error
+
+      // Mettre à jour l'état local
+      setCharacters(prev => prev.filter(c => c.id !== character.id))
+      setFavorites(prev => prev.filter(id => id !== character.id))
+
+      // Supprimer des favoris si nécessaire
+      await supabase
+        .from('user_favorites')
+        .delete()
+        .eq('user_id', user?.id)
+        .eq('item_id', character.id)
+        .eq('item_type', 'character')
+
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error)
+      alert('Erreur lors de la suppression du personnage')
+    }
+  }
+
+  const handleCharacterDownload = (character: Character) => {
+    if (character.image_url) {
+      const link = document.createElement('a')
+      link.href = character.image_url
+      link.download = `${character.name}.png`
+      link.click()
+    }
+  }
+
+  const handleCopyPrompt = (character: Character) => {
+    navigator.clipboard.writeText(character.prompt)
+    alert('Prompt copié dans le presse-papiers !')
   }
 
   return (
@@ -246,23 +359,11 @@ export default function CharacterGeneratorPanel({
             />
           </div>
 
-          {/* Archétypes suggérés */}
-          <div>
-            <label className="block text-sm font-medium text-white mb-2">
-              Archétypes suggérés
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {CHARACTER_ARCHETYPES.slice(0, 8).map((archetype) => (
-                <button
-                  key={archetype}
-                  onClick={() => selectArchetype(archetype)}
-                  className="text-left p-2 bg-dark-700 hover:bg-dark-600 rounded-lg text-sm text-dark-200 transition-colors"
-                >
-                  {archetype}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Sélecteur d'archétypes */}
+          <ArchetypeSelector
+            selectedArchetype={selectedArchetype}
+            onArchetypeSelect={handleArchetypeSelect}
+          />
 
           {/* Description */}
           <div>
@@ -354,82 +455,18 @@ export default function CharacterGeneratorPanel({
         </div>
       </div>
 
-      {/* Galerie des personnages - Zone Scrollable */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="p-6 border-b border-dark-700 flex-shrink-0">
-          <h3 className="text-2xl font-bold text-white mb-2">Mes Personnages</h3>
-          <p className="text-dark-400">
-            {characters.length} personnage{characters.length !== 1 ? 's' : ''} créé{characters.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-dark-800 rounded-xl p-6 animate-pulse">
-                <div className="w-full h-48 bg-dark-700 rounded-lg mb-4" />
-                <div className="h-4 bg-dark-700 rounded mb-2" />
-                <div className="h-3 bg-dark-700 rounded w-2/3" />
-              </div>
-            ))}
-          </div>
-        ) : characters.length === 0 ? (
-          <div className="text-center py-12">
-            <Users className="w-16 h-16 text-dark-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-white mb-2">Aucun personnage créé</h3>
-            <p className="text-dark-400 mb-6">Commencez par créer votre premier personnage</p>
-            <MangaButton
-              icon={<Plus className="w-4 h-4" />}
-              onClick={() => {
-                setCharacterName('Héros')
-                setCharacterDescription('Héros déterminé')
-              }}
-            >
-              Créer mon premier personnage
-            </MangaButton>
-          </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {characters.map((character) => (
-              <div
-                key={character.id}
-                className={cn(
-                  'bg-dark-800 rounded-xl p-6 cursor-pointer transition-all hover:bg-dark-700',
-                  selectedCharacter === character.id && 'ring-2 ring-primary-500'
-                )}
-                onClick={() => setSelectedCharacter(character.id)}
-              >
-                {character.image_url && (
-                  <img
-                    src={character.image_url}
-                    alt={character.name}
-                    className="w-full h-48 object-cover rounded-lg mb-4 bg-dark-700"
-                  />
-                )}
-                <h4 className="font-semibold text-white mb-2">{character.name}</h4>
-                <p className="text-sm text-dark-300 mb-4 line-clamp-2">
-                  {character.description}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs bg-primary-500/20 text-primary-400 px-2 py-1 rounded">
-                    {CHARACTER_STYLES.find(s => s.value === character.style)?.label || character.style}
-                  </span>
-                  <div className="flex space-x-1">
-                    <button className="p-1 hover:bg-dark-600 rounded">
-                      <Eye className="w-4 h-4 text-dark-400" />
-                    </button>
-                    <button className="p-1 hover:bg-dark-600 rounded">
-                      <Download className="w-4 h-4 text-dark-400" />
-                    </button>
-                  </div>
-                </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Galerie des personnages améliorée */}
+      <CharacterGallery
+        characters={characters}
+        favorites={favorites}
+        selectedCharacter={selectedCharacter || undefined}
+        onCharacterSelect={(character) => setSelectedCharacter(character.id)}
+        onFavoriteToggle={handleFavoriteToggle}
+        onCharacterEdit={handleCharacterEdit}
+        onCharacterDelete={handleCharacterDelete}
+        onCharacterDownload={handleCharacterDownload}
+        onCopyPrompt={handleCopyPrompt}
+      />
     </div>
   )
 }

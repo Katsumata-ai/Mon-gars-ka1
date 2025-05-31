@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
+import { useProjectStore } from '@/stores/projectStore'
 import {
   BookOpen,
   FileText,
@@ -9,10 +11,18 @@ import {
   MessageSquare,
   Edit3,
   Book,
-  Save,
   Download,
   BarChart3
 } from 'lucide-react'
+
+// Import des composants mobile
+import MobileScriptStats from './MobileScriptStats'
+import MobileScriptToggle from './MobileScriptToggle'
+
+// Import du nouvel éditeur natif
+import NativeScriptEditor from './NativeScriptEditor'
+
+
 
 // Types pour l'éditeur révolutionnaire
 interface ScriptStats {
@@ -22,15 +32,6 @@ interface ScriptStats {
   words: number
   characters: number
   dialogues: number
-}
-
-interface ScriptElement {
-  id: string
-  type: 'chapter' | 'page' | 'panel' | 'dialogue' | 'description'
-  content: string
-  lineNumber: number
-  parent?: string
-  children?: ScriptElement[]
 }
 
 interface FileTreeNode {
@@ -45,66 +46,199 @@ interface FileTreeNode {
 
 interface ScriptEditorPanelProps {
   projectId: string
-  onSave?: (scriptData: any) => void
+  onSave?: (scriptData: unknown) => void
+  pagesSidebarVisible?: boolean // Nouvelle prop pour détecter si le sidebar des pages est visible
 }
 
-export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps) {
-  // États principaux
-  const [scriptContent, setScriptContent] = useState('CHAPITRE 1 :')
-  const [title, setTitle] = useState('Script Sans Titre')
-  const [stats, setStats] = useState<ScriptStats>({
-    pages: 0,
-    panels: 0,
-    chapters: 0,
-    words: 0,
-    characters: 0,
-    dialogues: 0
-  })
-  const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
+export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = false }: ScriptEditorPanelProps) {
+  // Styles CSS pour masquer la sélection sur l'overlay
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = `
+      .script-overlay::selection,
+      .script-overlay *::selection {
+        background: transparent !important;
+      }
+      .script-overlay::-moz-selection,
+      .script-overlay *::-moz-selection {
+        background: transparent !important;
+      }
+    `
+    document.head.appendChild(style)
+
+    return () => {
+      document.head.removeChild(style)
+    }
+  }, [])
+
+  // Store global pour la persistance
+  const { scriptData, updateScriptData } = useProjectStore()
+
+  // États pour l'architecture dual-layer
+  const [displayContent, setDisplayContent] = useState(scriptData.content || '') // Pour l'affichage et la coloration
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
-  const [autoSaving, setAutoSaving] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isFocused, setIsFocused] = useState(false)
+
+  // Référence pour le contenu en temps réel (non-React state)
+  const currentContentRef = useRef(scriptData.content || '')
+
+  // Données dérivées
+  const title = scriptData.title
+  const stats = scriptData.stats
+  const fileTree = scriptData.fileTree
+
+  // Synchroniser le contenu d'affichage avec le store au montage
+  useEffect(() => {
+    if (scriptData.content !== displayContent) {
+      setDisplayContent(scriptData.content || '')
+      currentContentRef.current = scriptData.content || ''
+    }
+  }, [scriptData.content])
+
+  // États pour le redimensionnement vertical uniquement
+  const [editorHeight, setEditorHeight] = useState(390) // 15 lignes × 26px = 390px
+  const [isResizing, setIsResizing] = useState(false)
+  const [lastScrollPosition, setLastScrollPosition] = useState(0)
+
+  // Authentification et Supabase
+  const { user, loading: authLoading } = useAuth()
+  const supabase = createClient()
 
   // Références
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const lineNumbersRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
 
-  // Synchronisation du scroll entre l'éditeur et les numéros de ligne
-  const handleScroll = useCallback(() => {
-    if (editorRef.current && lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = editorRef.current.scrollTop
+  // Fonction pour synchroniser manuellement (utilisée uniquement lors de la navigation)
+  const syncScroll = useCallback((scrollTop: number) => {
+    if (lineNumbersRef.current) {
+      lineNumbersRef.current.scrollTop = scrollTop
     }
-    if (editorRef.current && overlayRef.current) {
-      overlayRef.current.scrollTop = editorRef.current.scrollTop
+    if (overlayRef.current) {
+      overlayRef.current.scrollTop = scrollTop
     }
   }, [])
 
+  // Fonction debounce simple
+  const debounce = useCallback((func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout
+    return (...args: any[]) => {
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => func.apply(null, args), delay)
+    }
+  }, [])
+
+  // Fonction debounce pour la sauvegarde uniquement
+  const handleScrollSave = useCallback(
+    debounce((scrollTop: number) => {
+      setLastScrollPosition(scrollTop)
+    }, 100),
+    [debounce]
+  )
+
+  // Gestionnaire de scroll optimisé avec synchronisation overlay
+  const handleScroll = useCallback((e: React.UIEvent<HTMLTextAreaElement>) => {
+    const scrollTop = (e.target as HTMLTextAreaElement).scrollTop
+
+    // Synchronisation immédiate des numéros de ligne et overlay
+    requestAnimationFrame(() => {
+      if (lineNumbersRef.current) {
+        lineNumbersRef.current.scrollTop = scrollTop
+      }
+      if (overlayRef.current) {
+        overlayRef.current.scrollTop = scrollTop
+      }
+    })
+
+    // Sauvegarde avec debounce
+    handleScrollSave(scrollTop)
+  }, [handleScrollSave])
+
+  // Fonction de redimensionnement vertical avec direction
+  const startVerticalResize = useCallback((e: React.MouseEvent, direction: 'top' | 'bottom' = 'bottom') => {
+    e.preventDefault()
+    setIsResizing(true)
+
+    const startY = e.clientY
+    const startHeight = editorHeight
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = e.clientY - startY
+      let newHeight: number
+
+      if (direction === 'bottom') {
+        // Redimensionnement par le bas (normal)
+        newHeight = Math.max(260, Math.min(1200, startHeight + deltaY)) // 10 lignes minimum (260px)
+      } else {
+        // Redimensionnement par le haut (inversé)
+        newHeight = Math.max(260, Math.min(1200, startHeight - deltaY)) // 10 lignes minimum (260px)
+      }
+
+      setEditorHeight(newHeight)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+
+      // Restaurer la position de scroll après redimensionnement
+      if (editorRef.current && lastScrollPosition > 0) {
+        setTimeout(() => {
+          if (editorRef.current) {
+            editorRef.current.scrollTop = lastScrollPosition
+          }
+        }, 50)
+      }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [editorHeight, lastScrollPosition])
 
 
 
 
-  // Calcul des statistiques et génération de l'arbre de fichiers
+
+
+
+  // Calcul optimisé des statistiques et génération de l'arbre de fichiers
   const calculateStats = useCallback((content: string): ScriptStats => {
-    const lines = content.split('\n')
+    // Optimisation : éviter les calculs si le contenu est vide
+    if (!content.trim()) {
+      return {
+        pages: 0,
+        panels: 0,
+        chapters: 0,
+        words: 0,
+        characters: 0,
+        dialogues: 0
+      }
+    }
 
+    const lines = content.split('\n')
     let pages = 0
     let panels = 0
     let chapters = 0
     let dialogues = 0
 
-    // Génération de l'arbre de fichiers
+    // Génération optimisée de l'arbre de fichiers
     const tree: FileTreeNode[] = []
     let currentPage: FileTreeNode | null = null
     let currentChapter: FileTreeNode | null = null
     let currentPanel: FileTreeNode | null = null
 
+    // Optimisation : utiliser une seule boucle avec regex pré-compilées
+    const pageRegex = /^PAGE\s+\d+\s*:/
+    const chapterRegex = /^CHAPITRE\s+\d+\s*:/
+    const panelRegex = /^PANEL\s+\d+\s*:/
+    const dialogueRegex = /^\[.*\]\s*:/
+
     lines.forEach((line, index) => {
       const trimmed = line.trim()
+      if (!trimmed) return // Ignorer les lignes vides
 
-      if (trimmed.startsWith('PAGE ') && trimmed.includes(' :')) {
+      if (pageRegex.test(trimmed)) {
         pages++
         currentPage = {
           id: `page-${pages}`,
@@ -118,7 +252,7 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
         tree.push(currentPage)
         currentChapter = null
         currentPanel = null
-      } else if (trimmed.startsWith('CHAPITRE ') && trimmed.includes(' :')) {
+      } else if (chapterRegex.test(trimmed)) {
         chapters++
         currentChapter = {
           id: `chapter-${chapters}`,
@@ -133,7 +267,7 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
           currentPage.children.push(currentChapter)
         }
         currentPanel = null
-      } else if (trimmed.startsWith('PANEL ') && trimmed.includes(' :')) {
+      } else if (panelRegex.test(trimmed)) {
         panels++
         currentPanel = {
           id: `panel-${panels}`,
@@ -149,12 +283,12 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
         } else if (currentPage) {
           currentPage.children.push(currentPanel)
         }
-      } else if (trimmed.includes(' :') && !trimmed.startsWith('(')) {
+      } else if (dialogueRegex.test(trimmed)) {
         dialogues++
         const dialogueNode: FileTreeNode = {
           id: `dialogue-${dialogues}`,
           type: 'dialogue',
-          title: trimmed.substring(0, 30) + '...',
+          title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
           content: trimmed,
           children: [],
           expanded: false,
@@ -167,7 +301,7 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
         const descNode: FileTreeNode = {
           id: `desc-${index}`,
           type: 'description',
-          title: trimmed.substring(0, 30) + '...',
+          title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
           content: trimmed,
           children: [],
           expanded: false,
@@ -179,22 +313,24 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
       }
     })
 
-    setFileTree(tree)
+    // Mettre à jour le store avec le nouveau fileTree (seulement si différent)
+    updateScriptData({ fileTree: tree })
 
-    // Initialiser tous les nœuds comme expandus par défaut
+    // Optimisation : initialiser les nœuds expandus seulement si l'arbre a changé
     const allNodeIds = new Set<string>()
     tree.forEach(page => {
       allNodeIds.add(page.id)
-      page.children.forEach(chapter => {
+      page.children?.forEach(chapter => {
         allNodeIds.add(chapter.id)
-        chapter.children.forEach(panel => {
+        chapter.children?.forEach(panel => {
           allNodeIds.add(panel.id)
         })
       })
     })
     setExpandedNodes(allNodeIds)
 
-    const words = content.split(/\s+/).filter(w => w.length > 0).length
+    // Optimisation : calcul des mots plus efficace
+    const words = content.match(/\S+/g)?.length || 0
     const characterCount = content.length
 
     return {
@@ -205,14 +341,32 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
       characters: characterCount,
       dialogues
     }
-  }, [])
+  }, [updateScriptData])
 
-  // Gestion du contenu de l'éditeur
+  // Système de synchronisation intelligent pour l'affichage
+  const updateDisplayContent = useCallback(
+    debounce((content: string) => {
+      // Mettre à jour le contenu d'affichage pour la coloration syntaxique
+      setDisplayContent(content)
+
+      // Calculer les stats et mettre à jour le store
+      const newStats = calculateStats(content)
+      updateScriptData({
+        content,
+        stats: newStats
+      })
+    }, 150), // Délai court pour la coloration syntaxique
+    [calculateStats, updateScriptData, debounce]
+  )
+
+  // Gestionnaire d'input ultra-rapide (pas de React state)
   const handleContentChange = useCallback((content: string) => {
-    setScriptContent(content)
-    const newStats = calculateStats(content)
-    setStats(newStats)
-  }, [calculateStats])
+    // 1. Mettre à jour la référence immédiatement (pas de re-render)
+    currentContentRef.current = content
+
+    // 2. Programmer la mise à jour de l'affichage (différée)
+    updateDisplayContent(content)
+  }, [updateDisplayContent])
 
   // Fonctions d'insertion intelligentes
   const insertAtCursor = useCallback((text: string) => {
@@ -221,79 +375,101 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
     const textarea = editorRef.current
     const start = textarea.selectionStart
     const end = textarea.selectionEnd
-    const currentContent = scriptContent
+    const currentContent = currentContentRef.current
+
+    // Sauvegarder la position de scroll actuelle
+    const currentScrollTop = textarea.scrollTop
 
     const newContent = currentContent.substring(0, start) + text + currentContent.substring(end)
-    setScriptContent(newContent)
     handleContentChange(newContent)
 
-    // Repositionner le curseur après l'insertion
+    // Repositionner le curseur après l'insertion en préservant le scroll
     setTimeout(() => {
       textarea.focus()
       textarea.setSelectionRange(start + text.length, start + text.length)
+
+      // Restaurer la position de scroll
+      textarea.scrollTop = currentScrollTop
+
+      // Synchroniser les numéros de ligne
+      if (lineNumbersRef.current) {
+        lineNumbersRef.current.scrollTop = currentScrollTop
+      }
     }, 0)
-  }, [scriptContent, handleContentChange])
+  }, [handleContentChange])
 
   const insertChapter = useCallback(() => {
     const chapterNumber = stats.chapters + 1
-    // Chapitre = 1 ligne d'espacement avant
-    insertAtCursor(`\n\nCHAPITRE ${chapterNumber} :\n`)
-  }, [insertAtCursor, stats.chapters])
+    if ((window as any).scriptEditor) {
+      (window as any).scriptEditor.insertAtCursor(`\n\nCHAPITRE ${chapterNumber} :\n`)
+    }
+  }, [stats.chapters])
 
   const insertPage = useCallback(() => {
     const pageNumber = stats.pages + 1
-    // Page = 2 lignes d'espacement avant
-    insertAtCursor(`\n\n\nPAGE ${pageNumber} :\n`)
-  }, [insertAtCursor, stats.pages])
+    if ((window as any).scriptEditor) {
+      (window as any).scriptEditor.insertAtCursor(`\n\nPAGE ${pageNumber} :\n`)
+    }
+  }, [stats.pages])
 
   const insertPanel = useCallback(() => {
     const panelNumber = stats.panels + 1
-    // Panel = pas d'espacement (collé)
-    insertAtCursor(`\nPANEL ${panelNumber} :\n`)
-  }, [insertAtCursor, stats.panels])
+    if ((window as any).scriptEditor) {
+      (window as any).scriptEditor.insertAtCursor(`\nPANEL ${panelNumber} :`)
+    }
+  }, [stats.panels])
 
   const insertDialogue = useCallback(() => {
-    // Dialogue = pas d'espacement (collé)
-    insertAtCursor(`PERSONNAGE : `)
-  }, [insertAtCursor])
+    if ((window as any).scriptEditor) {
+      (window as any).scriptEditor.insertAtCursor(`\n[PERSONNAGE] : `)
+    }
+  }, [])
 
   const insertDescription = useCallback(() => {
-    // Description = pas d'espacement (collé)
-    insertAtCursor(`(Description de l'action)\n`)
-  }, [insertAtCursor])
-
-  // Auto-sauvegarde
-  const autoSave = useCallback(async () => {
-    if (!scriptContent.trim()) return
-
-    setAutoSaving(true)
-    try {
-      const { error } = await supabase
-        .from('manga_scripts')
-        .upsert({
-          project_id: projectId,
-          title: title,
-          script_data: {
-            content: scriptContent,
-            stats: stats,
-            fileTree: fileTree
-          },
-          updated_at: new Date().toISOString()
-        })
-
-      if (!error) {
-        setLastSaved(new Date())
-      }
-    } catch (error) {
-      console.error('Erreur auto-sauvegarde:', error)
-    } finally {
-      setAutoSaving(false)
+    if ((window as any).scriptEditor) {
+      (window as any).scriptEditor.insertAtCursor(`\n(Description de l'action)`)
     }
-  }, [scriptContent, title, stats, fileTree, projectId, supabase])
+  }, [])
+
+  // Auto-sauvegarde avec vérification d'authentification (désactivé temporairement)
+  const autoSave = useCallback(async () => {
+    // TODO: Réactiver quand le backend sera configuré
+    // // Vérifier si l'utilisateur est connecté et si le contenu n'est pas vide
+    // if (!user || !scriptContent.trim() || authLoading) {
+    //   return
+    // }
+
+    // setAutoSaving(true)
+    // try {
+    //   const { error } = await supabase
+    //     .from('manga_scripts')
+    //     .upsert({
+    //       project_id: projectId,
+    //       title: title,
+    //       script_data: {
+    //         content: scriptContent,
+    //         stats: stats,
+    //         fileTree: fileTree
+    //       },
+    //       updated_at: new Date().toISOString(),
+    //       user_id: user.id
+    //     })
+
+    //   if (!error) {
+    //     setLastSaved(new Date())
+    //   } else {
+    //     console.error('Erreur lors de la sauvegarde:', error)
+    //   }
+    // } catch (error) {
+    //   console.error('Erreur auto-sauvegarde:', error)
+    // } finally {
+    //   setAutoSaving(false)
+    // }
+  }, [title, stats, fileTree, projectId, supabase, user, authLoading])
 
   // Fonctions d'export
   const exportToTXT = useCallback(() => {
-    const blob = new Blob([scriptContent], { type: 'text/plain' })
+    const blob = new Blob([currentContentRef.current], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.download = `${title.replace(/\s+/g, '_')}_script.txt`
@@ -302,12 +478,12 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-  }, [scriptContent, title])
+  }, [title])
 
   const exportToJSON = useCallback(() => {
     const data = {
       title,
-      content: scriptContent,
+      content: currentContentRef.current,
       stats,
       fileTree: fileTree,
       exportDate: new Date().toISOString()
@@ -321,7 +497,43 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-  }, [scriptContent, title, stats, fileTree])
+  }, [title, stats, fileTree])
+
+  // Charger les données existantes du script (désactivé temporairement)
+  const loadScriptData = useCallback(async () => {
+    // TODO: Réactiver quand le backend sera configuré
+    // if (!user || !projectId) return
+
+    // try {
+    //   const { data, error } = await supabase
+    //     .from('manga_scripts')
+    //     .select('*')
+    //     .eq('project_id', projectId)
+    //     .eq('user_id', user.id)
+    //     .single()
+
+    //   if (data && !error) {
+    //     const scriptData = data.script_data
+    //     if (scriptData?.content) {
+    //       setScriptContent(scriptData.content)
+    //       handleContentChange(scriptData.content)
+    //     }
+    //     if (data.title) {
+    //       setTitle(data.title)
+    //     }
+    //   }
+    // } catch (error) {
+    //   console.error('Erreur lors du chargement du script:', error)
+    // }
+  }, [user, projectId, supabase, handleContentChange])
+
+  // Charger les données au montage du composant (désactivé temporairement)
+  useEffect(() => {
+    // TODO: Réactiver quand le backend sera configuré
+    // if (user && !authLoading) {
+    //   loadScriptData()
+    // }
+  }, [user, authLoading, loadScriptData])
 
   // Auto-sauvegarde toutes les 30 secondes
   useEffect(() => {
@@ -329,21 +541,21 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
     return () => clearInterval(interval)
   }, [autoSave])
 
-  // Fonction pour naviguer vers une ligne
-  const scrollToLine = useCallback((lineNumber: number) => {
-    if (editorRef.current) {
-      const lines = scriptContent.split('\n')
-      const position = lines.slice(0, lineNumber).join('\n').length + (lineNumber > 0 ? 1 : 0)
-
-      editorRef.current.focus()
-      editorRef.current.setSelectionRange(position, position)
-
-      // Calculer la position de scroll
-      const lineHeight = 24 // hauteur approximative d'une ligne
-      const scrollTop = lineNumber * lineHeight
-      editorRef.current.scrollTop = Math.max(0, scrollTop - editorRef.current.clientHeight / 2)
+  // Préserver la position de scroll lors des changements de contenu
+  useEffect(() => {
+    if (editorRef.current && lastScrollPosition > 0) {
+      editorRef.current.scrollTop = lastScrollPosition
+      // Synchronisation manuelle lors de la restauration
+      syncScroll(lastScrollPosition)
     }
-  }, [scriptContent])
+  }, [lastScrollPosition, syncScroll])
+
+  // Fonction pour naviguer vers une ligne avec l'éditeur natif
+  const scrollToLine = useCallback((lineNumber: number) => {
+    if ((window as any).scriptEditor) {
+      (window as any).scriptEditor.scrollToLine(lineNumber)
+    }
+  }, [])
 
   // Fonction pour basculer l'expansion d'un nœud
   const toggleNodeExpansion = useCallback((nodeId: string) => {
@@ -358,220 +570,290 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
     })
   }, [])
 
+  // Référence pour la structure du script
+  const structureScrollRef = useRef<HTMLDivElement>(null)
+
+  // Gestionnaire de scroll simple pour la structure du script
+  const handleStructureScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    // Empêcher la propagation pour isolation
+    e.stopPropagation()
+  }, [])
+
   return (
-    <div className="h-screen flex flex-col bg-gray-900 text-gray-100 overflow-hidden">
-      {/* Barre d'outils compacte */}
-      <div className="bg-gray-800 border-b border-gray-700 px-2 py-1 flex-shrink-0">
-        {/* Boutons d'insertion compacts */}
+    <div className={`h-screen flex flex-col bg-gray-900 text-gray-100 overflow-hidden transition-all duration-300 ${isResizing ? 'select-none' : ''}`}>
+      {/* CSS simple pour scrollbars */}
+      <style jsx global>{`
+        .script-line-numbers::-webkit-scrollbar,
+        .script-overlay::-webkit-scrollbar {
+          display: none;
+        }
+        .script-line-numbers,
+        .script-overlay {
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+
+        /* Masquer la scrollbar horizontale pour mobile */
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+
+        /* Scrollbar simple pour la structure du script */
+        .script-structure-scroll {
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: #6b7280 #374151;
+        }
+
+        .script-structure-scroll::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .script-structure-scroll::-webkit-scrollbar-track {
+          background: #374151;
+          border-radius: 3px;
+        }
+
+        .script-structure-scroll::-webkit-scrollbar-thumb {
+          background: #6b7280;
+          border-radius: 3px;
+        }
+
+        .script-structure-scroll::-webkit-scrollbar-thumb:hover {
+          background: #9ca3af;
+        }
+
+        /* Styles pour le textarea avec couleur proche du fond */
+        textarea.script-editor {
+          /* Couleur très proche du fond pour masquer le texte */
+          color: #111827 !important;
+          /* Assurer la visibilité du curseur */
+          caret-color: #3b82f6 !important;
+          /* Optimisation du scroll */
+          text-rendering: optimizeSpeed;
+          -webkit-font-smoothing: antialiased;
+        }
+
+        textarea.script-editor:focus {
+          caret-color: #3b82f6 !important;
+          outline: none !important;
+        }
+
+        /* Classe pour masquer visuellement mais garder accessible */
+        .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+      `}</style>
+
+      {/* Overlay de redimensionnement simplifié */}
+      {isResizing && (
+        <div className="fixed inset-0 bg-gray-900/20 z-30 pointer-events-none">
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-gray-200 px-2 py-1 rounded text-xs shadow-lg border border-gray-600">
+            Redimensionnement...
+          </div>
+        </div>
+      )}
+      {/* Message d'information pour les utilisateurs non connectés */}
+      {!authLoading && !user && (
+        <div className="bg-yellow-900/20 border-b border-yellow-700 px-4 py-2 flex items-center gap-2 text-yellow-200 text-sm">
+          ⚠️
+          <span>Vous n&apos;êtes pas connecté. L&apos;auto-sauvegarde est désactivée. Vos modifications ne seront pas conservées.</span>
+        </div>
+      )}
+
+      {/* Barre d'outils moderne et élégante - Responsive avec scrollbar conditionnelle */}
+      <div className="bg-gradient-to-r from-gray-800 to-gray-750 border-b border-gray-600 px-2 md:px-4 py-2 flex-shrink-0 shadow-lg">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1">
+          {/* Boutons d'insertion dans l'ordre chronologique - Responsive avec scrollbar conditionnelle */}
+          <div className={`flex items-center gap-1.5 md:gap-2 ${pagesSidebarVisible ? 'overflow-x-auto' : 'overflow-x-auto scrollbar-hide'}`}
+               style={pagesSidebarVisible ? {
+                 scrollbarWidth: 'thin',
+                 scrollbarColor: 'rgba(107, 114, 128, 0.5) rgba(55, 65, 81, 0.3)'
+               } : {}}>
             <button
-              onClick={insertChapter}
-              className="flex items-center space-x-1 bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs transition-colors"
+              onClick={insertPage}
+              className="group flex items-center space-x-1.5 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-red-500/20 touch-target flex-shrink-0 border border-red-500/20 hover:border-red-400/40"
             >
-              <Book className="w-3 h-3" />
-              <span>Chapitre</span>
+              <FileText className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+              <span className="hidden sm:inline">Page</span>
+              <span className="sm:hidden">Pg</span>
             </button>
 
             <button
-              onClick={insertPage}
-              className="flex items-center space-x-1 bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition-colors"
+              onClick={insertChapter}
+              className="group flex items-center space-x-1.5 bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-purple-500/20 touch-target flex-shrink-0 border border-purple-500/20 hover:border-purple-400/40"
             >
-              <FileText className="w-3 h-3" />
-              <span>Page</span>
+              <Book className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+              <span className="hidden sm:inline">Chapitre</span>
+              <span className="sm:hidden">Ch</span>
             </button>
 
             <button
               onClick={insertPanel}
-              className="flex items-center space-x-1 bg-yellow-600 hover:bg-yellow-700 text-white px-2 py-1 rounded text-xs transition-colors"
+              className="group flex items-center space-x-1.5 bg-yellow-600 hover:bg-yellow-500 active:bg-yellow-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-yellow-500/20 touch-target flex-shrink-0 border border-yellow-500/20 hover:border-yellow-400/40"
             >
-              <Image className="w-3 h-3" />
-              <span>Panel</span>
+              <Image className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+              <span className="hidden sm:inline">Panneau</span>
+              <span className="sm:hidden">Pn</span>
             </button>
 
             <button
               onClick={insertDialogue}
-              className="flex items-center space-x-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
+              className="group flex items-center space-x-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-blue-500/20 touch-target flex-shrink-0 border border-blue-500/20 hover:border-blue-400/40"
             >
-              <MessageSquare className="w-3 h-3" />
-              <span>Dialogue</span>
+              <MessageSquare className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+              <span className="hidden sm:inline">Dialogue</span>
+              <span className="sm:hidden">Dl</span>
             </button>
 
             <button
               onClick={insertDescription}
-              className="flex items-center space-x-1 bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition-colors"
+              className="group flex items-center space-x-1.5 bg-gray-600 hover:bg-gray-500 active:bg-gray-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-gray-500/20 touch-target flex-shrink-0 border border-gray-500/20 hover:border-gray-400/40"
             >
-              <Edit3 className="w-3 h-3" />
-              <span>Description</span>
+              <Edit3 className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+              <span className="hidden sm:inline">Description</span>
+              <span className="sm:hidden">Ds</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={exportToTXT}
-              className="flex items-center space-x-1 bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition-colors"
-            >
-              <Download className="w-3 h-3" />
-              <span>Export TXT</span>
-            </button>
+          {/* Contrôles d'export avec design professionnel compact - Responsive */}
+          <div className="flex items-center gap-2 md:gap-4 ml-6 md:ml-12">
+            <div className="flex items-center gap-1.5 md:gap-2">
+              <button
+                onClick={exportToTXT}
+                className="group flex items-center space-x-1.5 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-green-500/20 touch-target border border-green-500/20 hover:border-green-400/40"
+                title="Exporter en TXT"
+              >
+                <Download className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+                <span className="hidden md:inline">Export TXT</span>
+                <span className="md:hidden">TXT</span>
+              </button>
 
-            <button
-              onClick={exportToJSON}
-              className="flex items-center space-x-1 bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-xs transition-colors"
-            >
-              <Save className="w-3 h-3" />
-              <span>Export JSON</span>
-            </button>
-
-            <div className="flex items-center text-xs text-gray-400 ml-2">
-              {autoSaving ? (
-                <span className="text-yellow-400">💾</span>
-              ) : lastSaved ? (
-                <span>💾</span>
-              ) : (
-                <span className="text-red-400">💾</span>
-              )}
+              <button
+                onClick={exportToJSON}
+                className="group flex items-center space-x-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-indigo-500/20 touch-target border border-indigo-500/20 hover:border-indigo-400/40"
+                title="Exporter en JSON"
+              >
+                <Download className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0 group-hover:scale-110 transition-transform duration-300" />
+                <span className="hidden md:inline">Export JSON</span>
+                <span className="md:hidden">JSON</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Zone principale avec éditeur et sidebar */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* Éditeur de texte principal avec numéros de ligne */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="p-1">
-            <div className="w-full max-w-4xl mx-auto">
-              <div className={`flex border rounded overflow-hidden bg-gray-800 transition-colors duration-200 ${isFocused ? 'border-red-500 border-2' : 'border-gray-600'}`} style={{ height: '456px' }}>
-              {/* Numéros de ligne - 19 lignes max */}
+      {/* Statistiques mobiles compactes */}
+      <MobileScriptStats stats={stats} />
+
+      {/* Zone principale avec éditeur et sidebar - Responsive */}
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+        {/* Éditeur de texte principal moderne et élégant */}
+        <div className="flex-1 flex flex-col min-h-0 relative">
+          <div className="p-2 md:p-6">
+            <div className="w-full max-w-none mx-auto relative">
+              {/* Conteneur redimensionnable avec design professionnel */}
               <div
-                ref={lineNumbersRef}
-                className="w-10 bg-gray-800 border-r border-gray-600 py-2 text-right text-xs text-gray-400 select-none overflow-hidden font-mono"
+                className={`relative flex border rounded-lg overflow-hidden bg-gray-900 shadow-xl transition-all duration-300 ${isFocused ? 'border-gray-500 shadow-gray-500/10' : 'border-gray-700'}`}
                 style={{
-                  background: 'linear-gradient(to right, #374151, #4b5563)',
-                  height: '456px' // 19 lignes × 24px = 456px
+                  height: `${editorHeight}px`,
+                  minHeight: '260px', // 10 lignes minimum
+                  maxHeight: '1200px'
                 }}
               >
-                {Array.from({ length: Math.max(19, scriptContent.split('\n').length) }, (_, index) => (
-                  <div key={index} className="h-6 leading-6 px-1 flex-shrink-0">
-                    {index + 1}
-                  </div>
-                ))}
-              </div>
-
-              {/* Zone d'éditeur - 21 lignes */}
-              <div className="flex-1 relative bg-gradient-to-br from-gray-900 to-gray-800" style={{ height: '504px' }}>
-                {/* Overlay pour coloration de texte uniquement */}
+                {/* Poignée de redimensionnement en haut discrète */}
                 <div
-                  ref={overlayRef}
-                  className="absolute inset-0 p-3 font-mono text-sm leading-6 pointer-events-none whitespace-pre-wrap overflow-hidden"
-                  style={{
-                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-                    height: '504px'
-                  }}
+                  className="absolute top-0 left-1/2 transform -translate-x-1/2 w-16 h-2 bg-gray-600/20 hover:bg-blue-500/30 cursor-n-resize z-30 transition-all duration-300 rounded-b-sm flex items-center justify-center group"
+                  onMouseDown={(e) => startVerticalResize(e, 'top')}
+                  title="Redimensionner par le haut"
+                  style={{ pointerEvents: 'auto' }}
                 >
-                  {scriptContent.split('\n').map((line, index) => {
-                    const trimmed = line.trim()
-                    let textColor = 'text-gray-100'
-
-                    if (trimmed.startsWith('CHAPITRE ') && trimmed.includes(' :')) {
-                      textColor = 'text-purple-400'
-                    } else if (trimmed.startsWith('PAGE ') && trimmed.includes(' :')) {
-                      textColor = 'text-red-400'
-                    } else if (trimmed.startsWith('PANEL ') && trimmed.includes(' :')) {
-                      textColor = 'text-yellow-400'
-                    } else if (trimmed.includes(' :') && !trimmed.startsWith('(')) {
-                      textColor = 'text-blue-400'
-                    } else if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
-                      textColor = 'text-gray-400'
-                    }
-
-                    return (
-                      <div key={index} className={`${textColor} min-h-[24px]`} style={{ lineHeight: '24px' }}>
-                        {line || '\u00A0'}
-                      </div>
-                    )
-                  })}
+                  <div className="w-8 h-0.5 bg-gray-400/40 group-hover:bg-white/60 rounded-full transition-colors duration-300"></div>
                 </div>
 
-                {/* Textarea - 19 lignes */}
-                <textarea
-                  ref={editorRef}
-                  value={scriptContent}
-                  onChange={(e) => handleContentChange(e.target.value)}
-                  onScroll={handleScroll}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  className="absolute inset-0 w-full bg-transparent p-3 font-mono text-sm leading-6 resize-none border-none outline-none overflow-auto z-10"
-                  placeholder=""
-                  spellCheck={false}
-                  style={{
-                    lineHeight: '24px',
-                    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-                    caretColor: '#60a5fa',
-                    color: 'transparent',
-                    height: '456px',
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: '#4b5563 #374151'
+                {/* Poignée de redimensionnement en bas discrète */}
+                <div
+                  className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-16 h-2 bg-gray-600/20 hover:bg-blue-500/30 cursor-s-resize z-30 transition-all duration-300 rounded-t-sm flex items-center justify-center group"
+                  onMouseDown={(e) => startVerticalResize(e, 'bottom')}
+                  title="Redimensionner par le bas"
+                  style={{ pointerEvents: 'auto' }}
+                >
+                  <div className="w-8 h-0.5 bg-gray-400/40 group-hover:bg-white/60 rounded-full transition-colors duration-300"></div>
+                </div>
+
+                {/* Native Script Editor - Zero React Overhead */}
+                <NativeScriptEditor
+                  projectId={projectId}
+                  onStatsUpdate={(stats) => {
+                    // Update stats in React state when needed
+                    updateScriptData({ stats })
                   }}
                 />
-
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-        {/* Sidebar compacte avec statistiques */}
-        <div className="w-56 bg-gray-800 border-l border-gray-700 flex flex-col h-full">
-          {/* Statistiques ultra-compactes */}
-          <div className="p-2 border-b border-gray-700 flex-shrink-0">
-            <h3 className="text-xs font-semibold mb-1 text-white flex items-center">
-              <BarChart3 className="w-3 h-3 mr-1" />
+        {/* Sidebar moderne avec statistiques et navigation - Desktop uniquement */}
+        <div className="hidden lg:flex w-64 bg-gradient-to-b from-gray-800 to-gray-900 border-l border-gray-600/50 flex-col h-full shadow-xl">
+          {/* Statistiques compactes avec design moderne */}
+          <div className="p-2 border-b border-gray-700 flex-shrink-0 bg-gradient-to-r from-gray-800 to-gray-750">
+            <h3 className="text-xs font-semibold mb-2 text-white flex items-center">
+              <BarChart3 className="w-3 h-3 mr-1 text-blue-400" />
               Statistiques
             </h3>
-            <div className="grid grid-cols-3 gap-1 text-xs">
-              <div className="bg-purple-600/20 p-1 rounded text-center">
-                <div className="text-purple-400 text-xs">CH</div>
+            <div className="grid grid-cols-6 lg:grid-cols-3 gap-1 text-xs">
+              <div className="bg-purple-600/20 border border-purple-500/30 p-1 rounded text-center hover:bg-purple-600/30 transition-colors touch-target">
+                <div className="text-purple-300 text-xs font-medium">Chapitres</div>
                 <div className="text-xs font-bold text-white">{stats.chapters}</div>
               </div>
-              <div className="bg-red-600/20 p-1 rounded text-center">
-                <div className="text-red-400 text-xs">PG</div>
+              <div className="bg-red-600/20 border border-red-500/30 p-1 rounded text-center hover:bg-red-600/30 transition-colors touch-target">
+                <div className="text-red-300 text-xs font-medium">Pages</div>
                 <div className="text-xs font-bold text-white">{stats.pages}</div>
               </div>
-              <div className="bg-yellow-600/20 p-1 rounded text-center">
-                <div className="text-yellow-400 text-xs">PN</div>
+              <div className="bg-yellow-600/20 border border-yellow-500/30 p-1 rounded text-center hover:bg-yellow-600/30 transition-colors touch-target">
+                <div className="text-yellow-300 text-xs font-medium">Panneaux</div>
                 <div className="text-xs font-bold text-white">{stats.panels}</div>
               </div>
-              <div className="bg-blue-600/20 p-1 rounded text-center">
-                <div className="text-blue-400 text-xs">DL</div>
+              <div className="bg-blue-600/20 border border-blue-500/30 p-1 rounded text-center hover:bg-blue-600/30 transition-colors touch-target">
+                <div className="text-blue-300 text-xs font-medium">Dialogues</div>
                 <div className="text-xs font-bold text-white">{stats.dialogues}</div>
               </div>
-              <div className="bg-green-600/20 p-1 rounded text-center">
-                <div className="text-green-400 text-xs">MT</div>
+              <div className="bg-green-600/20 border border-green-500/30 p-1 rounded text-center hover:bg-green-600/30 transition-colors touch-target">
+                <div className="text-green-300 text-xs font-medium">Mots</div>
                 <div className="text-xs font-bold text-white">{stats.words}</div>
               </div>
-              <div className="bg-gray-600/20 p-1 rounded text-center">
-                <div className="text-gray-400 text-xs">CR</div>
+              <div className="bg-gray-600/20 border border-gray-500/30 p-1 rounded text-center hover:bg-gray-600/30 transition-colors touch-target">
+                <div className="text-gray-300 text-xs font-medium">Caractères</div>
                 <div className="text-xs font-bold text-white">{stats.characters}</div>
               </div>
             </div>
           </div>
 
-          {/* Gestionnaire de fichiers hiérarchique */}
+          {/* Gestionnaire de fichiers hiérarchique avec scroll intelligent - Responsive */}
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="p-2 border-b border-gray-700 flex-shrink-0">
+            <div className="p-2 flex-shrink-0">
               <h3 className="text-xs font-semibold text-white flex items-center">
-                <BookOpen className="w-3 h-3 mr-1" />
+                <BookOpen className="w-3 h-3 mr-1 text-green-400" />
                 Structure du Script
               </h3>
             </div>
             <div
-              className="overflow-y-auto overflow-x-hidden"
-              style={{
-                maxHeight: '270px', // 9 éléments × 30px = 270px
-                minHeight: '270px'
-              }}
+              ref={structureScrollRef}
+              className="script-structure-scroll overflow-y-auto overflow-x-hidden max-h-[270px] min-h-[200px] lg:max-h-[270px] lg:min-h-[200px] md:max-h-[200px] md:min-h-[150px]"
+              onScroll={handleStructureScroll}
             >
               <div className="p-1 space-y-1 text-xs pb-2">
               {fileTree.map((page) => {
@@ -589,14 +871,14 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
                       </button>
                       <div
                         className="flex items-center space-x-1 flex-1"
-                        onClick={() => scrollToLine(page.lineNumber)}
+                        onClick={() => scrollToLine(page.lineNumber ?? 0)}
                       >
                         <FileText className="w-3 h-3" />
                         <span className="font-medium text-xs truncate">{page.title}</span>
                       </div>
                     </div>
 
-                    {pageExpanded && page.children.map((chapter) => {
+                    {pageExpanded && page.children?.map((chapter) => {
                       const chapterExpanded = expandedNodes.has(chapter.id)
                       return (
                         <div key={chapter.id} className="ml-3 space-y-1">
@@ -611,14 +893,14 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
                             </button>
                             <div
                               className="flex items-center space-x-1 flex-1"
-                              onClick={() => scrollToLine(chapter.lineNumber)}
+                              onClick={() => scrollToLine(chapter.lineNumber ?? 0)}
                             >
                               <Book className="w-3 h-3" />
                               <span className="font-medium text-xs truncate">{chapter.title}</span>
                             </div>
                           </div>
 
-                          {chapterExpanded && chapter.children.map((panel) => {
+                          {chapterExpanded && chapter.children?.map((panel) => {
                             const panelExpanded = expandedNodes.has(panel.id)
                             return (
                               <div key={panel.id} className="ml-3 space-y-1">
@@ -633,14 +915,14 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
                                   </button>
                                   <div
                                     className="flex items-center space-x-1 flex-1"
-                                    onClick={() => scrollToLine(panel.lineNumber)}
+                                    onClick={() => scrollToLine(panel.lineNumber ?? 0)}
                                   >
                                     <Image className="w-3 h-3" />
                                     <span className="font-medium text-xs truncate">{panel.title}</span>
                                   </div>
                                 </div>
 
-                                {panelExpanded && panel.children.map((element) => (
+                                {panelExpanded && panel.children?.map((element) => (
                                   <div key={element.id} className="ml-3">
                                     <div
                                       className={`flex items-center space-x-1 p-1 rounded cursor-pointer text-xs ${
@@ -648,7 +930,7 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
                                           ? 'bg-blue-900/20 text-blue-400 hover:bg-blue-900/40'
                                           : 'bg-gray-800/20 text-gray-400 hover:bg-gray-800/40'
                                       }`}
-                                      onClick={() => scrollToLine(element.lineNumber)}
+                                      onClick={() => scrollToLine(element.lineNumber ?? 0)}
                                     >
                                       {element.type === 'dialogue' ? (
                                         <MessageSquare className="w-3 h-3" />
@@ -679,6 +961,159 @@ export default function ScriptEditorPanel({ projectId }: ScriptEditorPanelProps)
 
 
         </div>
+
+        {/* Toggle mobile pour la sidebar */}
+        <MobileScriptToggle>
+          {/* Contenu de la sidebar pour mobile */}
+          <div className="flex flex-col h-full">
+            {/* Statistiques pour mobile dans la sidebar */}
+            <div className="p-3 border-b border-gray-700 flex-shrink-0">
+              <h3 className="text-sm font-semibold mb-3 text-white flex items-center">
+                <BarChart3 className="w-4 h-4 mr-2 text-blue-400" />
+                Statistiques
+              </h3>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-purple-600/20 border border-purple-500/30 p-2 rounded text-center hover:bg-purple-600/30 transition-colors">
+                  <div className="text-purple-300 text-xs font-medium">Chapitres</div>
+                  <div className="text-sm font-bold text-white">{stats.chapters}</div>
+                </div>
+                <div className="bg-red-600/20 border border-red-500/30 p-2 rounded text-center hover:bg-red-600/30 transition-colors">
+                  <div className="text-red-300 text-xs font-medium">Pages</div>
+                  <div className="text-sm font-bold text-white">{stats.pages}</div>
+                </div>
+                <div className="bg-yellow-600/20 border border-yellow-500/30 p-2 rounded text-center hover:bg-yellow-600/30 transition-colors">
+                  <div className="text-yellow-300 text-xs font-medium">Panneaux</div>
+                  <div className="text-sm font-bold text-white">{stats.panels}</div>
+                </div>
+                <div className="bg-blue-600/20 border border-blue-500/30 p-2 rounded text-center hover:bg-blue-600/30 transition-colors">
+                  <div className="text-blue-300 text-xs font-medium">Dialogues</div>
+                  <div className="text-sm font-bold text-white">{stats.dialogues}</div>
+                </div>
+                <div className="bg-green-600/20 border border-green-500/30 p-2 rounded text-center hover:bg-green-600/30 transition-colors">
+                  <div className="text-green-300 text-xs font-medium">Mots</div>
+                  <div className="text-sm font-bold text-white">{stats.words}</div>
+                </div>
+                <div className="bg-gray-600/20 border border-gray-500/30 p-2 rounded text-center hover:bg-gray-600/30 transition-colors">
+                  <div className="text-gray-300 text-xs font-medium">Caractères</div>
+                  <div className="text-sm font-bold text-white">{stats.characters}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Structure du script pour mobile */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="p-3 flex-shrink-0">
+                <h3 className="text-sm font-semibold text-white flex items-center">
+                  <BookOpen className="w-4 h-4 mr-2 text-green-400" />
+                  Structure du Script
+                </h3>
+              </div>
+              <div className="script-structure-scroll overflow-y-auto overflow-x-hidden flex-1">
+                <div className="p-2 space-y-2 text-sm pb-4">
+                  {fileTree.map((page) => {
+                    const pageExpanded = expandedNodes.has(page.id)
+                    return (
+                      <div key={page.id} className="space-y-1">
+                        <div className="flex items-center space-x-2 p-2 bg-red-900/20 text-red-400 rounded cursor-pointer hover:bg-red-900/40 touch-target">
+                          <button
+                            onClick={() => toggleNodeExpansion(page.id)}
+                            className="w-4 h-4 flex items-center justify-center hover:bg-red-800/30 rounded"
+                          >
+                            <span className={`transform transition-transform text-sm ${pageExpanded ? 'rotate-90' : ''}`}>
+                              ▶
+                            </span>
+                          </button>
+                          <div
+                            className="flex items-center space-x-2 flex-1"
+                            onClick={() => scrollToLine(page.lineNumber ?? 0)}
+                          >
+                            <FileText className="w-4 h-4" />
+                            <span className="font-medium text-sm truncate">{page.title}</span>
+                          </div>
+                        </div>
+
+                        {pageExpanded && page.children?.map((chapter) => {
+                          const chapterExpanded = expandedNodes.has(chapter.id)
+                          return (
+                            <div key={chapter.id} className="ml-4 space-y-1">
+                              <div className="flex items-center space-x-2 p-2 bg-purple-900/20 text-purple-400 rounded cursor-pointer hover:bg-purple-900/40 touch-target">
+                                <button
+                                  onClick={() => toggleNodeExpansion(chapter.id)}
+                                  className="w-4 h-4 flex items-center justify-center hover:bg-purple-800/30 rounded"
+                                >
+                                  <span className={`transform transition-transform text-sm ${chapterExpanded ? 'rotate-90' : ''}`}>
+                                    ▶
+                                  </span>
+                                </button>
+                                <div
+                                  className="flex items-center space-x-2 flex-1"
+                                  onClick={() => scrollToLine(chapter.lineNumber ?? 0)}
+                                >
+                                  <Book className="w-4 h-4" />
+                                  <span className="font-medium text-sm truncate">{chapter.title}</span>
+                                </div>
+                              </div>
+
+                              {chapterExpanded && chapter.children?.map((panel) => {
+                                const panelExpanded = expandedNodes.has(panel.id)
+                                return (
+                                  <div key={panel.id} className="ml-4 space-y-1">
+                                    <div className="flex items-center space-x-2 p-2 bg-yellow-900/20 text-yellow-400 rounded cursor-pointer hover:bg-yellow-900/40 touch-target">
+                                      <button
+                                        onClick={() => toggleNodeExpansion(panel.id)}
+                                        className="w-4 h-4 flex items-center justify-center hover:bg-yellow-800/30 rounded"
+                                      >
+                                        <span className={`transform transition-transform text-sm ${panelExpanded ? 'rotate-90' : ''}`}>
+                                          ▶
+                                        </span>
+                                      </button>
+                                      <div
+                                        className="flex items-center space-x-2 flex-1"
+                                        onClick={() => scrollToLine(panel.lineNumber ?? 0)}
+                                      >
+                                        <Image className="w-4 h-4" />
+                                        <span className="font-medium text-sm truncate">{panel.title}</span>
+                                      </div>
+                                    </div>
+
+                                    {panelExpanded && panel.children?.map((element) => (
+                                      <div key={element.id} className="ml-4">
+                                        <div
+                                          className={`flex items-center space-x-2 p-2 rounded cursor-pointer text-sm touch-target ${
+                                            element.type === 'dialogue'
+                                              ? 'bg-blue-900/20 text-blue-400 hover:bg-blue-900/40'
+                                              : 'bg-gray-800/20 text-gray-400 hover:bg-gray-800/40'
+                                          }`}
+                                          onClick={() => scrollToLine(element.lineNumber ?? 0)}
+                                        >
+                                          {element.type === 'dialogue' ? (
+                                            <MessageSquare className="w-4 h-4" />
+                                          ) : (
+                                            <Edit3 className="w-4 h-4" />
+                                          )}
+                                          <span className="truncate text-sm">{element.title}</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+                  {fileTree.length === 0 && (
+                    <div className="text-gray-500 text-sm italic p-3 text-center">
+                      Commencez à écrire pour voir la structure...
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </MobileScriptToggle>
       </div>
     </div>
   )

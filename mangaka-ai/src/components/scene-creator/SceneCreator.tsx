@@ -107,8 +107,8 @@ export default function SceneCreator({ onSceneCreated }: SceneCreatorProps = {})
       return
     }
 
-    if (!credits || credits.credits_remaining < 2) {
-      setError('Crédits insuffisants. La création de scène coûte 2 crédits.')
+    if (!credits || (credits.comic_panels_limit - credits.comic_panels_used) < 1) {
+      setError('Crédits insuffisants. La création de scène coûte 1 panneau.')
       return
     }
 
@@ -287,7 +287,7 @@ export default function SceneCreator({ onSceneCreated }: SceneCreatorProps = {})
           {/* Create Scene Button */}
           <button
             onClick={handleCombineScene}
-            disabled={loading || selectedAssets.length === 0 || !sceneContext.trim() || !user || !credits || credits.credits_remaining < 2}
+            disabled={loading || selectedAssets.length === 0 || !sceneContext.trim() || !user || !credits || (credits.comic_panels_limit - credits.comic_panels_used) < 1}
             className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-primary-500/50 text-white py-4 rounded-lg font-semibold text-lg transition-all transform hover:scale-105 disabled:transform-none manga-shadow-lg"
           >
             {loading ? (
@@ -296,7 +296,7 @@ export default function SceneCreator({ onSceneCreated }: SceneCreatorProps = {})
                 Création en cours...
               </div>
             ) : (
-              `Créer la Scène (2 crédits)`
+              `Créer la Scène (1 panneau)`
             )}
           </button>
         </div>
