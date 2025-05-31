@@ -189,12 +189,12 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
               <div
                 key={image.id}
                 onClick={() => addImageToCanvas(image)}
-                className="relative aspect-square rounded overflow-hidden cursor-pointer transition-all transform hover:scale-105 hover:ring-2 hover:ring-primary-500"
+                className="relative aspect-[1136/785] rounded overflow-hidden cursor-pointer transition-all transform hover:scale-105 hover:ring-2 hover:ring-primary-500"
               >
                 <img
                   src={image.image_url}
                   alt={image.original_prompt}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
 
                 {/* Type Badge */}

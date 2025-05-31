@@ -8,10 +8,15 @@ import {
   Calendar,
   Eye,
   Trash2,
-  X
+  X,
+  Grid3X3,
+  List,
+  Star,
+  Palette
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import CharacterDetailModal from './CharacterDetailModal'
+import CharacterPreview from './CharacterPreview'
 
 interface Character {
   id: string
@@ -32,8 +37,11 @@ interface Character {
 
 interface CharacterGalleryProps {
   characters: Character[]
+  favorites?: string[]
   selectedCharacter?: string
   onCharacterSelect?: (character: Character) => void
+  onFavoriteToggle?: (characterId: string) => void
+  onCharacterEdit?: (character: Character) => void
   onCharacterDelete?: (character: Character) => void
   onCharacterDownload?: (character: Character) => void
   onCopyPrompt?: (character: Character) => void
@@ -282,7 +290,7 @@ export default function CharacterGallery({
                 isSelected={selectedCharacter === character.id}
                 isFavorite={favorites.includes(character.id)}
                 onSelect={onCharacterSelect}
-                onFavorite={onFavoriteToggle}
+                onFavorite={() => onFavoriteToggle?.(character.id)}
                 onEdit={onCharacterEdit}
                 onDelete={onCharacterDelete}
                 onDownload={onCharacterDownload}

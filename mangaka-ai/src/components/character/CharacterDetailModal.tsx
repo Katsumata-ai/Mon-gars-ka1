@@ -80,16 +80,16 @@ export default function CharacterDetailModal({
 
         {/* Contenu scrollable */}
         <div className="p-4 space-y-4 overflow-y-auto custom-scrollbar flex-1">
-          {/* Image centralisée et bien cadrée */}
+          {/* Image centralisée avec proportions exactes 1136x785 (ratio 1.447) */}
           <div className="flex justify-center">
-            <div className="relative w-96 h-[28rem] bg-dark-700 border border-dark-600 overflow-hidden">
+            <div className="relative w-[520px] h-[359px] bg-dark-700 border border-dark-600 overflow-hidden">
               {character.image_url && !imageError ? (
                 <>
                   <img
                     src={character.image_url}
                     alt={character.name}
                     className={cn(
-                      'w-full h-full object-cover object-center transition-opacity duration-300',
+                      'w-full h-full object-contain transition-opacity duration-300',
                       imageLoaded ? 'opacity-100' : 'opacity-0'
                     )}
                     onLoad={() => setImageLoaded(true)}

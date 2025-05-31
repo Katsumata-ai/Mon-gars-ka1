@@ -228,31 +228,31 @@ export default function CharacterGeneratorPanel({
     setSelectedTraits(archetype.traits.slice(0, 3)) // Prendre les 3 premiers traits
   }
 
-  const handleFavoriteToggle = async (character: Character) => {
+  const handleFavoriteToggle = async (characterId: string) => {
     try {
-      const isFavorite = favorites.includes(character.id)
+      const isFavorite = favorites.includes(characterId)
 
       if (isFavorite) {
         // Retirer des favoris
-        setFavorites(prev => prev.filter(id => id !== character.id))
+        setFavorites(prev => prev.filter(id => id !== characterId))
 
         // Mettre à jour en base de données
         await supabase
           .from('user_favorites')
           .delete()
           .eq('user_id', user?.id)
-          .eq('item_id', character.id)
+          .eq('item_id', characterId)
           .eq('item_type', 'character')
       } else {
         // Ajouter aux favoris
-        setFavorites(prev => [...prev, character.id])
+        setFavorites(prev => [...prev, characterId])
 
         // Mettre à jour en base de données
         await supabase
           .from('user_favorites')
           .insert({
             user_id: user?.id,
-            item_id: character.id,
+            item_id: characterId,
             item_type: 'character'
           })
       }

@@ -38,6 +38,14 @@ interface ImprovedDecorGalleryProps {
   className?: string
 }
 
+interface DecorCardProps {
+  decor: Decor
+  isSelected: boolean
+  onSelect?: (decor: Decor) => void
+  onExpand: () => void
+  onDelete?: (decor: Decor) => void
+}
+
 type SortOption = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc'
 
 const SORT_OPTIONS = [
@@ -204,15 +212,15 @@ function DecorCard({
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect?.(decor)}
     >
-      {/* Image */}
-      <div className="relative aspect-[3/4] bg-dark-700">
+      {/* Image avec proportions exactes 1136x785 (ratio 1.447) */}
+      <div className="relative aspect-[1136/785] bg-dark-700">
         {decor.image_url && !imageError ? (
           <>
             <img
               src={decor.image_url}
               alt={decor.name}
               className={cn(
-                'w-full h-full object-cover object-center',
+                'w-full h-full object-contain',
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               )}
               onLoad={() => setImageLoaded(true)}

@@ -114,15 +114,15 @@ export default function CharacterPreview({
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect?.(character)}
     >
-      {/* Image Container */}
-      <div className="relative aspect-square bg-dark-700 overflow-hidden">
+      {/* Image Container avec proportions exactes 1136x785 (ratio 1.447) */}
+      <div className="relative aspect-[1136/785] bg-dark-700 overflow-hidden">
         {character.image_url && !imageError ? (
           <>
             <img
               src={character.image_url}
               alt={character.name}
               className={cn(
-                'w-full h-full object-cover transition-all duration-300',
+                'w-full h-full object-contain transition-all duration-300',
                 imageLoaded ? 'opacity-100' : 'opacity-0',
                 isHovered && 'scale-105'
               )}

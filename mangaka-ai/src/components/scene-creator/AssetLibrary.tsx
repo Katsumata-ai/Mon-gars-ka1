@@ -193,7 +193,7 @@ export default function AssetLibrary({
               <div
                 key={asset.id}
                 onClick={() => canSelect && handleAssetClick(asset)}
-                className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer transition-all transform hover:scale-105 ${
+                className={`relative aspect-[1136/785] rounded-lg overflow-hidden cursor-pointer transition-all transform hover:scale-105 ${
                   selected
                     ? 'ring-2 ring-primary-500 ring-offset-2 ring-offset-dark-800'
                     : canSelect
@@ -204,7 +204,7 @@ export default function AssetLibrary({
                 <img
                   src={asset.image_url}
                   alt={asset.original_prompt}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
                 
                 {/* Type Badge */}

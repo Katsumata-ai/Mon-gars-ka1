@@ -234,15 +234,15 @@ function CharacterCard({
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => onSelect?.(character)}
     >
-      {/* Image */}
-      <div className="relative aspect-[3/4] bg-dark-700">
+      {/* Image avec proportions exactes 1136x785 (ratio 1.447) */}
+      <div className="relative aspect-[1136/785] bg-dark-700">
         {character.image_url && !imageError ? (
           <>
             <img
               src={character.image_url}
               alt={character.name}
               className={cn(
-                'w-full h-full object-cover object-center',
+                'w-full h-full object-contain',
                 imageLoaded ? 'opacity-100' : 'opacity-0'
               )}
               onLoad={() => setImageLoaded(true)}

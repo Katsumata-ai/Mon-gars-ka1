@@ -2,6 +2,8 @@
  * Utilitaires pour améliorer l'accessibilité des composants
  */
 
+import React from 'react'
+
 // Générateur d'IDs uniques pour les éléments de formulaire
 let idCounter = 0
 
@@ -13,12 +15,12 @@ export const generateUniqueId = (prefix: string = 'field'): string => {
 // Hook pour générer des IDs stables
 export const useFormFieldId = (prefix: string = 'field'): string => {
   // Utiliser une référence stable pour éviter la régénération
-  const id = React.useRef<string>()
-  
+  const id = React.useRef<string | null>(null)
+
   if (!id.current) {
     id.current = generateUniqueId(prefix)
   }
-  
+
   return id.current
 }
 
@@ -73,5 +75,4 @@ export const AccessibleField: React.FC<AccessibleFieldProps> = ({
   )
 }
 
-// Types pour React (si pas déjà importé)
-import React from 'react'
+

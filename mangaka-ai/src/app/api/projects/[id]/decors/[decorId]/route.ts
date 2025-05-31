@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { deleteImageAtomic } from '@/lib/storage/imageUpload'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,10 +9,10 @@ const supabase = createClient(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; decorId: string } }
+  { params }: { params: Promise<{ id: string; decorId: string }> }
 ) {
   try {
-    const { id: projectId, decorId } = params
+    const { id: projectId, decorId } = await params
 
     if (!projectId || !decorId) {
       return NextResponse.json(
@@ -20,30 +21,52 @@ export async function DELETE(
       )
     }
 
-    // Supprimer le décor de la base de données spécialisée
-    const { error: deleteError } = await supabase
-      .from('decor_images')
-      .delete()
-      .eq('id', decorId)
-      .eq('project_id', projectId)
+    console.log('🗑️ Début de la suppression atomique du décor')
+    console.log(`   - Decor ID: ${decorId}`)
+    console.log(`   - Project ID: ${projectId}`)
 
-    if (deleteError) {
-      console.error('Error deleting decor:', deleteError)
+    // Suppression atomique (base de données + storage)
+    const deleteResult = await deleteImageAtomic(decorId, 'decor', projectId)
+
+    if (!deleteResult.success) {
+      console.error('❌ Échec de la suppression atomique:', deleteResult.error)
+      console.error('📊 Détails:', deleteResult.details)
+
       return NextResponse.json(
-        { error: 'Failed to delete decor' },
+        {
+          error: 'Failed to delete decor completely',
+          success: false,
+          details: deleteResult.error,
+          partialDeletion: deleteResult.details
+        },
         { status: 500 }
       )
     }
 
+    console.log('✅ Suppression atomique réussie')
+    console.log('📊 Détails:', deleteResult.details)
+
     return NextResponse.json(
-      { success: true, message: 'Decor deleted successfully' },
+      {
+        success: true,
+        message: 'Decor deleted successfully',
+        details: {
+          databaseDeleted: deleteResult.details?.databaseDeleted,
+          storageDeleted: deleteResult.details?.storageDeleted,
+          storagePath: deleteResult.details?.storagePath
+        }
+      },
       { status: 200 }
     )
 
   } catch (error) {
-    console.error('Error in DELETE /api/projects/[id]/decors/[decorId]:', error)
+    console.error('🚨 Erreur critique dans DELETE /api/projects/[id]/decors/[decorId]:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        error: 'Internal server error',
+        success: false,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     )
   }
@@ -51,10 +74,10 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; decorId: string } }
+  { params }: { params: Promise<{ id: string; decorId: string }> }
 ) {
   try {
-    const { id: projectId, decorId } = params
+    const { id: projectId, decorId } = await params
 
     if (!projectId || !decorId) {
       return NextResponse.json(

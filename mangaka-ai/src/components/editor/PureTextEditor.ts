@@ -211,7 +211,7 @@ export class PureTextEditor {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
-      let highlightedLine = this.escapeHtml(line || '\u00A0')
+      const highlightedLine = this.escapeHtml(line || '\u00A0')
       let color = '#e5e7eb'
       let fontWeight = '400'
 

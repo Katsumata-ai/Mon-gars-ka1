@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { uploadImageWithRetry } from '@/lib/storage/imageUpload'
 
 interface GenerateImageRequest {
   prompt: string
@@ -65,6 +66,10 @@ async function generateImageWithXai(prompt: string): Promise<string> {
     console.error('❌ XAI_API_KEY non configurée')
     throw new Error('XAI_API_KEY not configured')
   }
+
+  // Masquer la clé API dans les logs pour la sécurité
+  const maskedKey = XAI_API_KEY.substring(0, 8) + '...' + XAI_API_KEY.substring(XAI_API_KEY.length - 4)
+  console.log('🔑 Utilisation de la clé API:', maskedKey)
 
   try {
     // Tentative d'appel à l'API xAI avec timeout
@@ -169,18 +174,16 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('🚨 Erreur lors de la génération d\'image:', error)
 
-      // Fallback avec images de test thématiques
-      const testImages = [
-        'https://picsum.photos/1024/1024?random=manga1',
-        'https://picsum.photos/1024/1024?random=manga2',
-        'https://picsum.photos/1024/1024?random=manga3',
-        'https://picsum.photos/1024/1024?random=manga4',
-        'https://picsum.photos/1024/1024?random=manga5'
-      ]
-
-      const randomIndex = Math.floor(Math.random() * testImages.length)
-      imageUrl = testImages[randomIndex]
-      console.log('🎭 Utilisation d\'une image de test:', imageUrl)
+      // Retourner une erreur claire au lieu d'utiliser des images de test
+      return NextResponse.json(
+        {
+          error: 'Image generation failed',
+          success: false,
+          details: error instanceof Error ? error.message : 'Unknown error occurred',
+          message: 'La génération d\'image a échoué. Veuillez réessayer ou contacter le support si le problème persiste.'
+        },
+        { status: 500 }
+      )
     }
 
     const generationTime = Date.now() - startTime
@@ -188,9 +191,44 @@ export async function POST(request: NextRequest) {
     // Generate unique ID for this image
     const imageId = crypto.randomUUID()
 
-    // For now, use the image URL directly
-    // In production, you would upload to Supabase Storage here
-    const publicUrl = imageUrl
+    // Upload image to Supabase Storage for permanent storage
+    console.log('📦 Téléchargement de l\'image vers Supabase Storage...')
+
+    let publicUrl: string
+    let storagePath: string | undefined
+
+    try {
+      const uploadResult = await uploadImageWithRetry(imageUrl, user.id, imageId, type as 'character' | 'background' | 'scene')
+
+      if (!uploadResult.success) {
+        console.error('❌ Échec du stockage permanent:', uploadResult.error)
+        return NextResponse.json(
+          {
+            error: 'Image storage failed',
+            success: false,
+            details: uploadResult.error,
+            message: 'L\'image a été générée mais n\'a pas pu être sauvegardée. Veuillez réessayer.'
+          },
+          { status: 500 }
+        )
+      }
+
+      publicUrl = uploadResult.publicUrl!
+      storagePath = uploadResult.storagePath
+      console.log('✅ Image stockée de manière permanente:', publicUrl)
+
+    } catch (error) {
+      console.error('🚨 Erreur lors du stockage:', error)
+      return NextResponse.json(
+        {
+          error: 'Image storage failed',
+          success: false,
+          details: error instanceof Error ? error.message : 'Storage error',
+          message: 'L\'image a été générée mais n\'a pas pu être sauvegardée. Veuillez réessayer.'
+        },
+        { status: 500 }
+      )
+    }
 
     // Save to database
     console.log('💾 Sauvegarde en base de données...')
@@ -199,21 +237,18 @@ export async function POST(request: NextRequest) {
       id: imageId,
       user_id: user.id,
       project_id: projectId,
-      prompt: finalPrompt || prompt, // Colonne requise NOT NULL - utilise finalPrompt ou prompt en fallback
       original_prompt: prompt,
       optimized_prompt: finalPrompt,
       image_url: publicUrl,
-      image_type: type,
-      credits_used: 1,
-      generation_time_ms: generationTime,
-      metadata: metadata || {}
+      metadata: {
+        ...metadata,
+        storage_path: storagePath,
+        is_permanent: true,
+        original_xai_url: imageUrl,
+        upload_success: true,
+        upload_error: null
+      }
     }
-
-    // Debug: vérifier que prompt n'est pas null
-    console.log('🔍 Vérification des valeurs:')
-    console.log('   - prompt original:', prompt)
-    console.log('   - finalPrompt:', finalPrompt)
-    console.log('   - prompt dans record:', imageRecord.prompt)
 
     console.log('📝 Données à insérer:', imageRecord)
 
@@ -221,26 +256,26 @@ export async function POST(request: NextRequest) {
     const targetTable = type === 'character' ? 'character_images' : 'decor_images'
     console.log(`🎯 Sauvegarde dans la table: ${targetTable}`)
 
-    // Préparer les données pour les nouvelles tables (sans image_type et credits_used)
-    const { image_type, credits_used, generation_time_ms, ...cleanRecord } = imageRecord
-
     const { error: insertError } = await supabase
       .from(targetTable)
-      .insert(cleanRecord)
+      .insert(imageRecord)
 
     if (insertError) {
-      console.error('❌ Erreur lors de la sauvegarde:', insertError)
+      console.error('❌ Erreur lors de la sauvegarde en base de données:', insertError)
       console.error('📊 Détails de l\'erreur:', {
         message: insertError.message,
         details: insertError.details,
         hint: insertError.hint,
         code: insertError.code
       })
+
+      // L'image est stockée mais pas sauvegardée en DB - c'est un problème critique
       return NextResponse.json(
         {
-          error: `Failed to save image record: ${insertError.message}`,
+          error: 'Database save failed',
           success: false,
-          details: insertError.details
+          details: insertError.message,
+          message: 'L\'image a été générée et stockée, mais n\'a pas pu être enregistrée en base de données. Contactez le support.'
         },
         { status: 500 }
       )
@@ -257,9 +292,12 @@ export async function POST(request: NextRequest) {
         imageUrl: publicUrl,
         originalPrompt: prompt,
         optimizedPrompt: finalPrompt,
+        generationTimeMs: generationTime,
+        storagePath,
+        isPermanent: true,
+        originalXaiUrl: imageUrl,
         creditsUsed: 0, // Temporairement désactivé
-        creditsRemaining: 999999, // Illimité pour le développement
-        generationTimeMs: generationTime
+        creditsRemaining: 999999 // Illimité pour le développement
       }
     })
 
