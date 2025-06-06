@@ -46,12 +46,12 @@ export const AccessibleField: React.FC<AccessibleFieldProps> = ({
   const descriptionId = description ? `${fieldId}-desc` : undefined
   
   // Cloner l'élément enfant avec les props d'accessibilité
-  const childWithProps = React.cloneElement(children, {
+  const childWithProps = React.cloneElement(children as React.ReactElement<any>, {
     id: fieldId,
     name: name || fieldId,
     'aria-required': required,
     'aria-describedby': descriptionId,
-    ...children.props
+    ...(children.props || {})
   })
 
   return (

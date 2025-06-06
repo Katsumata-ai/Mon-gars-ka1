@@ -89,7 +89,7 @@ export default function MobileHamburgerMenu({
 
       {/* Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" />
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" suppressHydrationWarning={true} />
       )}
 
       {/* Menu Sidebar */}
@@ -99,11 +99,11 @@ export default function MobileHamburgerMenu({
         'transform transition-transform duration-300 ease-out',
         'w-80 max-w-[85vw]',
         isOpen ? 'translate-x-0' : '-translate-x-full'
-      )}>
+      )} suppressHydrationWarning={true}>
         {/* Header */}
-        <div className="p-4 border-b border-dark-700">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="p-4 border-b border-dark-700" suppressHydrationWarning={true}>
+          <div className="flex items-center justify-between" suppressHydrationWarning={true}>
+            <div suppressHydrationWarning={true}>
               <h2 className="text-lg font-bold text-white truncate">
                 {projectName}
               </h2>
@@ -119,7 +119,7 @@ export default function MobileHamburgerMenu({
         </div>
 
         {/* Actions principales */}
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3" suppressHydrationWarning={true}>
           <MangaButton
             onClick={() => handleMenuAction(onSave || (() => {}))}
             loading={saving}
@@ -130,7 +130,7 @@ export default function MobileHamburgerMenu({
             Sauvegarder
           </MangaButton>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3" suppressHydrationWarning={true}>
             <MangaButton
               onClick={() => handleMenuAction(onPagesToggle || (() => {}))}
               size="md"
@@ -154,18 +154,18 @@ export default function MobileHamburgerMenu({
         </div>
 
         {/* Menu secondaire */}
-        <div className="px-4 py-2 border-t border-dark-700 mt-4">
-          <div className="space-y-2">
+        <div className="px-4 py-2 border-t border-dark-700 mt-4" suppressHydrationWarning={true}>
+          <div className="space-y-2" suppressHydrationWarning={true}>
             <button className="w-full flex items-center space-x-3 px-3 py-3 text-dark-300 hover:bg-dark-700 hover:text-white rounded-lg transition-colors">
               <Settings className="w-5 h-5" />
               <span>Paramètres</span>
             </button>
-            
+
             <button className="w-full flex items-center space-x-3 px-3 py-3 text-dark-300 hover:bg-dark-700 hover:text-white rounded-lg transition-colors">
               <User className="w-5 h-5" />
               <span>Profil</span>
             </button>
-            
+
             <button className="w-full flex items-center space-x-3 px-3 py-3 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-colors">
               <LogOut className="w-5 h-5" />
               <span>Déconnexion</span>
@@ -174,8 +174,8 @@ export default function MobileHamburgerMenu({
         </div>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-dark-700 bg-dark-900">
-          <div className="text-xs text-dark-500 text-center">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-dark-700 bg-dark-900" suppressHydrationWarning={true}>
+          <div className="text-xs text-dark-500 text-center" suppressHydrationWarning={true}>
             MANGAKA AI v2.0 Mobile
           </div>
         </div>

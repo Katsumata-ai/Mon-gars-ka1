@@ -580,7 +580,7 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
   }, [])
 
   return (
-    <div className={`h-screen flex flex-col bg-gray-900 text-gray-100 overflow-hidden transition-all duration-300 ${isResizing ? 'select-none' : ''}`}>
+    <div className={`h-screen flex flex-col bg-gray-900 text-gray-100 overflow-hidden transition-all duration-300 ${isResizing ? 'select-none' : ''}`} suppressHydrationWarning={true}>
       {/* CSS simple pour scrollbars */}
       <style jsx global>{`
         .script-line-numbers::-webkit-scrollbar,
@@ -659,29 +659,29 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
 
       {/* Overlay de redimensionnement simplifié */}
       {isResizing && (
-        <div className="fixed inset-0 bg-gray-900/20 z-30 pointer-events-none">
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-gray-200 px-2 py-1 rounded text-xs shadow-lg border border-gray-600">
+        <div className="fixed inset-0 bg-gray-900/20 z-30 pointer-events-none" suppressHydrationWarning={true}>
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-gray-200 px-2 py-1 rounded text-xs shadow-lg border border-gray-600" suppressHydrationWarning={true}>
             Redimensionnement...
           </div>
         </div>
       )}
       {/* Message d'information pour les utilisateurs non connectés */}
       {!authLoading && !user && (
-        <div className="bg-yellow-900/20 border-b border-yellow-700 px-4 py-2 flex items-center gap-2 text-yellow-200 text-sm">
+        <div className="bg-yellow-900/20 border-b border-yellow-700 px-4 py-2 flex items-center gap-2 text-yellow-200 text-sm" suppressHydrationWarning={true}>
           ⚠️
           <span>Vous n&apos;êtes pas connecté. L&apos;auto-sauvegarde est désactivée. Vos modifications ne seront pas conservées.</span>
         </div>
       )}
 
       {/* Barre d'outils moderne et élégante - Responsive avec scrollbar conditionnelle */}
-      <div className="bg-gradient-to-r from-gray-800 to-gray-750 border-b border-gray-600 px-2 md:px-4 py-2 flex-shrink-0 shadow-lg">
-        <div className="flex items-center justify-between">
+      <div className="bg-gradient-to-r from-gray-800 to-gray-750 border-b border-gray-600 px-2 md:px-4 py-2 flex-shrink-0 shadow-lg" suppressHydrationWarning={true}>
+        <div className="flex items-center justify-between" suppressHydrationWarning={true}>
           {/* Boutons d'insertion dans l'ordre chronologique - Responsive avec scrollbar conditionnelle */}
           <div className={`flex items-center gap-1.5 md:gap-2 ${pagesSidebarVisible ? 'overflow-x-auto' : 'overflow-x-auto scrollbar-hide'}`}
                style={pagesSidebarVisible ? {
                  scrollbarWidth: 'thin',
                  scrollbarColor: 'rgba(107, 114, 128, 0.5) rgba(55, 65, 81, 0.3)'
-               } : {}}>
+               } : {}} suppressHydrationWarning={true}>
             <button
               onClick={insertPage}
               className="group flex items-center space-x-1.5 bg-red-600 hover:bg-red-500 active:bg-red-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-red-500/20 touch-target flex-shrink-0 border border-red-500/20 hover:border-red-400/40"
@@ -729,8 +729,8 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
           </div>
 
           {/* Contrôles d'export avec design professionnel compact - Responsive */}
-          <div className="flex items-center gap-2 md:gap-4 ml-6 md:ml-12">
-            <div className="flex items-center gap-1.5 md:gap-2">
+          <div className="flex items-center gap-2 md:gap-4 ml-6 md:ml-12" suppressHydrationWarning={true}>
+            <div className="flex items-center gap-1.5 md:gap-2" suppressHydrationWarning={true}>
               <button
                 onClick={exportToTXT}
                 className="group flex items-center space-x-1.5 bg-green-600 hover:bg-green-500 active:bg-green-700 text-white px-2.5 md:px-3 py-1.5 md:py-2 rounded-md text-xs md:text-sm font-medium transition-all duration-300 ease-out hover:shadow-lg hover:shadow-green-500/20 touch-target border border-green-500/20 hover:border-green-400/40"
@@ -759,11 +759,11 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
       <MobileScriptStats stats={stats} />
 
       {/* Zone principale avec éditeur et sidebar - Responsive */}
-      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden" suppressHydrationWarning={true}>
         {/* Éditeur de texte principal moderne et élégant */}
-        <div className="flex-1 flex flex-col min-h-0 relative">
-          <div className="p-2 md:p-6">
-            <div className="w-full max-w-none mx-auto relative">
+        <div className="flex-1 flex flex-col min-h-0 relative" suppressHydrationWarning={true}>
+          <div className="p-2 md:p-6" suppressHydrationWarning={true}>
+            <div className="w-full max-w-none mx-auto relative" suppressHydrationWarning={true}>
               {/* Conteneur redimensionnable avec design professionnel */}
               <div
                 className={`relative flex border rounded-lg overflow-hidden bg-gray-900 shadow-xl transition-all duration-300 ${isFocused ? 'border-gray-500 shadow-gray-500/10' : 'border-gray-700'}`}
@@ -772,6 +772,7 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
                   minHeight: '260px', // 10 lignes minimum
                   maxHeight: '1200px'
                 }}
+                suppressHydrationWarning={true}
               >
                 {/* Poignée de redimensionnement en haut discrète */}
                 <div
@@ -779,8 +780,9 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
                   onMouseDown={(e) => startVerticalResize(e, 'top')}
                   title="Redimensionner par le haut"
                   style={{ pointerEvents: 'auto' }}
+                  suppressHydrationWarning={true}
                 >
-                  <div className="w-8 h-0.5 bg-gray-400/40 group-hover:bg-white/60 rounded-full transition-colors duration-300"></div>
+                  <div className="w-8 h-0.5 bg-gray-400/40 group-hover:bg-white/60 rounded-full transition-colors duration-300" suppressHydrationWarning={true}></div>
                 </div>
 
                 {/* Poignée de redimensionnement en bas discrète */}
@@ -789,8 +791,9 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
                   onMouseDown={(e) => startVerticalResize(e, 'bottom')}
                   title="Redimensionner par le bas"
                   style={{ pointerEvents: 'auto' }}
+                  suppressHydrationWarning={true}
                 >
-                  <div className="w-8 h-0.5 bg-gray-400/40 group-hover:bg-white/60 rounded-full transition-colors duration-300"></div>
+                  <div className="w-8 h-0.5 bg-gray-400/40 group-hover:bg-white/60 rounded-full transition-colors duration-300" suppressHydrationWarning={true}></div>
                 </div>
 
                 {/* Native Script Editor - Zero React Overhead */}
@@ -807,44 +810,44 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
         </div>
 
         {/* Sidebar moderne avec statistiques et navigation - Desktop uniquement */}
-        <div className="hidden lg:flex w-64 bg-gradient-to-b from-gray-800 to-gray-900 border-l border-gray-600/50 flex-col h-full shadow-xl">
+        <div className="hidden lg:flex w-64 bg-gradient-to-b from-gray-800 to-gray-900 border-l border-gray-600/50 flex-col h-full shadow-xl" suppressHydrationWarning={true}>
           {/* Statistiques compactes avec design moderne */}
-          <div className="p-2 border-b border-gray-700 flex-shrink-0 bg-gradient-to-r from-gray-800 to-gray-750">
+          <div className="p-2 border-b border-gray-700 flex-shrink-0 bg-gradient-to-r from-gray-800 to-gray-750" suppressHydrationWarning={true}>
             <h3 className="text-xs font-semibold mb-2 text-white flex items-center">
               <BarChart3 className="w-3 h-3 mr-1 text-blue-400" />
               Statistiques
             </h3>
-            <div className="grid grid-cols-6 lg:grid-cols-3 gap-1 text-xs">
-              <div className="bg-purple-600/20 border border-purple-500/30 p-1 rounded text-center hover:bg-purple-600/30 transition-colors touch-target">
-                <div className="text-purple-300 text-xs font-medium">Chapitres</div>
-                <div className="text-xs font-bold text-white">{stats.chapters}</div>
+            <div className="grid grid-cols-6 lg:grid-cols-3 gap-1 text-xs" suppressHydrationWarning={true}>
+              <div className="bg-purple-600/20 border border-purple-500/30 p-1 rounded text-center hover:bg-purple-600/30 transition-colors touch-target" suppressHydrationWarning={true}>
+                <div className="text-purple-300 text-xs font-medium" suppressHydrationWarning={true}>Chapitres</div>
+                <div className="text-xs font-bold text-white" suppressHydrationWarning={true}>{stats.chapters}</div>
               </div>
-              <div className="bg-red-600/20 border border-red-500/30 p-1 rounded text-center hover:bg-red-600/30 transition-colors touch-target">
-                <div className="text-red-300 text-xs font-medium">Pages</div>
-                <div className="text-xs font-bold text-white">{stats.pages}</div>
+              <div className="bg-red-600/20 border border-red-500/30 p-1 rounded text-center hover:bg-red-600/30 transition-colors touch-target" suppressHydrationWarning={true}>
+                <div className="text-red-300 text-xs font-medium" suppressHydrationWarning={true}>Pages</div>
+                <div className="text-xs font-bold text-white" suppressHydrationWarning={true}>{stats.pages}</div>
               </div>
-              <div className="bg-yellow-600/20 border border-yellow-500/30 p-1 rounded text-center hover:bg-yellow-600/30 transition-colors touch-target">
-                <div className="text-yellow-300 text-xs font-medium">Panneaux</div>
-                <div className="text-xs font-bold text-white">{stats.panels}</div>
+              <div className="bg-yellow-600/20 border border-yellow-500/30 p-1 rounded text-center hover:bg-yellow-600/30 transition-colors touch-target" suppressHydrationWarning={true}>
+                <div className="text-yellow-300 text-xs font-medium" suppressHydrationWarning={true}>Panneaux</div>
+                <div className="text-xs font-bold text-white" suppressHydrationWarning={true}>{stats.panels}</div>
               </div>
-              <div className="bg-blue-600/20 border border-blue-500/30 p-1 rounded text-center hover:bg-blue-600/30 transition-colors touch-target">
-                <div className="text-blue-300 text-xs font-medium">Dialogues</div>
-                <div className="text-xs font-bold text-white">{stats.dialogues}</div>
+              <div className="bg-blue-600/20 border border-blue-500/30 p-1 rounded text-center hover:bg-blue-600/30 transition-colors touch-target" suppressHydrationWarning={true}>
+                <div className="text-blue-300 text-xs font-medium" suppressHydrationWarning={true}>Dialogues</div>
+                <div className="text-xs font-bold text-white" suppressHydrationWarning={true}>{stats.dialogues}</div>
               </div>
-              <div className="bg-green-600/20 border border-green-500/30 p-1 rounded text-center hover:bg-green-600/30 transition-colors touch-target">
-                <div className="text-green-300 text-xs font-medium">Mots</div>
-                <div className="text-xs font-bold text-white">{stats.words}</div>
+              <div className="bg-green-600/20 border border-green-500/30 p-1 rounded text-center hover:bg-green-600/30 transition-colors touch-target" suppressHydrationWarning={true}>
+                <div className="text-green-300 text-xs font-medium" suppressHydrationWarning={true}>Mots</div>
+                <div className="text-xs font-bold text-white" suppressHydrationWarning={true}>{stats.words}</div>
               </div>
-              <div className="bg-gray-600/20 border border-gray-500/30 p-1 rounded text-center hover:bg-gray-600/30 transition-colors touch-target">
-                <div className="text-gray-300 text-xs font-medium">Caractères</div>
-                <div className="text-xs font-bold text-white">{stats.characters}</div>
+              <div className="bg-gray-600/20 border border-gray-500/30 p-1 rounded text-center hover:bg-gray-600/30 transition-colors touch-target" suppressHydrationWarning={true}>
+                <div className="text-gray-300 text-xs font-medium" suppressHydrationWarning={true}>Caractères</div>
+                <div className="text-xs font-bold text-white" suppressHydrationWarning={true}>{stats.characters}</div>
               </div>
             </div>
           </div>
 
           {/* Gestionnaire de fichiers hiérarchique avec scroll intelligent - Responsive */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="p-2 flex-shrink-0">
+          <div className="flex-1 flex flex-col min-h-0" suppressHydrationWarning={true}>
+            <div className="p-2 flex-shrink-0" suppressHydrationWarning={true}>
               <h3 className="text-xs font-semibold text-white flex items-center">
                 <BookOpen className="w-3 h-3 mr-1 text-green-400" />
                 Structure du Script
@@ -854,13 +857,14 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
               ref={structureScrollRef}
               className="script-structure-scroll overflow-y-auto overflow-x-hidden max-h-[270px] min-h-[200px] lg:max-h-[270px] lg:min-h-[200px] md:max-h-[200px] md:min-h-[150px]"
               onScroll={handleStructureScroll}
+              suppressHydrationWarning={true}
             >
-              <div className="p-1 space-y-1 text-xs pb-2">
+              <div className="p-1 space-y-1 text-xs pb-2" suppressHydrationWarning={true}>
               {fileTree.map((page) => {
                 const pageExpanded = expandedNodes.has(page.id)
                 return (
-                  <div key={page.id} className="space-y-1">
-                    <div className="flex items-center space-x-1 p-1 bg-red-900/20 text-red-400 rounded cursor-pointer hover:bg-red-900/40">
+                  <div key={page.id} className="space-y-1" suppressHydrationWarning={true}>
+                    <div className="flex items-center space-x-1 p-1 bg-red-900/20 text-red-400 rounded cursor-pointer hover:bg-red-900/40" suppressHydrationWarning={true}>
                       <button
                         onClick={() => toggleNodeExpansion(page.id)}
                         className="w-3 h-3 flex items-center justify-center hover:bg-red-800/30 rounded"
@@ -872,6 +876,7 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
                       <div
                         className="flex items-center space-x-1 flex-1"
                         onClick={() => scrollToLine(page.lineNumber ?? 0)}
+                        suppressHydrationWarning={true}
                       >
                         <FileText className="w-3 h-3" />
                         <span className="font-medium text-xs truncate">{page.title}</span>
@@ -951,7 +956,7 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
                 )
               })}
                 {fileTree.length === 0 && (
-                  <div className="text-gray-500 text-xs italic p-2">
+                  <div className="text-gray-500 text-xs italic p-2" suppressHydrationWarning={true}>
                     Commencez à écrire pour voir la structure...
                   </div>
                 )}
@@ -965,51 +970,51 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
         {/* Toggle mobile pour la sidebar */}
         <MobileScriptToggle>
           {/* Contenu de la sidebar pour mobile */}
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full" suppressHydrationWarning={true}>
             {/* Statistiques pour mobile dans la sidebar */}
-            <div className="p-3 border-b border-gray-700 flex-shrink-0">
+            <div className="p-3 border-b border-gray-700 flex-shrink-0" suppressHydrationWarning={true}>
               <h3 className="text-sm font-semibold mb-3 text-white flex items-center">
                 <BarChart3 className="w-4 h-4 mr-2 text-blue-400" />
                 Statistiques
               </h3>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-purple-600/20 border border-purple-500/30 p-2 rounded text-center hover:bg-purple-600/30 transition-colors">
-                  <div className="text-purple-300 text-xs font-medium">Chapitres</div>
-                  <div className="text-sm font-bold text-white">{stats.chapters}</div>
+              <div className="grid grid-cols-2 gap-2 text-xs" suppressHydrationWarning={true}>
+                <div className="bg-purple-600/20 border border-purple-500/30 p-2 rounded text-center hover:bg-purple-600/30 transition-colors" suppressHydrationWarning={true}>
+                  <div className="text-purple-300 text-xs font-medium" suppressHydrationWarning={true}>Chapitres</div>
+                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.chapters}</div>
                 </div>
-                <div className="bg-red-600/20 border border-red-500/30 p-2 rounded text-center hover:bg-red-600/30 transition-colors">
-                  <div className="text-red-300 text-xs font-medium">Pages</div>
-                  <div className="text-sm font-bold text-white">{stats.pages}</div>
+                <div className="bg-red-600/20 border border-red-500/30 p-2 rounded text-center hover:bg-red-600/30 transition-colors" suppressHydrationWarning={true}>
+                  <div className="text-red-300 text-xs font-medium" suppressHydrationWarning={true}>Pages</div>
+                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.pages}</div>
                 </div>
-                <div className="bg-yellow-600/20 border border-yellow-500/30 p-2 rounded text-center hover:bg-yellow-600/30 transition-colors">
-                  <div className="text-yellow-300 text-xs font-medium">Panneaux</div>
-                  <div className="text-sm font-bold text-white">{stats.panels}</div>
+                <div className="bg-yellow-600/20 border border-yellow-500/30 p-2 rounded text-center hover:bg-yellow-600/30 transition-colors" suppressHydrationWarning={true}>
+                  <div className="text-yellow-300 text-xs font-medium" suppressHydrationWarning={true}>Panneaux</div>
+                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.panels}</div>
                 </div>
-                <div className="bg-blue-600/20 border border-blue-500/30 p-2 rounded text-center hover:bg-blue-600/30 transition-colors">
-                  <div className="text-blue-300 text-xs font-medium">Dialogues</div>
-                  <div className="text-sm font-bold text-white">{stats.dialogues}</div>
+                <div className="bg-blue-600/20 border border-blue-500/30 p-2 rounded text-center hover:bg-blue-600/30 transition-colors" suppressHydrationWarning={true}>
+                  <div className="text-blue-300 text-xs font-medium" suppressHydrationWarning={true}>Dialogues</div>
+                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.dialogues}</div>
                 </div>
-                <div className="bg-green-600/20 border border-green-500/30 p-2 rounded text-center hover:bg-green-600/30 transition-colors">
-                  <div className="text-green-300 text-xs font-medium">Mots</div>
-                  <div className="text-sm font-bold text-white">{stats.words}</div>
+                <div className="bg-green-600/20 border border-green-500/30 p-2 rounded text-center hover:bg-green-600/30 transition-colors" suppressHydrationWarning={true}>
+                  <div className="text-green-300 text-xs font-medium" suppressHydrationWarning={true}>Mots</div>
+                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.words}</div>
                 </div>
-                <div className="bg-gray-600/20 border border-gray-500/30 p-2 rounded text-center hover:bg-gray-600/30 transition-colors">
-                  <div className="text-gray-300 text-xs font-medium">Caractères</div>
-                  <div className="text-sm font-bold text-white">{stats.characters}</div>
+                <div className="bg-gray-600/20 border border-gray-500/30 p-2 rounded text-center hover:bg-gray-600/30 transition-colors" suppressHydrationWarning={true}>
+                  <div className="text-gray-300 text-xs font-medium" suppressHydrationWarning={true}>Caractères</div>
+                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.characters}</div>
                 </div>
               </div>
             </div>
 
             {/* Structure du script pour mobile */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <div className="p-3 flex-shrink-0">
+            <div className="flex-1 flex flex-col min-h-0" suppressHydrationWarning={true}>
+              <div className="p-3 flex-shrink-0" suppressHydrationWarning={true}>
                 <h3 className="text-sm font-semibold text-white flex items-center">
                   <BookOpen className="w-4 h-4 mr-2 text-green-400" />
                   Structure du Script
                 </h3>
               </div>
-              <div className="script-structure-scroll overflow-y-auto overflow-x-hidden flex-1">
-                <div className="p-2 space-y-2 text-sm pb-4">
+              <div className="script-structure-scroll overflow-y-auto overflow-x-hidden flex-1" suppressHydrationWarning={true}>
+                <div className="p-2 space-y-2 text-sm pb-4" suppressHydrationWarning={true}>
                   {fileTree.map((page) => {
                     const pageExpanded = expandedNodes.has(page.id)
                     return (
@@ -1105,7 +1110,7 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
                     )
                   })}
                   {fileTree.length === 0 && (
-                    <div className="text-gray-500 text-sm italic p-3 text-center">
+                    <div className="text-gray-500 text-sm italic p-3 text-center" suppressHydrationWarning={true}>
                       Commencez à écrire pour voir la structure...
                     </div>
                   )}

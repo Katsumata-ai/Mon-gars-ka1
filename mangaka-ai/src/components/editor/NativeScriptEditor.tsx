@@ -139,7 +139,7 @@ export default function NativeScriptEditor({ projectId, onStatsUpdate }: NativeS
   }, [isInitialized, insertAtCursor, scrollToLine, focus, getCurrentLine, ensureCursorVisible])
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full" suppressHydrationWarning={true}>
       {/* Line Numbers */}
       <div
         ref={lineNumbersRef}
@@ -149,68 +149,71 @@ export default function NativeScriptEditor({ projectId, onStatsUpdate }: NativeS
           borderRight: '1px solid rgba(75, 85, 99, 0.3)',
           zIndex: 5
         }}
+        suppressHydrationWarning={true}
       />
 
       {/* Editor Container */}
-      <div 
+      <div
         className="absolute left-16 right-0 top-0 bottom-0"
         style={{
           background: 'linear-gradient(180deg, rgba(17, 24, 39, 1) 0%, rgba(31, 41, 55, 0.95) 100%)'
         }}
+        suppressHydrationWarning={true}
       >
         {/* Syntax Highlighting Overlay */}
         <div
           ref={overlayRef}
           className="absolute inset-0"
           style={{ zIndex: 10 }}
+          suppressHydrationWarning={true}
         />
 
         {/* Tutorial Placeholder - Conditional Visibility */}
         {(!currentContent || currentContent.trim() === '') && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 15 }}>
-            <div className="bg-gray-800/95 backdrop-blur-sm rounded-lg p-3 border border-gray-600/30 shadow-xl max-w-xs mx-4">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 15 }} suppressHydrationWarning={true}>
+            <div className="bg-gray-800/95 backdrop-blur-sm rounded-lg p-3 border border-gray-600/30 shadow-xl max-w-xs mx-4" suppressHydrationWarning={true}>
               {/* Header ultra-compact */}
-              <div className="text-center mb-2">
-                <div className="text-base mb-1">📖</div>
+              <div className="text-center mb-2" suppressHydrationWarning={true}>
+                <div className="text-base mb-1" suppressHydrationWarning={true}>📖</div>
                 <h3 className="text-white text-sm font-medium mb-1">Structure de Script Manga</h3>
                 <p className="text-gray-400 text-xs">Format pour organiser votre histoire</p>
               </div>
 
               {/* Exemples ultra-compacts avec couleurs */}
-              <div className="space-y-1 font-mono text-xs">
-                <div className="flex items-center space-x-1.5">
-                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0"></div>
+              <div className="space-y-1 font-mono text-xs" suppressHydrationWarning={true}>
+                <div className="flex items-center space-x-1.5" suppressHydrationWarning={true}>
+                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0" suppressHydrationWarning={true}></div>
                   <span className="text-red-400 font-medium">PAGE 1:</span>
                   <span className="text-gray-500 text-xs">Nouvelle page</span>
                 </div>
 
-                <div className="flex items-center space-x-1.5">
-                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0"></div>
+                <div className="flex items-center space-x-1.5" suppressHydrationWarning={true}>
+                  <div className="w-1.5 h-1.5 bg-purple-500 rounded-full flex-shrink-0" suppressHydrationWarning={true}></div>
                   <span className="text-purple-400 font-medium">CHAPITRE 1: Titre</span>
                   <span className="text-gray-500 text-xs">Chapitre</span>
                 </div>
 
-                <div className="flex items-center space-x-1.5">
-                  <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full flex-shrink-0"></div>
+                <div className="flex items-center space-x-1.5" suppressHydrationWarning={true}>
+                  <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full flex-shrink-0" suppressHydrationWarning={true}></div>
                   <span className="text-yellow-400 font-medium">PANEL 1:</span>
                   <span className="text-gray-500 text-xs">Case</span>
                 </div>
 
-                <div className="flex items-center space-x-1.5">
-                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
+                <div className="flex items-center space-x-1.5" suppressHydrationWarning={true}>
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0" suppressHydrationWarning={true}></div>
                   <span className="text-blue-400 font-medium">[HÉROS]: Dialogue</span>
                   <span className="text-gray-500 text-xs">Paroles</span>
                 </div>
 
-                <div className="flex items-center space-x-1.5">
-                  <div className="w-1.5 h-1.5 bg-gray-500 rounded-full flex-shrink-0"></div>
+                <div className="flex items-center space-x-1.5" suppressHydrationWarning={true}>
+                  <div className="w-1.5 h-1.5 bg-gray-500 rounded-full flex-shrink-0" suppressHydrationWarning={true}></div>
                   <span className="text-gray-400 font-medium">(Description)</span>
                   <span className="text-gray-500 text-xs">Action</span>
                 </div>
               </div>
 
               {/* Call to action ultra-compact */}
-              <div className="text-center mt-2 pt-1.5 border-t border-gray-600/20">
+              <div className="text-center mt-2 pt-1.5 border-t border-gray-600/20" suppressHydrationWarning={true}>
                 <p className="text-gray-400 text-xs">
                   Cliquez pour commencer à écrire
                 </p>

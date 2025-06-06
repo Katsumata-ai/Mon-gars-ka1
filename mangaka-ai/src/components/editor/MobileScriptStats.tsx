@@ -85,16 +85,16 @@ export default function MobileScriptStats({ stats, className }: MobileScriptStat
     <div className={cn(
       'bg-gradient-to-r from-gray-800 to-gray-750 border-b border-gray-700 p-2 md:hidden',
       className
-    )}>
-      <div className="flex items-center justify-between mb-2">
+    )} suppressHydrationWarning={true}>
+      <div className="flex items-center justify-between mb-2" suppressHydrationWarning={true}>
         <h3 className="text-xs font-semibold text-white flex items-center">
           <BarChart3 className="w-3 h-3 mr-1 text-blue-400" />
           Stats
         </h3>
       </div>
-      
+
       {/* Version mobile compacte */}
-      <div className="flex items-center justify-between gap-1 overflow-x-auto scrollbar-hide">
+      <div className="flex items-center justify-between gap-1 overflow-x-auto scrollbar-hide" suppressHydrationWarning={true}>
         {statsData.map((stat, index) => (
           <div
             key={index}
@@ -106,11 +106,12 @@ export default function MobileScriptStats({ stats, className }: MobileScriptStat
               'border'
             )}
             title={`${stat.fullLabel}: ${stat.value}`}
+            suppressHydrationWarning={true}
           >
-            <div className={cn('text-xs font-bold text-white')}>
+            <div className={cn('text-xs font-bold text-white')} suppressHydrationWarning={true}>
               {stat.value}
             </div>
-            <div className={cn('text-xs font-medium', stat.textColor)}>
+            <div className={cn('text-xs font-medium', stat.textColor)} suppressHydrationWarning={true}>
               {stat.label}
             </div>
           </div>

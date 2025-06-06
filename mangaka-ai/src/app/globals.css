@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../styles/custom-scrollbar.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -381,29 +382,34 @@ a:hover {
   }
 }
 
-/* Custom Scrollbar Styles */
+/* Custom Scrollbar Styles - Style uniforme inspiré du script editor */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: var(--dark-600) var(--dark-800);
+  scrollbar-color: #6b7280 #374151;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: var(--dark-800);
+  background: #374151;
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--dark-600);
+  background: #6b7280;
   border-radius: 3px;
   transition: background-color 0.2s ease;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--dark-500);
+  background: #9ca3af;
+}
+
+.custom-scrollbar::-webkit-scrollbar-corner {
+  background: #374151;
 }
 
 /* Line clamp utilities */

@@ -67,12 +67,12 @@ export default function MobileBottomNavigation({
       'bg-dark-800 border-t border-dark-700',
       'mobile-bottom-nav mobile-safe-area',
       className
-    )}>
-      <div className="flex items-center justify-around h-full px-2">
+    )} suppressHydrationWarning={true}>
+      <div className="flex items-center justify-around h-full px-2" suppressHydrationWarning={true}>
         {mobileNavTabs.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
-          
+
           return (
             <button
               key={tab.id}

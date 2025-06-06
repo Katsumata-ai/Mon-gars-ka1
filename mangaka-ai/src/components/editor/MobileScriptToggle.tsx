@@ -36,9 +36,10 @@ export default function MobileScriptToggle({ children, className }: MobileScript
 
       {/* Overlay pour mobile */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setIsOpen(false)}
+          suppressHydrationWarning={true}
         />
       )}
 
@@ -49,9 +50,9 @@ export default function MobileScriptToggle({ children, className }: MobileScript
         'transform transition-transform duration-300 ease-out',
         'w-80 max-w-[85vw]',
         isOpen ? 'translate-x-0' : 'translate-x-full'
-      )}>
+      )} suppressHydrationWarning={true}>
         {/* Header mobile */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-900">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-900" suppressHydrationWarning={true}>
           <h3 className="text-lg font-semibold text-white flex items-center">
             <BookOpen className="w-5 h-5 mr-2 text-blue-400" />
             Structure
@@ -65,7 +66,7 @@ export default function MobileScriptToggle({ children, className }: MobileScript
         </div>
 
         {/* Contenu de la sidebar */}
-        <div className="h-[calc(100vh-4rem)] overflow-hidden">
+        <div className="h-[calc(100vh-4rem)] overflow-hidden" suppressHydrationWarning={true}>
           {children}
         </div>
       </div>

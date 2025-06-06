@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, createContext, useContext, useMemo } from 'react'
+import { useState, useEffect, createContext, useContext, useMemo, useCallback } from 'react'
 import {
   FileText,
   Users,
@@ -40,7 +40,7 @@ import ScriptEditorPanel from '@/components/editor/ScriptEditorPanel'
 import CachedMangaCharacterStudio from '@/components/character/CachedMangaCharacterStudio'
 import CachedMangaDecorStudio from '@/components/decor/CachedMangaDecorStudio'
 import SceneComposerPanel from '@/components/editor/SceneComposerPanel'
-import CanvasAssemblyPanel from '@/components/editor/CanvasAssemblyPanel'
+import PixiAssemblyAppOptimized from '@/components/assembly/PixiAssemblyAppOptimized'
 
 // Import des composants mobile
 import MobileBottomNavigation from '@/components/mobile/MobileBottomNavigation'
@@ -86,23 +86,47 @@ interface Decor {
   metadata?: any
 }
 
+interface Scene {
+  id: string
+  name: string
+  description: string
+  prompt: string
+  image_url?: string
+  characters: string[]
+  decors: string[]
+  camera_plan: string
+  lighting: string
+  ambiance: string
+  details: string
+  created_at: string
+  metadata?: {
+    [key: string]: unknown
+  }
+}
+
 interface DataCache {
   characters: Character[]
   decors: Decor[]
+  scenes: Scene[]
   charactersLoaded: boolean
   decorsLoaded: boolean
+  scenesLoaded: boolean
   charactersLoading: boolean
   decorsLoading: boolean
+  scenesLoading: boolean
 }
 
 interface DataCacheContextType {
   cache: DataCache
   loadCharacters: () => Promise<void>
   loadDecors: () => Promise<void>
+  loadScenes: () => Promise<void>
   addCharacter: (character: Character) => void
   addDecor: (decor: Decor) => void
+  addScene: (scene: Scene) => void
   removeCharacter: (id: string) => void
   removeDecor: (id: string) => void
+  removeScene: (id: string) => void
 }
 
 // Contexte pour le cache des données
@@ -170,18 +194,25 @@ function DataCacheProvider({ children, projectId }: { children: React.ReactNode,
   const [cache, setCache] = useState<DataCache>({
     characters: [],
     decors: [],
+    scenes: [],
     charactersLoaded: false,
     decorsLoaded: false,
+    scenesLoaded: false,
     charactersLoading: false,
-    decorsLoading: false
+    decorsLoading: false,
+    scenesLoading: false
   })
 
-  const loadCharacters = async () => {
+  const loadCharacters = useCallback(async () => {
     if (cache.charactersLoaded || cache.charactersLoading) return
 
     setCache(prev => ({ ...prev, charactersLoading: true }))
     try {
-      const response = await fetch(`/api/projects/${projectId}/characters`)
+      const response = await fetch(`/api/projects/${projectId}/characters`, {
+        headers: {
+          'Cache-Control': 'max-age=300' // Cache 5 minutes
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setCache(prev => ({
@@ -195,14 +226,18 @@ function DataCacheProvider({ children, projectId }: { children: React.ReactNode,
       console.error('Erreur lors du chargement des personnages:', error)
       setCache(prev => ({ ...prev, charactersLoading: false }))
     }
-  }
+  }, [cache.charactersLoaded, cache.charactersLoading, projectId])
 
-  const loadDecors = async () => {
+  const loadDecors = useCallback(async () => {
     if (cache.decorsLoaded || cache.decorsLoading) return
 
     setCache(prev => ({ ...prev, decorsLoading: true }))
     try {
-      const response = await fetch(`/api/projects/${projectId}/decors`)
+      const response = await fetch(`/api/projects/${projectId}/decors`, {
+        headers: {
+          'Cache-Control': 'max-age=300' // Cache 5 minutes
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setCache(prev => ({
@@ -216,45 +251,117 @@ function DataCacheProvider({ children, projectId }: { children: React.ReactNode,
       console.error('Erreur lors du chargement des décors:', error)
       setCache(prev => ({ ...prev, decorsLoading: false }))
     }
-  }
+  }, [cache.decorsLoaded, cache.decorsLoading, projectId])
 
-  const addCharacter = (character: Character) => {
+  const loadScenes = useCallback(async () => {
+    if (cache.scenesLoaded || cache.scenesLoading) return
+
+    setCache(prev => ({ ...prev, scenesLoading: true }))
+
+    try {
+      const response = await fetch(`/api/projects/${projectId}/scenes`, {
+        headers: {
+          'Cache-Control': 'max-age=300' // Cache 5 minutes
+        }
+      })
+      const data = await response.json()
+
+      if (data.success) {
+        // Transformer les données au format Scene
+        const transformedScenes: Scene[] = (data.scenes || []).map((scene: any) => ({
+          id: scene.id,
+          name: scene.original_prompt?.slice(0, 40) || 'Scène sans nom',
+          description: scene.original_prompt || '',
+          prompt: scene.optimized_prompt || scene.original_prompt || '',
+          image_url: scene.image_url,
+          characters: scene.character_ids || [],
+          decors: scene.decor_id ? [scene.decor_id] : [],
+          camera_plan: scene.scene_settings?.cameraAngle || '',
+          lighting: scene.scene_settings?.lighting || '',
+          ambiance: scene.scene_settings?.mood || '',
+          details: scene.scene_settings?.additionalDetails || '',
+          created_at: scene.created_at,
+          metadata: scene.metadata
+        }))
+
+        setCache(prev => ({
+          ...prev,
+          scenes: transformedScenes,
+          scenesLoaded: true,
+          scenesLoading: false
+        }))
+      }
+    } catch (error) {
+      console.error('Erreur chargement scènes:', error)
+      setCache(prev => ({ ...prev, scenesLoading: false }))
+    }
+  }, [cache.scenesLoaded, cache.scenesLoading, projectId])
+
+  const addCharacter = useCallback((character: Character) => {
     setCache(prev => ({
       ...prev,
       characters: [character, ...prev.characters]
     }))
-  }
+  }, [])
 
-  const addDecor = (decor: Decor) => {
+  const addDecor = useCallback((decor: Decor) => {
     setCache(prev => ({
       ...prev,
       decors: [decor, ...prev.decors]
     }))
-  }
+  }, [])
 
-  const removeCharacter = (id: string) => {
+  const removeCharacter = useCallback((id: string) => {
     setCache(prev => ({
       ...prev,
       characters: prev.characters.filter(c => c.id !== id)
     }))
-  }
+  }, [])
 
-  const removeDecor = (id: string) => {
+  const removeDecor = useCallback((id: string) => {
     setCache(prev => ({
       ...prev,
       decors: prev.decors.filter(d => d.id !== id)
     }))
-  }
+  }, [])
+
+  const addScene = useCallback((scene: Scene) => {
+    setCache(prev => ({
+      ...prev,
+      scenes: [scene, ...prev.scenes]
+    }))
+  }, [])
+
+  const removeScene = useCallback((id: string) => {
+    setCache(prev => ({
+      ...prev,
+      scenes: prev.scenes.filter(s => s.id !== id)
+    }))
+  }, [])
 
   const contextValue = useMemo(() => ({
     cache,
     loadCharacters,
     loadDecors,
+    loadScenes,
     addCharacter,
     addDecor,
+    addScene,
     removeCharacter,
-    removeDecor
-  }), [cache])
+    removeDecor,
+    removeScene
+  }), [
+    cache,
+    loadCharacters,
+    loadDecors,
+    loadScenes,
+    addCharacter,
+    addDecor,
+    addScene,
+    removeCharacter,
+    removeDecor,
+    removeScene
+  ])
 
   return (
     <DataCacheContext.Provider value={contextValue}>
@@ -263,8 +370,11 @@ function DataCacheProvider({ children, projectId }: { children: React.ReactNode,
   )
 }
 
-export default function ModernUnifiedEditor({ projectId, projectName }: ModernUnifiedEditorProps) {
+function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEditorProps) {
   const [activeTab, setActiveTab] = useState<EditorTab>('script')
+
+  // Hook pour accéder au cache
+  const { loadCharacters, loadDecors, loadScenes } = useDataCache()
   const [currentPage, setCurrentPage] = useState(1)
   const [pages, setPages] = useState([1, 2, 3])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -277,6 +387,30 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
 
   // Store de persistance global
   const { initializeProject, loadFromDatabase } = useProjectStore()
+
+  // Préchargement intelligent des données selon l'onglet actif
+  useEffect(() => {
+    const preloadData = async () => {
+      switch (activeTab) {
+        case 'characters':
+          await loadCharacters()
+          break
+        case 'backgrounds':
+          await loadDecors()
+          break
+        case 'scenes':
+          await loadScenes()
+          // Précharger aussi les personnages et décors nécessaires pour les scènes
+          await loadCharacters()
+          await loadDecors()
+          break
+        default:
+          break
+      }
+    }
+
+    preloadData()
+  }, [activeTab, loadCharacters, loadDecors, loadScenes])
 
   // Initialisation du projet au montage
   useEffect(() => {
@@ -402,7 +536,7 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
         return <SceneComposerPanel projectId={projectId} />
 
       case 'assembly':
-        return <CanvasAssemblyPanel projectId={projectId} currentPage={currentPage} />
+        return <PixiAssemblyAppOptimized projectId={projectId} currentPage={currentPage} />
 
       default:
         return (
@@ -418,26 +552,26 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
   }
 
   return (
-    <DataCacheProvider projectId={projectId}>
+    <>
       {/* Correcteur automatique d'accessibilité */}
       <AccessibilityFixer />
 
-      <div className="h-screen bg-dark-900 flex overflow-hidden">
+      <div className="h-screen bg-dark-900 flex overflow-hidden" suppressHydrationWarning={true}>
       {/* Navbar Gauche - Desktop uniquement */}
-      <div className="hidden md:flex w-64 bg-dark-800 border-r border-dark-700 flex-col flex-shrink-0">
+      <div className="hidden md:flex w-64 bg-dark-800 border-r border-dark-700 flex-col flex-shrink-0" suppressHydrationWarning={true}>
         {/* Header Navbar - Design Élégant et Professionnel */}
-        <div className="p-4 border-b border-dark-700 bg-gradient-to-r from-dark-800 to-dark-750">
-          <div className="flex items-center space-x-3">
+        <div className="p-4 border-b border-dark-700 bg-gradient-to-r from-dark-800 to-dark-750" suppressHydrationWarning={true}>
+          <div className="flex items-center space-x-3" suppressHydrationWarning={true}>
             {/* Logo/Icône avec effet moderne */}
-            <div className="relative">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg">
+            <div className="relative" suppressHydrationWarning={true}>
+              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg" suppressHydrationWarning={true}>
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-dark-800"></div>
+              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-dark-800" suppressHydrationWarning={true}></div>
             </div>
 
             {/* Texte avec hiérarchie typographique moderne */}
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0" suppressHydrationWarning={true}>
               <h1 className="text-base font-bold text-white truncate leading-tight tracking-wide">
                 {projectName}
               </h1>
@@ -448,14 +582,14 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
           </div>
 
           {/* Barre de progression subtile pour l'effet visuel */}
-          <div className="mt-3 h-0.5 bg-dark-600 rounded-full overflow-hidden">
-            <div className="h-full w-3/4 bg-gradient-to-r from-primary-500 to-primary-400 rounded-full"></div>
+          <div className="mt-3 h-0.5 bg-dark-600 rounded-full overflow-hidden" suppressHydrationWarning={true}>
+            <div className="h-full w-3/4 bg-gradient-to-r from-primary-500 to-primary-400 rounded-full" suppressHydrationWarning={true}></div>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex-1 p-3 overflow-y-auto">
-          <div className="space-y-2">
+        <div className="flex-1 p-3 overflow-y-auto" suppressHydrationWarning={true}>
+          <div className="space-y-2" suppressHydrationWarning={true}>
             {editorTabs.map((tab) => {
               const Icon = tab.icon
               return (
@@ -470,9 +604,9 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
                   )}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" />
-                  <div className="text-left flex-1">
-                    <div className="font-medium text-sm">{tab.name}</div>
-                    <div className="text-xs opacity-75">{tab.description}</div>
+                  <div className="text-left flex-1" suppressHydrationWarning={true}>
+                    <div className="font-medium text-sm" suppressHydrationWarning={true}>{tab.name}</div>
+                    <div className="text-xs opacity-75" suppressHydrationWarning={true}>{tab.description}</div>
                   </div>
                 </button>
               )
@@ -481,20 +615,20 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
         </div>
 
         {/* Footer Navbar */}
-        <div className="p-3 border-t border-dark-700">
-          <div className="text-xs text-dark-500 text-center">
+        <div className="p-3 border-t border-dark-700" suppressHydrationWarning={true}>
+          <div className="text-xs text-dark-500 text-center" suppressHydrationWarning={true}>
             MANGAKA AI v2.0
           </div>
         </div>
       </div>
 
       {/* Zone Principale */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden" suppressHydrationWarning={true}>
         {/* Header Amélioré avec design professionnel et ergonomique */}
-        <div className="bg-gradient-to-r from-gray-800 to-gray-750 border-b border-gray-600 px-3 md:px-6 py-3 flex-shrink-0 shadow-lg">
-          <div className="flex items-center justify-between">
+        <div className="bg-gradient-to-r from-gray-800 to-gray-750 border-b border-gray-600 px-3 md:px-6 py-3 flex-shrink-0 shadow-lg" suppressHydrationWarning={true}>
+          <div className="flex items-center justify-between" suppressHydrationWarning={true}>
             {/* Section gauche - Menu mobile et titre uniquement */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4" suppressHydrationWarning={true}>
               {/* Menu Hamburger Mobile */}
               <MobileHamburgerMenu
                 projectName={projectName}
@@ -513,9 +647,9 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
             </div>
 
             {/* Section droite - Boutons ergonomiques et compacts */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3" suppressHydrationWarning={true}>
               {/* Bouton Page unifié avec indicateur et œil - Desktop uniquement */}
-              <div className="hidden md:block">
+              <div className="hidden md:block" suppressHydrationWarning={true}>
                 <MangaButton
                   onClick={togglePagesSidebar}
                   size="sm"
@@ -538,7 +672,7 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
               </div>
 
               {/* Bouton Save Global Rouge - Desktop uniquement */}
-              <div className="hidden md:block">
+              <div className="hidden md:block" suppressHydrationWarning={true}>
                 <SaveButton
                   size="sm"
                   showTimestamp={true}
@@ -547,7 +681,7 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
               </div>
 
               {/* Bouton Exit - Desktop uniquement */}
-              <div className="hidden md:block">
+              <div className="hidden md:block" suppressHydrationWarning={true}>
                 <MangaButton
                   onClick={handleExit}
                   size="sm"
@@ -563,9 +697,9 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
         </div>
 
         {/* Zone de Contenu avec Sidebars */}
-        <div className="flex-1 flex overflow-hidden pb-16 md:pb-0">
+        <div className="flex-1 flex overflow-hidden pb-16 md:pb-0" suppressHydrationWarning={true}>
           {/* Contenu Principal - Scrollable à l'intérieur */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden" suppressHydrationWarning={true}>
             {renderTabContent()}
           </div>
 
@@ -585,7 +719,7 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
             />
           )}
 
-          {assetSidebarVisible && (
+          {assetSidebarVisible && activeTab !== 'assembly' && (
             <AssetSidebar
               projectId={projectId}
               isVisible={assetSidebarVisible}
@@ -622,21 +756,32 @@ export default function ModernUnifiedEditor({ projectId, projectName }: ModernUn
           />
         </MobileDrawer>
 
-        <MobileDrawer
-          isOpen={mobileAssetDrawerOpen}
-          onClose={() => setMobileAssetDrawerOpen(false)}
-          title="Assets Générés"
-          position="right"
-        >
-          <AssetSidebar
-            projectId={projectId}
-            isVisible={true}
-            activeTab={activeTab}
-            className="border-0"
-          />
-        </MobileDrawer>
+        {activeTab !== 'assembly' && (
+          <MobileDrawer
+            isOpen={mobileAssetDrawerOpen}
+            onClose={() => setMobileAssetDrawerOpen(false)}
+            title="Assets Générés"
+            position="right"
+          >
+            <AssetSidebar
+              projectId={projectId}
+              isVisible={true}
+              activeTab={activeTab}
+              className="border-0"
+            />
+          </MobileDrawer>
+        )}
       </div>
     </div>
+    </>
+  )
+}
+
+// Composant principal qui wrap le contenu avec le DataCacheProvider
+export default function ModernUnifiedEditor({ projectId, projectName }: ModernUnifiedEditorProps) {
+  return (
+    <DataCacheProvider projectId={projectId}>
+      <ModernUnifiedEditorContent projectId={projectId} projectName={projectName} />
     </DataCacheProvider>
   )
 }

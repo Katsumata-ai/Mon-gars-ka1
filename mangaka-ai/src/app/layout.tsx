@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Toaster } from 'react-hot-toast';
+import ClientToaster from "../components/ClientToaster";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,17 +32,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 3000,
-            style: {
-              background: '#1f2937',
-              color: '#f9fafb',
-              border: '1px solid #374151'
-            }
-          }}
-        />
+        <ClientToaster />
       </body>
     </html>
   );
