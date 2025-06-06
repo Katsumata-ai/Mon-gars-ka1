@@ -75,6 +75,17 @@ export interface DialogueElement {
     fontSize: number
     fontFamily: string
     textAlign: 'left' | 'center' | 'right'
+
+    // ✅ NOUVELLES PROPRIÉTÉS AVANCÉES INSPIRÉES DES TECHNIQUES CSS
+    tailPositionPercent?: number    // --p: position de la queue (0-1)
+    tailOffset?: number             // --x: décalage pour orientation
+    tailAngle?: number              // --a: angle de la queue en degrés
+    borderWidth?: number            // épaisseur de bordure
+    borderRadius?: number           // rayon des coins
+    hasGradient?: boolean           // support des gradients
+    gradientColors?: number[]       // couleurs du gradient
+    shadowEnabled?: boolean         // ombre portée
+    shadowColor?: number            // couleur de l'ombre
   }
   properties: ElementProperties
 }

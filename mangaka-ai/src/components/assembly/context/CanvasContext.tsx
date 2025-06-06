@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef, ReactNode } from 'react'
 import { Application } from 'pixi.js'
-import { AssemblyElement, LayerType, PageState, PixiConfig } from '../types/assembly.types'
+import { AssemblyElement, LayerType, PageState, PixiConfig, BubbleType } from '../types/assembly.types'
 
 // Service fonctionnel pour voir les vrais changements
 class SimplePanelContentService {
@@ -196,6 +196,9 @@ interface CanvasState {
     propertiesPanelVisible: boolean
     layersPanelVisible: boolean
     imageLibraryVisible: boolean
+    bubbleTypeModalVisible: boolean
+    bubblePlacementMode: boolean
+    bubbleTypeToPlace: BubbleType | null
   }
   
   // État de sauvegarde
@@ -247,6 +250,13 @@ interface CanvasActions {
   togglePropertiesPanel: () => void
   toggleLayersPanel: () => void
   toggleImageLibrary: () => void
+  toggleBubbleTypeModal: () => void
+  closeBubbleTypeModal: () => void
+  setBubbleCreationPosition: (x: number, y: number) => void
+  setBubbleTypeAndCreate: (type: BubbleType) => void
+  startBubblePlacement: (type: BubbleType) => void
+  placeBubbleAtPosition: (x: number, y: number, bubbleType?: BubbleType) => void
+  cancelBubblePlacement: () => void
   
   // Sauvegarde
   markDirty: () => void
@@ -263,8 +273,8 @@ const initialLayers: CanvasState['layers'] = {
   background: { visible: true, locked: false, opacity: 1 },
   panels: { visible: true, locked: false, opacity: 1 },
   characters: { visible: true, locked: false, opacity: 1 },
-  dialogues: { visible: true, locked: false, opacity: 1 },
-  effects: { visible: true, locked: false, opacity: 1 }
+  dialogue: { visible: true, locked: false, opacity: 1 },
+  ui: { visible: true, locked: false, opacity: 1 }
 }
 
 // État initial optimisé
@@ -288,7 +298,10 @@ const initialState: CanvasState = {
     toolbarVisible: true,
     propertiesPanelVisible: true,
     layersPanelVisible: false,
-    imageLibraryVisible: false
+    imageLibraryVisible: false,
+    bubbleTypeModalVisible: false,
+    bubblePlacementMode: false,
+    bubbleTypeToPlace: null
   },
   saveState: {
     isDirty: false,
@@ -601,6 +614,205 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     }))
   }, [])
 
+  // ✅ NOUVELLES ACTIONS POUR LA MODAL DE BULLE
+  const toggleBubbleTypeModal = useCallback(() => {
+    setState(prev => {
+      const newVisible = !prev.ui.bubbleTypeModalVisible
+      console.log('🎯 toggleBubbleTypeModal:', prev.ui.bubbleTypeModalVisible, '→', newVisible)
+      return {
+        ...prev,
+        ui: { ...prev.ui, bubbleTypeModalVisible: newVisible }
+      }
+    })
+  }, [])
+
+  const closeBubbleTypeModal = useCallback(() => {
+    console.log('🎯 closeBubbleTypeModal: fermeture directe')
+    setState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, bubbleTypeModalVisible: false }
+    }))
+  }, [])
+
+  // État temporaire pour stocker les données de création de bulle
+  const bubbleCreationData = useRef<{ x: number, y: number, type?: BubbleType } | null>(null)
+
+  const setBubbleCreationPosition = useCallback((x: number, y: number) => {
+    bubbleCreationData.current = { x, y }
+  }, [])
+
+  const setBubbleTypeAndCreate = useCallback((type: BubbleType) => {
+    const data = bubbleCreationData.current
+    if (!data) {
+      console.error('❌ Aucune position de création stockée')
+      return
+    }
+
+    console.log('💬 Création bulle avec type:', type, 'à position:', { x: data.x, y: data.y })
+
+    // Créer la bulle avec le type sélectionné
+    const bubble: AssemblyElement = {
+      id: generateElementId(),
+      type: 'dialogue',
+      layerType: 'dialogue',
+      text: 'Nouveau texte...',
+      transform: {
+        x: data.x,
+        y: data.y,
+        rotation: 0,
+        alpha: 1,
+        zIndex: 200,
+        width: 150,
+        height: 80
+      },
+      bubbleStyle: {
+        type: type,
+        backgroundColor: 0xffffff,
+        outlineColor: 0x000000,
+        textColor: 0x000000,
+        dashedOutline: type === 'whisper',
+        tailPosition: 'bottom-left',
+        fontSize: 14,
+        fontFamily: 'Arial',
+        textAlign: 'center',
+
+        // ✅ NOUVELLES PROPRIÉTÉS AVANCÉES AVEC VALEURS OPTIMISÉES
+        tailPositionPercent: 0.25,     // Position à 25% (inspiré des articles CSS)
+        tailOffset: 0,                 // Pas de décalage par défaut
+        tailAngle: type === 'shout' ? 60 : 90,  // Angle adapté au type
+        borderWidth: type === 'shout' ? 4 :
+                     type === 'whisper' ? 2 : 3,
+        borderRadius: type === 'thought' ? 50 :
+                      type === 'whisper' ? 18 : 12,
+        hasGradient: false,            // Gradients désactivés pour l'instant
+        shadowEnabled: false           // Ombres désactivées pour l'instant
+      },
+      properties: {
+        name: `Bulle ${type}`,
+        locked: false,
+        visible: true,
+        blendMode: 'normal'
+      }
+    }
+
+    // Ajouter la bulle
+    addElement(bubble)
+
+    // Fermer la modal et nettoyer
+    setState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, bubbleTypeModalVisible: false }
+    }))
+    bubbleCreationData.current = null
+  }, [addElement])
+
+  // ✅ NOUVELLES ACTIONS POUR LE WORKFLOW UX AMÉLIORÉ
+  const startBubblePlacement = useCallback((type: BubbleType) => {
+    console.log('🎯 Démarrage mode placement bulle:', type)
+
+    // ✅ CORRECTION : Utiliser une approche en deux étapes pour garantir la mise à jour
+    setState(prev => {
+      const newState = {
+        ...prev,
+        ui: {
+          ...prev.ui,
+          bubbleTypeModalVisible: false,
+          bubblePlacementMode: true,
+          bubbleTypeToPlace: type
+        }
+      }
+      console.log('🎯 Nouvel état UI après startBubblePlacement:', newState.ui)
+
+      // Forcer un re-rendu avec un délai minimal
+      setTimeout(() => {
+        console.log('🎯 Vérification état après timeout:', newState.ui)
+      }, 10)
+
+      return newState
+    })
+  }, [])
+
+  const placeBubbleAtPosition = useCallback((x: number, y: number, bubbleType?: BubbleType) => {
+    console.log('💬 placeBubbleAtPosition appelé:', { x, y, bubbleType })
+    console.log('💬 État actuel:', {
+      bubblePlacementMode: state.ui.bubblePlacementMode,
+      bubbleTypeToPlace: state.ui.bubbleTypeToPlace
+    })
+
+    // Utiliser le type passé en paramètre ou celui de l'état
+    const typeToUse = bubbleType || state.ui.bubbleTypeToPlace
+    if (!typeToUse) {
+      console.error('❌ Aucun type de bulle à placer')
+      console.error('❌ État UI complet:', state.ui)
+      return
+    }
+
+    console.log('💬 Placement bulle:', typeToUse, 'à position:', { x, y })
+
+    // Créer la bulle
+    const bubble: AssemblyElement = {
+      id: generateElementId(),
+      type: 'dialogue',
+      layerType: 'dialogue',
+      text: 'Nouveau texte...',
+      transform: {
+        x,
+        y,
+        rotation: 0,
+        alpha: 1,
+        zIndex: 200,
+        width: 150,
+        height: 80
+      },
+      bubbleStyle: {
+        type: typeToUse,
+        backgroundColor: 0xffffff,
+        outlineColor: 0x000000,
+        textColor: 0x000000,
+        dashedOutline: typeToUse === 'whisper',
+        tailPosition: 'bottom-left',
+        fontSize: 14,
+        fontFamily: 'Arial',
+        textAlign: 'center'
+      },
+      properties: {
+        name: `Bulle ${typeToUse}`,
+        locked: false,
+        visible: true,
+        blendMode: 'normal'
+      }
+    }
+
+    // Ajouter la bulle
+    addElement(bubble)
+
+    // Sélectionner automatiquement la bulle créée
+    selectElement(bubble.id)
+
+    // Sortir du mode placement et passer au SelectTool
+    setState(prev => ({
+      ...prev,
+      activeTool: 'select',
+      ui: {
+        ...prev.ui,
+        bubblePlacementMode: false,
+        bubbleTypeToPlace: null
+      }
+    }))
+  }, [state.ui.bubbleTypeToPlace, addElement, selectElement])
+
+  const cancelBubblePlacement = useCallback(() => {
+    console.log('❌ Annulation placement bulle')
+    setState(prev => ({
+      ...prev,
+      ui: {
+        ...prev.ui,
+        bubblePlacementMode: false,
+        bubbleTypeToPlace: null
+      }
+    }))
+  }, [])
+
   const markDirty = useCallback(() => {
     setState(prev => ({
       ...prev,
@@ -654,6 +866,13 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     togglePropertiesPanel,
     toggleLayersPanel,
     toggleImageLibrary,
+    toggleBubbleTypeModal,
+    closeBubbleTypeModal,
+    setBubbleCreationPosition,
+    setBubbleTypeAndCreate,
+    startBubblePlacement,
+    placeBubbleAtPosition,
+    cancelBubblePlacement,
     markDirty,
     markClean,
     setSaveLoading,
@@ -683,6 +902,13 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     togglePropertiesPanel,
     toggleLayersPanel,
     toggleImageLibrary,
+    toggleBubbleTypeModal,
+    closeBubbleTypeModal,
+    setBubbleCreationPosition,
+    setBubbleTypeAndCreate,
+    startBubblePlacement,
+    placeBubbleAtPosition,
+    cancelBubblePlacement,
     markDirty,
     markClean,
     setSaveLoading,

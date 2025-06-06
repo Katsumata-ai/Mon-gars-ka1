@@ -66,13 +66,15 @@ export class BubbleTool {
    * Place la bulle à la position actuelle
    */
   placeBubble(x: number, y: number, stage: any): DialogueElement | null {
-    if (!this.state.isPlacing) return null
+    // ✅ CORRECTION : Permettre la création même sans mode placement pour simplifier
+    // if (!this.state.isPlacing) return null
 
-    // Créer l'élément bulle
+    // Créer l'élément bulle avec la BONNE STRUCTURE
     const bubble: DialogueElement = {
       id: generateElementId(),
       type: 'dialogue',
       layerType: 'dialogue',
+      text: 'Nouveau texte...', // ✅ AU NIVEAU RACINE
       transform: {
         x,
         y,
@@ -82,25 +84,22 @@ export class BubbleTool {
         width: 150,
         height: 80
       },
-      properties: {
-        bubbleType: this.state.bubbleType,
-        text: 'Nouveau texte...',
+      bubbleStyle: { // ✅ BONNE STRUCTURE
+        type: this.state.bubbleType,
+        backgroundColor: 0xffffff,
+        outlineColor: 0x000000,
+        textColor: 0x000000,
+        dashedOutline: this.state.bubbleType === 'whisper',
+        tailPosition: 'bottom-left', // Position de la queue
         fontSize: 14,
         fontFamily: 'Arial',
-        fontColor: 0x000000,
-        backgroundColor: 0xffffff,
-        borderColor: 0x000000,
-        borderWidth: 2,
-        padding: 10,
-        tailPosition: { x: 0.5, y: 1 }, // Queue en bas au centre
-        tailLength: 20
+        textAlign: 'center'
       },
-      metadata: {
+      properties: {
         name: `Bulle ${this.state.bubbleType}`,
         locked: false,
         visible: true,
-        createdAt: new Date(),
-        modifiedAt: new Date()
+        blendMode: 'normal'
       }
     }
 

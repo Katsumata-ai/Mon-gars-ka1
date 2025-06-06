@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { Application, Container, Graphics, FederatedPointerEvent, Text, TextStyle, Sprite, Texture } from 'pixi.js'
-import { useCanvasContext } from '../context/CanvasContext'
+import { useCanvasContext, generateElementId } from '../context/CanvasContext'
 import { AssemblyElement, PanelElement, DialogueElement, TextElement, SpriteElement, ImageElement } from '../types/assembly.types'
 import { PanelTool } from '../tools/PanelTool'
 import { BubbleTool } from '../tools/BubbleTool'
@@ -67,7 +67,13 @@ export default function PixiApplication({
     selectElement,
     updateElement,
     clearSelection,
-    panelContentService
+    panelContentService,
+    toggleBubbleTypeModal,
+    setBubbleCreationPosition,
+    setBubbleTypeAndCreate,
+    startBubblePlacement,
+    placeBubbleAtPosition,
+    cancelBubblePlacement
   } = canvas
 
   // Monitoring optimisé pour le développement
@@ -266,6 +272,9 @@ export default function PixiApplication({
   const elementsRef = useRef(elements)
   const selectedElementIdsRef = useRef(selectedElementIds)
 
+  // ✅ Référence pour stocker la position de création de bulle
+  const bubbleCreationPositionRef = useRef<{ x: number, y: number } | null>(null)
+
   activeToolRef.current = activeTool
   elementsRef.current = elements
   selectedElementIdsRef.current = selectedElementIds
@@ -301,6 +310,16 @@ export default function PixiApplication({
     return { x: adjustedX, y: adjustedY }
   }, [canvasTransform])
 
+  // Refs pour éviter les stale closures
+  const bubblePlacementModeRef = useRef(canvas.ui.bubblePlacementMode)
+  const bubbleTypeToPlaceRef = useRef(canvas.ui.bubbleTypeToPlace)
+
+  // Mettre à jour les refs quand l'état change
+  useEffect(() => {
+    bubblePlacementModeRef.current = canvas.ui.bubblePlacementMode
+    bubbleTypeToPlaceRef.current = canvas.ui.bubbleTypeToPlace
+  }, [canvas.ui.bubblePlacementMode, canvas.ui.bubbleTypeToPlace])
+
   // Gestionnaire unifié des interactions selon l'outil actif
   const handleCanvasInteraction = useCallback((x: number, y: number, type: 'down' | 'move' | 'up') => {
     // Lire l'outil actuel depuis la ref pour éviter les stale closures
@@ -310,6 +329,23 @@ export default function PixiApplication({
     const app = appRef.current
     if (!app) {
       console.log('❌ Pas d\'app PixiJS')
+      return
+    }
+
+    // ✅ PRIORITÉ : Mode placement de bulle - utiliser les refs pour éviter stale closure
+    const currentBubblePlacementMode = bubblePlacementModeRef.current
+    const currentBubbleTypeToPlace = bubbleTypeToPlaceRef.current
+
+    console.log('🔍 Vérification mode placement:', {
+      bubblePlacementMode: currentBubblePlacementMode,
+      bubbleTypeToPlace: currentBubbleTypeToPlace,
+      type: type,
+      shouldPlace: currentBubblePlacementMode && currentBubbleTypeToPlace && type === 'down'
+    })
+
+    if (currentBubblePlacementMode && currentBubbleTypeToPlace && type === 'down') {
+      console.log('💬 Mode placement bulle actif - placement direct')
+      placeBubbleAtPosition(x, y, currentBubbleTypeToPlace)
       return
     }
 
@@ -331,7 +367,7 @@ export default function PixiApplication({
         }
         break
     }
-  }, [onCanvasClick])
+  }, [onCanvasClick, placeBubbleAtPosition])
 
   // Gestionnaire pour la mise à jour du curseur (survol)
   const handleCursorUpdate = useCallback((x: number, y: number) => {
@@ -521,18 +557,63 @@ export default function PixiApplication({
     }
   }, [panelTool, isCreating])
 
-  // Gestionnaire pour l'outil Bulle
+  // ✅ WORKFLOW MANGAKA : Création instantanée sans interruption
   const handleBubbleTool = useCallback((x: number, y: number, type: 'down' | 'move' | 'up', app: Application) => {
-    console.log('💬 Bubble tool:', { x, y, type })
+    console.log('🎨 MANGAKA WORKFLOW - Bubble tool:', { x, y, type })
 
     if (type === 'down') {
-      console.log('💬 Bulle: Placement')
-      const bubble = bubbleTool.placeBubble(x, y, app.stage)
-      if (bubble) {
-        console.log('✅ Bulle créée:', bubble)
+      console.log('🎨 MANGAKA: Création bulle instantanée - PAS DE MODAL !')
+
+      // ✅ CRÉATION IMMÉDIATE - Le mangaka ne doit jamais être interrompu !
+      const bubble: AssemblyElement = {
+        id: generateElementId(),
+        type: 'dialogue',
+        layerType: 'dialogue',
+        text: '', // ✅ Texte vide pour édition immédiate
+        transform: {
+          x,
+          y,
+          rotation: 0,
+          alpha: 1,
+          zIndex: 200,
+          width: 120, // ✅ Taille par défaut optimale pour manga
+          height: 60
+        },
+        bubbleStyle: {
+          type: 'speech', // ✅ Type par défaut - le plus utilisé en manga
+          backgroundColor: 0xffffff,
+          outlineColor: 0x000000,
+          textColor: 0x000000,
+          dashedOutline: false,
+          tailPosition: 'bottom-left',
+          fontSize: 14,
+          fontFamily: 'Arial',
+          textAlign: 'center',
+
+          // ✅ Configuration optimisée pour mangaka
+          tailPositionPercent: 0.2,  // Queue proche du bord pour pointer vers personnage
+          tailOffset: 0,
+          tailAngle: 90,
+          borderWidth: 2,           // Bordure nette mais pas trop épaisse
+          borderRadius: 8,          // Coins légèrement arrondis
+          hasGradient: false
+        },
+        properties: {
+          name: 'Dialogue',
+          locked: false,
+          visible: true,
+          blendMode: 'normal'
+        }
       }
+
+      // ✅ Ajouter immédiatement et sélectionner pour édition
+      addElement(bubble)
+      selectElement(bubble.id)
+
+      console.log('🎯 MANGAKA: Bulle créée et sélectionnée pour édition immédiate')
+      // TODO: Activer l'édition de texte immédiatement (prochaine étape)
     }
-  }, [bubbleTool])
+  }, [addElement, selectElement])
 
   // Gestionnaire pour l'outil de sélection
   const handleSelectTool = useCallback((x: number, y: number, type: 'down' | 'move' | 'up') => {
@@ -842,7 +923,7 @@ export default function PixiApplication({
         style={{
           width: '100%',
           height: '100%',
-          cursor: getCursorForTool(activeTool)
+          cursor: getCursorForTool(activeTool, canvas.ui.bubblePlacementMode)
         }}
         onMouseDown={() => {
           // Log supprimé pour optimisation
@@ -863,8 +944,13 @@ export default function PixiApplication({
   )
 }
 
-// Utilitaire pour obtenir le curseur selon l'outil actif
-function getCursorForTool(tool: string): string {
+// Utilitaire pour obtenir le curseur selon l'outil actif et le mode
+function getCursorForTool(tool: string, bubblePlacementMode: boolean = false): string {
+  // Mode placement de bulle prioritaire
+  if (bubblePlacementMode) {
+    return 'crosshair'
+  }
+
   switch (tool) {
     case 'select':
       return 'default'
@@ -982,34 +1068,59 @@ function createDialogueElement(element: AssemblyElement): Container {
   const container = new Container()
   const graphics = new Graphics()
 
-  // Dessiner la bulle selon son type
-  if (dialogueElement.bubbleStyle.type === 'speech') {
-    // Bulle de dialogue classique
-    graphics.roundRect(0, 0, dialogueElement.transform.width, dialogueElement.transform.height, 10)
-  } else if (dialogueElement.bubbleStyle.type === 'thought') {
-    // Bulle de pensée (ellipse)
-    graphics.ellipse(
-      dialogueElement.transform.width / 2,
-      dialogueElement.transform.height / 2,
-      dialogueElement.transform.width / 2,
-      dialogueElement.transform.height / 2
-    )
-  }
-
-  graphics.fill(dialogueElement.bubbleStyle.backgroundColor)
-  graphics.stroke({
-    width: 2,
-    color: dialogueElement.bubbleStyle.outlineColor
+  console.log('💬 Création bulle de dialogue:', {
+    id: dialogueElement.id,
+    type: dialogueElement.bubbleStyle.type,
+    text: dialogueElement.text,
+    size: { width: dialogueElement.transform.width, height: dialogueElement.transform.height }
   })
+
+  // ✅ AMÉLIORATION : Support de tous les types de bulles
+  const { width, height } = dialogueElement.transform
+  const style = dialogueElement.bubbleStyle
+
+  // ✅ NOUVEAU SYSTÈME AVANCÉ AVEC CONFIGURATION CSS-LIKE
+  const config = createAdvancedBubbleConfig(dialogueElement)
+
+  switch (style.type) {
+    case 'speech':
+      // ✅ Bulle de dialogue avec système avancé
+      drawAdvancedSpeechBubble(graphics, config)
+      break
+
+    case 'thought':
+      // ✅ Bulle de pensée avec ellipse moderne
+      drawAdvancedThoughtBubble(graphics, config)
+      break
+
+    case 'shout':
+      // ✅ Bulle de cri avec forme en étoile dynamique
+      drawAdvancedShoutBubble(graphics, config)
+      break
+
+    case 'whisper':
+      // ✅ Bulle de chuchotement avec bordures pointillées
+      drawAdvancedWhisperBubble(graphics, config)
+      break
+
+    case 'explosion':
+      // ✅ Bulle d'explosion avec forme contrôlée
+      drawAdvancedExplosionBubble(graphics, config)
+      break
+
+    default:
+      // Fallback vers speech
+      drawAdvancedSpeechBubble(graphics, config)
+  }
 
   // Ajouter le texte
   const textStyle = new TextStyle({
-    fontSize: dialogueElement.bubbleStyle.fontSize,
-    fontFamily: dialogueElement.bubbleStyle.fontFamily,
-    fill: dialogueElement.bubbleStyle.textColor,
-    align: dialogueElement.bubbleStyle.textAlign,
+    fontSize: style.fontSize,
+    fontFamily: style.fontFamily,
+    fill: style.textColor,
+    align: style.textAlign,
     wordWrap: true,
-    wordWrapWidth: dialogueElement.transform.width - 20
+    wordWrapWidth: width - 20
   })
 
   const text = new Text({
@@ -1017,14 +1128,450 @@ function createDialogueElement(element: AssemblyElement): Container {
     style: textStyle
   })
 
-  text.x = dialogueElement.transform.width / 2 - text.width / 2
-  text.y = dialogueElement.transform.height / 2 - text.height / 2
+  text.x = width / 2 - text.width / 2
+  text.y = height / 2 - text.height / 2
 
   container.addChild(graphics)
   container.addChild(text)
   updateElementTransform(container, dialogueElement.transform)
 
   return container
+}
+
+// ✅ FONCTIONS HELPER POUR LES DIFFÉRENTS TYPES DE BULLES
+
+// ✅ SYSTÈME DE CONFIGURATION AVANCÉ INSPIRÉ DES TECHNIQUES CSS MODERNES
+interface BubbleConfig {
+  // Variables principales (inspirées des articles CSS)
+  width: number
+  height: number
+
+  // Variables de queue (--b, --h, --p, --x des articles)
+  tailBase: number      // --b: largeur de base de la queue
+  tailHeight: number    // --h: hauteur de la queue
+  tailPosition: number  // --p: position (0-1, où 0.5 = centre)
+  tailOffset: number    // --x: décalage pour orientation gauche/droite
+  tailAngle: number     // --a: angle de la queue en degrés
+
+  // Variables de style
+  backgroundColor: number
+  outlineColor: number
+  borderWidth: number
+  borderRadius: number
+
+  // Variables de type
+  bubbleType: string
+  isDashed: boolean
+  hasGradient: boolean
+
+  // Variables de positionnement
+  textPadding: number
+}
+
+// Créer une configuration de bulle basée sur les techniques CSS modernes
+function createAdvancedBubbleConfig(element: DialogueElement): BubbleConfig {
+  const { width, height } = element.transform
+  const style = element.bubbleStyle
+
+  return {
+    // Dimensions principales
+    width,
+    height,
+
+    // Variables de queue (inspirées des articles CSS avec support des nouvelles propriétés)
+    tailBase: Math.min(width * 0.2, 30),                    // --b: base adaptative
+    tailHeight: Math.min(height * 0.3, 20),                 // --h: hauteur adaptative
+    tailPosition: style.tailPositionPercent ?? 0.25,        // --p: position configurable
+    tailOffset: style.tailOffset ?? 0,                      // --x: décalage configurable
+    tailAngle: style.tailAngle ?? 90,                       // --a: angle configurable
+
+    // Variables de style avec support des nouvelles propriétés
+    backgroundColor: style.backgroundColor,
+    outlineColor: style.outlineColor,
+    borderWidth: style.borderWidth ?? (
+      style.type === 'shout' ? 4 :
+      style.type === 'whisper' ? 1.5 : 3
+    ),
+    borderRadius: style.borderRadius ?? (
+      style.type === 'thought' ? width / 2 :
+      style.type === 'whisper' ? 18 : 12
+    ),
+
+    // Variables de type avec support avancé
+    bubbleType: style.type,
+    isDashed: style.type === 'whisper',
+    hasGradient: style.hasGradient ?? false,
+
+    // Variables de positionnement
+    textPadding: 15
+  }
+}
+
+// Queue moderne pour bulle de dialogue avec configuration avancée
+function drawAdvancedSpeechTail(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, tailBase, tailHeight, tailPosition, tailOffset } = config
+
+  // Calcul de la position avec les variables CSS-like
+  const tailX = width * tailPosition + tailOffset
+  const tailY = height
+
+  // Utiliser min/max pour éviter le débordement (technique des articles)
+  const leftPoint = Math.max(0, tailX - tailBase / 2)
+  const rightPoint = Math.min(width, tailX + tailBase / 2)
+
+  // Créer une queue avec des courbes plus douces (simulation de border-radius)
+  graphics.moveTo(leftPoint, tailY)
+
+  // Courbe gauche (simulation de border-radius)
+  graphics.quadraticCurveTo(
+    leftPoint - 2, tailY + 2,
+    leftPoint, tailY + 4
+  )
+
+  // Ligne vers la pointe
+  graphics.lineTo(tailX, tailY + tailHeight)
+
+  // Ligne vers le côté droit
+  graphics.lineTo(rightPoint, tailY + 4)
+
+  // Courbe droite (simulation de border-radius)
+  graphics.quadraticCurveTo(
+    rightPoint + 2, tailY + 2,
+    rightPoint, tailY
+  )
+
+  graphics.fill(config.backgroundColor)
+  graphics.stroke({ width: config.borderWidth, color: config.outlineColor })
+}
+
+// Queue moderne pour bulle de dialogue (version simple - gardée pour compatibilité)
+function drawModernSpeechTail(graphics: Graphics, width: number, height: number, style: any): void {
+  const config = {
+    width, height,
+    tailBase: 24, tailHeight: 18, tailPosition: 0.25, tailOffset: 0,
+    backgroundColor: style.backgroundColor, outlineColor: style.outlineColor, borderWidth: 3
+  } as BubbleConfig
+
+  drawAdvancedSpeechTail(graphics, config)
+}
+
+// Queue pour bulle de dialogue (version simple - gardée pour compatibilité)
+function drawSpeechTail(graphics: Graphics, width: number, height: number, color: number): void {
+  const tailWidth = 20
+  const tailHeight = 15
+  const tailX = width * 0.2 // Position à 20% de la largeur
+  const tailY = height
+
+  graphics.moveTo(tailX, tailY)
+  graphics.lineTo(tailX - tailWidth / 2, tailY + tailHeight)
+  graphics.lineTo(tailX + tailWidth / 2, tailY)
+  graphics.fill(0xffffff) // Même couleur que le fond
+  graphics.stroke({ width: 2, color })
+}
+
+// Petites bulles pour bulle de pensée
+function drawThoughtBubbles(graphics: Graphics, width: number, height: number, style: any): void {
+  const bubbles = [
+    { x: width * 0.2, y: height + 10, radius: 4 },
+    { x: width * 0.1, y: height + 20, radius: 2 }
+  ]
+
+  bubbles.forEach(bubble => {
+    graphics.circle(bubble.x, bubble.y, bubble.radius)
+    graphics.fill(style.backgroundColor)
+    graphics.stroke({ width: 1, color: style.outlineColor })
+  })
+}
+
+// Bulle de cri (forme en étoile)
+function drawShoutBubble(graphics: Graphics, width: number, height: number, style: any): void {
+  const centerX = width / 2
+  const centerY = height / 2
+  const outerRadius = Math.min(width, height) / 2
+  const innerRadius = outerRadius * 0.6
+  const points = 8
+
+  graphics.moveTo(centerX + outerRadius, centerY)
+
+  for (let i = 1; i <= points * 2; i++) {
+    const radius = i % 2 === 0 ? outerRadius : innerRadius
+    const angle = (i * Math.PI) / points
+    const x = centerX + Math.cos(angle) * radius
+    const y = centerY + Math.sin(angle) * radius
+    graphics.lineTo(x, y)
+  }
+
+  graphics.fill(style.backgroundColor)
+  graphics.stroke({ width: 3, color: style.outlineColor })
+}
+
+// Bordure pointillée pour chuchotement
+function drawDashedBorder(graphics: Graphics, width: number, height: number, color: number): void {
+  const dashLength = 5
+  const gapLength = 3
+
+  // Simulation de pointillés (PixiJS n'a pas de support natif)
+  for (let x = 0; x < width; x += dashLength + gapLength) {
+    graphics.rect(x, 0, Math.min(dashLength, width - x), 1)
+    graphics.rect(x, height - 1, Math.min(dashLength, width - x), 1)
+  }
+
+  for (let y = 0; y < height; y += dashLength + gapLength) {
+    graphics.rect(0, y, 1, Math.min(dashLength, height - y))
+    graphics.rect(width - 1, y, 1, Math.min(dashLength, height - y))
+  }
+
+  graphics.fill(color)
+}
+
+// Bulle d'explosion (forme irrégulière)
+function drawExplosionBubble(graphics: Graphics, width: number, height: number, style: any): void {
+  const centerX = width / 2
+  const centerY = height / 2
+  const baseRadius = Math.min(width, height) / 2
+  const points = 12
+
+  graphics.moveTo(centerX + baseRadius, centerY)
+
+  for (let i = 1; i <= points; i++) {
+    const angle = (i * 2 * Math.PI) / points
+    const variation = (Math.random() - 0.5) * 15 // Variation aléatoire
+    const radius = baseRadius + variation
+    const x = centerX + Math.cos(angle) * radius
+    const y = centerY + Math.sin(angle) * radius
+    graphics.lineTo(x, y)
+  }
+
+  graphics.fill(style.backgroundColor)
+  graphics.stroke({ width: 3, color: style.outlineColor })
+}
+
+// ✅ NOUVELLES FONCTIONS MODERNES INSPIRÉES DES TECHNIQUES CSS
+
+// Petites bulles modernes pour bulle de pensée
+function drawModernThoughtBubbles(graphics: Graphics, width: number, height: number, style: any): void {
+  const bubbles = [
+    { x: width * 0.15, y: height + 12, radius: 5 },
+    { x: width * 0.08, y: height + 24, radius: 3 },
+    { x: width * 0.03, y: height + 32, radius: 1.5 }
+  ]
+
+  bubbles.forEach(bubble => {
+    graphics.circle(bubble.x, bubble.y, bubble.radius)
+    graphics.fill(style.backgroundColor)
+    graphics.stroke({ width: 1.5, color: style.outlineColor })
+  })
+}
+
+// Bulle de cri moderne (forme en étoile plus dynamique)
+function drawModernShoutBubble(graphics: Graphics, width: number, height: number, style: any): void {
+  const centerX = width / 2
+  const centerY = height / 2
+  const outerRadius = Math.min(width, height) / 2 - 4
+  const innerRadius = outerRadius * 0.65
+  const points = 10 // Plus de points pour un effet plus dynamique
+
+  graphics.moveTo(centerX + outerRadius, centerY)
+
+  for (let i = 1; i <= points * 2; i++) {
+    const radius = i % 2 === 0 ? outerRadius : innerRadius
+    const angle = (i * Math.PI) / points
+    const x = centerX + Math.cos(angle) * radius
+    const y = centerY + Math.sin(angle) * radius
+    graphics.lineTo(x, y)
+  }
+
+  graphics.fill(style.backgroundColor)
+  graphics.stroke({ width: 4, color: style.outlineColor })
+}
+
+// Bordure pointillée moderne pour chuchotement
+function drawModernDashedBorder(graphics: Graphics, width: number, height: number, color: number): void {
+  const dashLength = 8
+  const gapLength = 4
+  const cornerRadius = 18
+
+  // Simulation de pointillés avec coins arrondis
+  // Haut
+  for (let x = cornerRadius; x < width - cornerRadius; x += dashLength + gapLength) {
+    graphics.roundRect(x, 0, Math.min(dashLength, width - cornerRadius - x), 2, 1)
+  }
+
+  // Bas
+  for (let x = cornerRadius; x < width - cornerRadius; x += dashLength + gapLength) {
+    graphics.roundRect(x, height - 2, Math.min(dashLength, width - cornerRadius - x), 2, 1)
+  }
+
+  // Gauche
+  for (let y = cornerRadius; y < height - cornerRadius; y += dashLength + gapLength) {
+    graphics.roundRect(0, y, 2, Math.min(dashLength, height - cornerRadius - y), 1)
+  }
+
+  // Droite
+  for (let y = cornerRadius; y < height - cornerRadius; y += dashLength + gapLength) {
+    graphics.roundRect(width - 2, y, 2, Math.min(dashLength, height - cornerRadius - y), 1)
+  }
+
+  graphics.fill(color)
+}
+
+// Bulle d'explosion moderne (forme plus dynamique et variée)
+function drawModernExplosionBubble(graphics: Graphics, width: number, height: number, style: any): void {
+  const centerX = width / 2
+  const centerY = height / 2
+  const baseRadius = Math.min(width, height) / 2 - 3
+  const points = 16 // Plus de points pour plus de détails
+
+  graphics.moveTo(centerX + baseRadius, centerY)
+
+  for (let i = 1; i <= points; i++) {
+    const angle = (i * 2 * Math.PI) / points
+    // Variation plus contrôlée et prévisible
+    const variation = Math.sin(angle * 3) * 8 + Math.cos(angle * 5) * 4
+    const radius = baseRadius + variation
+    const x = centerX + Math.cos(angle) * radius
+    const y = centerY + Math.sin(angle) * radius
+    graphics.lineTo(x, y)
+  }
+
+  graphics.fill(style.backgroundColor)
+  graphics.stroke({ width: 4, color: style.outlineColor })
+}
+
+// ✅ NOUVELLES FONCTIONS AVANCÉES INSPIRÉES DES TECHNIQUES CSS MODERNES
+
+// Bulle de dialogue avancée avec configuration CSS-like
+function drawAdvancedSpeechBubble(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, borderRadius, backgroundColor, outlineColor, borderWidth } = config
+
+  // Forme principale avec border-radius adaptatif
+  graphics.roundRect(0, 0, width, height, borderRadius)
+  graphics.fill(backgroundColor)
+  graphics.stroke({ width: borderWidth, color: outlineColor })
+
+  // Queue avancée avec positionnement flexible
+  drawAdvancedSpeechTail(graphics, config)
+}
+
+// Bulle de pensée avancée avec ellipse et bulles
+function drawAdvancedThoughtBubble(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, backgroundColor, outlineColor, borderWidth } = config
+
+  // Ellipse principale
+  graphics.ellipse(width / 2, height / 2, width / 2 - 2, height / 2 - 2)
+  graphics.fill(backgroundColor)
+  graphics.stroke({ width: borderWidth, color: outlineColor })
+
+  // Petites bulles de pensée avec espacement amélioré
+  drawAdvancedThoughtBubbles(graphics, config)
+}
+
+// Bulle de cri avancée avec forme en étoile contrôlée
+function drawAdvancedShoutBubble(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, backgroundColor, outlineColor, borderWidth } = config
+  const centerX = width / 2
+  const centerY = height / 2
+  const outerRadius = Math.min(width, height) / 2 - 4
+  const innerRadius = outerRadius * 0.65
+  const points = 10 // Points contrôlés
+
+  graphics.moveTo(centerX + outerRadius, centerY)
+
+  for (let i = 1; i <= points * 2; i++) {
+    const radius = i % 2 === 0 ? outerRadius : innerRadius
+    const angle = (i * Math.PI) / points
+    const x = centerX + Math.cos(angle) * radius
+    const y = centerY + Math.sin(angle) * radius
+    graphics.lineTo(x, y)
+  }
+
+  graphics.fill(backgroundColor)
+  graphics.stroke({ width: borderWidth, color: outlineColor })
+}
+
+// Bulle de chuchotement avancée avec bordures pointillées
+function drawAdvancedWhisperBubble(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, borderRadius, backgroundColor, outlineColor } = config
+
+  // Forme principale avec transparence
+  graphics.roundRect(0, 0, width, height, borderRadius)
+  graphics.fill({ color: backgroundColor, alpha: 0.9 })
+
+  // Bordure pointillée moderne
+  drawAdvancedDashedBorder(graphics, config)
+}
+
+// Bulle d'explosion avancée avec forme contrôlée
+function drawAdvancedExplosionBubble(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, backgroundColor, outlineColor, borderWidth } = config
+  const centerX = width / 2
+  const centerY = height / 2
+  const baseRadius = Math.min(width, height) / 2 - 3
+  const points = 16
+
+  graphics.moveTo(centerX + baseRadius, centerY)
+
+  for (let i = 1; i <= points; i++) {
+    const angle = (i * 2 * Math.PI) / points
+    // Variation contrôlée basée sur la configuration
+    const variation = Math.sin(angle * 3) * (config.tailBase * 0.3) + Math.cos(angle * 5) * (config.tailHeight * 0.2)
+    const radius = baseRadius + variation
+    const x = centerX + Math.cos(angle) * radius
+    const y = centerY + Math.sin(angle) * radius
+    graphics.lineTo(x, y)
+  }
+
+  graphics.fill(backgroundColor)
+  graphics.stroke({ width: borderWidth, color: outlineColor })
+}
+
+// Petites bulles de pensée avancées
+function drawAdvancedThoughtBubbles(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, backgroundColor, outlineColor, tailPosition, tailHeight } = config
+
+  // Position basée sur la configuration
+  const baseX = width * tailPosition
+  const bubbles = [
+    { x: baseX, y: height + tailHeight * 0.6, radius: 5 },
+    { x: baseX - width * 0.05, y: height + tailHeight * 1.2, radius: 3 },
+    { x: baseX - width * 0.08, y: height + tailHeight * 1.6, radius: 1.5 }
+  ]
+
+  bubbles.forEach(bubble => {
+    graphics.circle(bubble.x, bubble.y, bubble.radius)
+    graphics.fill(backgroundColor)
+    graphics.stroke({ width: 1.5, color: outlineColor })
+  })
+}
+
+// Bordure pointillée avancée avec configuration
+function drawAdvancedDashedBorder(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, borderRadius, outlineColor } = config
+  const dashLength = 8
+  const gapLength = 4
+
+  // Simulation de pointillés avec coins arrondis
+  // Haut
+  for (let x = borderRadius; x < width - borderRadius; x += dashLength + gapLength) {
+    graphics.roundRect(x, 0, Math.min(dashLength, width - borderRadius - x), 2, 1)
+  }
+
+  // Bas
+  for (let x = borderRadius; x < width - borderRadius; x += dashLength + gapLength) {
+    graphics.roundRect(x, height - 2, Math.min(dashLength, width - borderRadius - x), 2, 1)
+  }
+
+  // Gauche
+  for (let y = borderRadius; y < height - borderRadius; y += dashLength + gapLength) {
+    graphics.roundRect(0, y, 2, Math.min(dashLength, height - borderRadius - y), 1)
+  }
+
+  // Droite
+  for (let y = borderRadius; y < height - borderRadius; y += dashLength + gapLength) {
+    graphics.roundRect(width - 2, y, 2, Math.min(dashLength, height - borderRadius - y), 1)
+  }
+
+  graphics.fill(outlineColor)
 }
 
 // Créer un élément de texte

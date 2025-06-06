@@ -40,7 +40,7 @@ export default function VerticalToolbar({
   onExport,
   className = ''
 }: VerticalToolbarProps) {
-  const { activeTool, setActiveTool } = useCanvasContext()
+  const { activeTool, setActiveTool, toggleBubbleTypeModal } = useCanvasContext()
 
   const tools: ToolbarButton[] = [
     {
@@ -105,6 +105,11 @@ export default function VerticalToolbar({
     if (toolId === 'save' || toolId === 'export') {
       const action = actions.find(a => a.id === toolId)?.action
       action?.()
+    } else if (toolId === 'dialogue') {
+      // ✅ CORRECTION : Ouvrir directement la modal pour l'outil bulle
+      console.log('💬 Ouverture modal bulle depuis toolbar')
+      setActiveTool(toolId as any)
+      toggleBubbleTypeModal()
     } else {
       setActiveTool(toolId as any)
       console.log('🔧 setActiveTool appelé avec:', toolId)
