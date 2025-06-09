@@ -2,44 +2,6 @@
 
 Plateforme SaaS de création de manga avec IA - Transformez vos idées en histoires manga professionnelles.
 
-## 🚀 Démarrage Rapide
-
-### Option 1 : Depuis la racine (Recommandé)
-```bash
-# Depuis /workspace/MANGAKA-AI
-npm run dev
-```
-
-### Option 2 : Script de démarrage
-```bash
-# Depuis /workspace/MANGAKA-AI
-./start.sh
-```
-
-### Option 3 : Navigation manuelle
-```bash
-# Naviguer vers le projet Next.js
-cd mangaka-ai
-npm run dev
-```
-
-## 📁 Structure du Projet
-
-```
-MANGAKA-AI/
-├── mangaka-ai/                 # Application Next.js principale
-│   ├── src/
-│   │   ├── app/               # Pages et API routes
-│   │   ├── components/        # Composants React
-│   │   └── lib/              # Utilitaires et configuration
-│   ├── package.json          # Dépendances Next.js
-│   └── ...
-├── Agentic-Coding-Framework/  # Framework de développement IA
-├── package.json              # Scripts de workspace
-├── start.sh                  # Script de démarrage
-└── README.md                 # Ce fichier
-```
-
 ## 🎯 Fonctionnalités
 
 - ✅ **Générateur d'Images IA** - Créez personnages, décors et scènes
