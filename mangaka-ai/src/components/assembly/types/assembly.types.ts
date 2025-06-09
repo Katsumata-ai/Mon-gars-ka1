@@ -86,6 +86,13 @@ export interface DialogueElement {
     gradientColors?: number[]       // couleurs du gradient
     shadowEnabled?: boolean         // ombre portée
     shadowColor?: number            // couleur de l'ombre
+
+    // ✅ SYSTÈME DE QUEUE 360° DYNAMIQUE
+    tailAbsoluteX?: number          // Position X absolue du bout de la queue
+    tailAbsoluteY?: number          // Position Y absolue du bout de la queue
+    tailLength?: number             // Longueur de la queue (10-100px)
+    tailAngleDegrees?: number       // Angle en degrés (0-360°)
+    tailAttachmentSide?: 'top' | 'bottom' | 'left' | 'right' | 'auto'  // Côté d'attachement
   }
   properties: ElementProperties
 }

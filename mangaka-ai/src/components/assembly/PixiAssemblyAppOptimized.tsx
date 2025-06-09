@@ -8,10 +8,9 @@ import CanvasArea from './layout/CanvasArea'
 import RightPanel from './layout/RightPanel'
 import BubbleTypeModal from './ui/BubbleTypeModal'
 import BubbleContextMenu from './ui/BubbleContextMenu'
-import BubbleTextEditor from './ui/BubbleTextEditor'
-import { CanvasProvider, useCanvasContext } from './context/CanvasContext'
+// BubbleTextEditor supprimé - utilisation du nouveau système d'overlay intégré
+import { CanvasProvider } from './context/CanvasContext'
 import { useCanvas } from './hooks/useCanvasOptimized'
-import { performanceMonitor } from './performance/PerformanceMonitor'
 import { useDashtoonKeyboardShortcuts } from './hooks/useDashtoonShortcuts'
 import { AssemblyElement, BubbleType, DialogueElement } from './types/assembly.types'
 
@@ -132,21 +131,16 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
     canvas.toggleBubbleTypeModal()
   }, [canvas])
 
-  // ✅ ÉTATS POUR L'ÉDITION AVANCÉE DES BULLES MANGAKA
-  const [editingBubble, setEditingBubble] = useState<{
-    element: DialogueElement
-    position: { x: number, y: number }
-  } | null>(null)
+  // ✅ ÉDITION DE TEXTE GÉRÉE DANS PIXIAPPLICATION
 
   const [contextMenu, setContextMenu] = useState<{
     element: DialogueElement
     position: { x: number, y: number }
   } | null>(null)
 
-  // ✅ GESTIONNAIRE DOUBLE-CLIC POUR ÉDITION DE TEXTE
-  const handleBubbleDoubleClick = useCallback((element: DialogueElement, position: { x: number, y: number }) => {
-    console.log('🎨 MANGAKA: Double-clic sur bulle pour édition', element.id)
-    setEditingBubble({ element, position })
+  // ✅ GESTIONNAIRE DOUBLE-CLIC POUR ÉDITION DE TEXTE (GÉRÉ DANS PIXIAPPLICATION)
+  const handleBubbleDoubleClick = useCallback((element: DialogueElement, _position: { x: number, y: number }) => {
+    console.log('🎨 MANGAKA: Double-clic sur bulle - édition gérée dans PixiApplication', element.id)
     setContextMenu(null) // Fermer le menu contextuel si ouvert
   }, [])
 
@@ -154,72 +148,9 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
   const handleBubbleRightClick = useCallback((element: DialogueElement, position: { x: number, y: number }) => {
     console.log('🎨 MANGAKA: Clic droit sur bulle pour menu', element.id)
     setContextMenu({ element, position })
-    setEditingBubble(null) // Fermer l'édition si ouverte
   }, [])
 
-  // ✅ GESTIONNAIRE CHANGEMENT DE TEXTE AVEC REDIMENSIONNEMENT AUTO
-  const handleTextChange = useCallback((text: string) => {
-    if (!editingBubble) return
-
-    // ✅ CALCUL AUTOMATIQUE DE LA TAILLE SELON LE TEXTE
-    const calculateBubbleSize = (text: string, fontSize: number) => {
-      const minWidth = 120
-      const minHeight = 60
-      const maxWidth = 300
-      const padding = 20
-
-      // Estimation basée sur la longueur du texte et la taille de police
-      const charWidth = fontSize * 0.6 // Approximation
-      const lineHeight = fontSize * 1.4
-
-      // Calculer le nombre de lignes approximatif
-      const charsPerLine = Math.floor((maxWidth - padding) / charWidth)
-      const lines = Math.ceil(text.length / charsPerLine) || 1
-
-      const calculatedWidth = Math.min(
-        Math.max(text.length * charWidth + padding, minWidth),
-        maxWidth
-      )
-
-      const calculatedHeight = Math.max(
-        lines * lineHeight + padding,
-        minHeight
-      )
-
-      return {
-        width: Math.round(calculatedWidth),
-        height: Math.round(calculatedHeight)
-      }
-    }
-
-    const newSize = calculateBubbleSize(text, editingBubble.element.bubbleStyle.fontSize)
-
-    const updatedElement = {
-      ...editingBubble.element,
-      text,
-      transform: {
-        ...editingBubble.element.transform,
-        width: newSize.width,
-        height: newSize.height
-      }
-    }
-
-    canvas.updateElement(editingBubble.element.id, {
-      text,
-      transform: updatedElement.transform
-    })
-    setEditingBubble(prev => prev ? { ...prev, element: updatedElement } : null)
-
-    console.log('🎨 MANGAKA: Texte et taille mis à jour automatiquement', {
-      text: text.substring(0, 20) + '...',
-      size: newSize
-    })
-  }, [editingBubble, canvas])
-
-  // ✅ GESTIONNAIRE FIN D'ÉDITION
-  const handleFinishEditing = useCallback(() => {
-    setEditingBubble(null)
-  }, [])
+  // ✅ GESTIONNAIRES D'ÉDITION SUPPRIMÉS - GÉRÉS DANS PIXIAPPLICATION
 
   // ✅ GESTIONNAIRE CHANGEMENT DE TYPE DE BULLE
   const handleBubbleTypeChange = useCallback((type: BubbleType) => {
@@ -240,57 +171,58 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
   // ✅ FERMER LES MENUS EN CLIQUANT AILLEURS
   const handleCloseMenus = useCallback(() => {
     setContextMenu(null)
-    setEditingBubble(null)
   }, [])
 
-  // ✅ RACCOURCIS CLAVIER MANGAKA
+  // ✅ RACCOURCIS CLAVIER MANGAKA AVANCÉS
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorer si on est en train d'éditer du texte
-      if (editingBubble) return
+      // Raccourcis clavier toujours actifs
 
-      // Raccourcis pour changer le type de bulle sélectionnée
-      if (canvas.selectedElementIds.length === 1) {
-        const selectedElement = canvas.selectedElements.find(el => el.id === canvas.selectedElementIds[0])
-        if (selectedElement && selectedElement.type === 'dialogue') {
-          const dialogueElement = selectedElement as DialogueElement
-          let newType: BubbleType | null = null
+      const selectedBubbles = canvas.selectedElements.filter(el => el.type === 'dialogue') as DialogueElement[]
 
-          switch (e.key) {
-            case '1':
-              newType = 'speech'
-              break
-            case '2':
-              newType = 'thought'
-              break
-            case '3':
-              newType = 'shout'
-              break
-            case '4':
-              newType = 'whisper'
-              break
-            case '5':
-              newType = 'explosion'
-              break
+      // Types de bulles (1-5)
+      const typeMap: Record<string, BubbleType> = {
+        '1': 'speech', '2': 'thought', '3': 'shout', '4': 'whisper', '5': 'explosion'
+      }
+
+      if (typeMap[e.key] && selectedBubbles.length > 0) {
+        e.preventDefault()
+        selectedBubbles.forEach(bubble => {
+          canvas.updateElement(bubble.id, {
+            bubbleStyle: { ...bubble.bubbleStyle, type: typeMap[e.key] }
+          })
+        })
+        return
+      }
+
+      // Duplication (Ctrl+D)
+      if (e.ctrlKey && e.key === 'd' && selectedBubbles.length > 0) {
+        e.preventDefault()
+        selectedBubbles.forEach(bubble => {
+          const newBubble = {
+            ...bubble,
+            id: `bubble_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            transform: {
+              ...bubble.transform,
+              x: bubble.transform.x + 20,
+              y: bubble.transform.y + 20
+            }
           }
+          canvas.addElement(newBubble)
+        })
+        return
+      }
 
-          if (newType && newType !== dialogueElement.bubbleStyle.type) {
-            e.preventDefault()
-            canvas.updateElement(dialogueElement.id, {
-              bubbleStyle: {
-                ...dialogueElement.bubbleStyle,
-                type: newType
-              }
-            })
-            console.log('🎨 MANGAKA: Raccourci clavier -', newType)
-          }
-        }
+      // Suppression (Delete)
+      if (e.key === 'Delete' && canvas.selectedElementIds.length > 0) {
+        e.preventDefault()
+        canvas.removeElements(canvas.selectedElementIds)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editingBubble, canvas])
+  }, [canvas])
 
   return (
     <>
@@ -308,6 +240,8 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
             height={1600}
             onElementClick={handleElementClick}
             onCanvasClick={handleCanvasClick}
+            onBubbleDoubleClick={handleBubbleDoubleClick}
+            onBubbleRightClick={handleBubbleRightClick}
           />
         }
         rightPanel={
@@ -338,16 +272,8 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
         onClose={handleCloseMenus}
       />
 
-      {/* ✅ ÉDITEUR DE TEXTE MANGAKA POUR BULLES */}
-      {editingBubble && (
-        <BubbleTextEditor
-          element={editingBubble.element}
-          isEditing={true}
-          position={editingBubble.position}
-          onTextChange={handleTextChange}
-          onFinishEditing={handleFinishEditing}
-        />
-      )}
+      {/* ✅ ÉDITEUR DE TEXTE INTÉGRÉ DANS PIXIAPPLICATION */}
+      {/* Le nouveau système d'overlay de texte est géré directement dans PixiApplication */}
 
       {/* ✅ INDICATEUR DE MODE PLACEMENT */}
       {(() => {

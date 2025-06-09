@@ -1,12 +1,15 @@
 'use client'
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
-import { Application, Container, Graphics, FederatedPointerEvent, Text, TextStyle, Sprite, Texture } from 'pixi.js'
+import { Application, Container, Graphics, FederatedPointerEvent, Text, TextStyle, Sprite } from 'pixi.js'
 import { useCanvasContext, generateElementId } from '../context/CanvasContext'
 import { AssemblyElement, PanelElement, DialogueElement, TextElement, SpriteElement, ImageElement } from '../types/assembly.types'
+import { BubbleManipulationManager, HandleType } from './BubbleManipulationManager'
 import { PanelTool } from '../tools/PanelTool'
 import { BubbleTool } from '../tools/BubbleTool'
 import { SelectTool } from '../tools/SelectTool'
+import { NativeTextEditor } from './NativeTextEditor'
+import { applyCenteringUniversal, createOptimalTextStyle } from '../utils/TextCenteringUtils'
 // import { panelMaskingService } from '../services/PanelMaskingService'
 // import { useDragDrop } from '../hooks/useDragDrop'
 
@@ -27,6 +30,8 @@ interface PixiApplicationProps {
   className?: string
   onElementClick?: (element: AssemblyElement | null) => void
   onCanvasClick?: (x: number, y: number) => void
+  onBubbleDoubleClick?: (element: DialogueElement, position: { x: number, y: number }) => void
+  onBubbleRightClick?: (element: DialogueElement, position: { x: number, y: number }) => void
   canvasTransform?: {
     x: number
     y: number
@@ -40,6 +45,8 @@ export default function PixiApplication({
   className = '',
   onElementClick,
   onCanvasClick,
+  onBubbleDoubleClick,
+  onBubbleRightClick,
   canvasTransform = { x: 0, y: 0, scale: 1 }
 }: PixiApplicationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -418,6 +425,20 @@ export default function PixiApplication({
   const lastMousePosRef = useRef({ x: 0, y: 0 })
   const isPointerDownRef = useRef(false)
 
+  // ✅ GESTIONNAIRE DE MOUVEMENT POUR MANIPULATION DES BULLES
+  const handleGlobalPointerMove = useCallback((globalX: number, globalY: number) => {
+    if (bubbleManipulationManagerRef.current?.isManipulating()) {
+      bubbleManipulationManagerRef.current.updateManipulation(globalX, globalY)
+    }
+  }, [])
+
+  // ✅ GESTIONNAIRE DE FIN DE MANIPULATION
+  const handleGlobalPointerUp = useCallback(() => {
+    if (bubbleManipulationManagerRef.current?.isManipulating()) {
+      bubbleManipulationManagerRef.current.endManipulation()
+    }
+  }, [])
+
   // Configurer les gestionnaires d'événements
   const setupEventHandlers = useCallback((app: Application) => {
     console.log('🔧 Configuration des gestionnaires d\'événements')
@@ -458,6 +479,9 @@ export default function PixiApplication({
       const localPos = stage.toLocal(globalPos)
       const adjustedPos = adjustCoordinatesForCanvasTransform(localPos.x, localPos.y)
 
+      // ✅ PRIORITÉ : Gestion du redimensionnement et déplacement de queue
+      handleGlobalPointerMove(globalPos.x, globalPos.y)
+
       // Vérifier si la position a vraiment changé (éviter les micro-mouvements)
       const deltaX = Math.abs(adjustedPos.x - lastMousePosRef.current.x)
       const deltaY = Math.abs(adjustedPos.y - lastMousePosRef.current.y)
@@ -480,6 +504,9 @@ export default function PixiApplication({
     stage.on('pointerup', (event: FederatedPointerEvent) => {
       const globalPos = event.global
       const localPos = stage.toLocal(globalPos)
+
+      // ✅ PRIORITÉ : Terminer le redimensionnement et déplacement de queue
+      handleGlobalPointerUp()
 
       // Ajuster les coordonnées pour les transformations CSS
       const adjustedPos = adjustCoordinatesForCanvasTransform(localPos.x, localPos.y)
@@ -509,7 +536,7 @@ export default function PixiApplication({
         selectTool.handlePointerLeave()
       }
     })
-  }, [handleCanvasInteraction, handleCursorUpdate, selectTool])
+  }, [handleCanvasInteraction, handleCursorUpdate, selectTool, handleGlobalPointerMove, handleGlobalPointerUp])
 
   // Gestionnaire pour l'outil Panel
   const handlePanelTool = useCallback((x: number, y: number, type: 'down' | 'move' | 'up', app: Application) => {
@@ -596,7 +623,14 @@ export default function PixiApplication({
           tailAngle: 90,
           borderWidth: 2,           // Bordure nette mais pas trop épaisse
           borderRadius: 8,          // Coins légèrement arrondis
-          hasGradient: false
+          hasGradient: false,
+
+          // ✅ NOUVELLES PROPRIÉTÉS 360° - INITIALISATION PAR DÉFAUT
+          tailAbsoluteX: x + 30,    // Position initiale de la queue (30px à droite)
+          tailAbsoluteY: y + 80,    // Position initiale de la queue (en bas)
+          tailLength: 30,           // Longueur initiale de la queue
+          tailAngleDegrees: 225,    // Angle initial (bas-gauche)
+          tailAttachmentSide: 'bottom' as const
         },
         properties: {
           name: 'Dialogue',
@@ -615,29 +649,66 @@ export default function PixiApplication({
     }
   }, [addElement, selectElement])
 
-  // Gestionnaire pour l'outil de sélection
+  // ✅ GESTIONNAIRE AVANCÉ POUR L'OUTIL DE SÉLECTION
   const handleSelectTool = useCallback((x: number, y: number, type: 'down' | 'move' | 'up') => {
-    // Utiliser les refs pour avoir les valeurs les plus récentes
     const currentElements = elementsRef.current
     const currentSelectedIds = selectedElementIdsRef.current
 
-    // Debug : vérifier les éléments disponibles
     if (type === 'down') {
-      console.log('🔍 SelectTool - éléments disponibles:', {
-        elementsCount: currentElements.length,
-        elements: currentElements.map(el => ({
-          id: el.id,
-          type: el.type,
-          bounds: {
-            x: el.transform.x,
-            y: el.transform.y,
-            width: el.transform.width,
-            height: el.transform.height
-          }
-        })),
-        selectedElementIds: currentSelectedIds,
-        clickPosition: { x, y }
+      // Vérifier si on clique sur une bulle pour double-clic
+      const clickedElement = currentElements.find(el => {
+        const bounds = {
+          left: el.transform.x,
+          top: el.transform.y,
+          right: el.transform.x + el.transform.width,
+          bottom: el.transform.y + el.transform.height
+        }
+        return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
       })
+
+      // ✅ GESTION DOUBLE-CLIC POUR ÉDITION
+      if (clickedElement && clickedElement.type === 'dialogue') {
+        const now = Date.now()
+        const lastClick = lastClickTimeRef.current
+        const timeDiff = now - lastClick
+
+        console.log('🔍 Clic sur bulle:', {
+          elementId: clickedElement.id,
+          timeDiff,
+          lastClickedElement: lastClickedElementRef.current,
+          isDoubleClick: timeDiff < 400 && lastClickedElementRef.current === clickedElement.id,
+          startTextEditingRefExists: !!startTextEditingRef.current,
+          editingElementId
+        })
+
+        if (timeDiff < 400 && lastClickedElementRef.current === clickedElement.id) {
+          // Double-clic détecté !
+          console.log('🎨 DOUBLE-CLIC détecté sur bulle:', clickedElement.id)
+
+          // ✅ FORCER LA SÉLECTION DE L'ÉLÉMENT AVANT L'ÉDITION
+          selectElement(clickedElement.id)
+
+          // Déclencher l'édition de texte
+          try {
+            if (startTextEditingRef.current) {
+              startTextEditingRef.current(clickedElement as DialogueElement)
+              console.log('✅ Édition de texte démarrée avec succès')
+            } else {
+              console.error('❌ startTextEditingRef.current est null')
+            }
+          } catch (error) {
+            console.error('❌ Erreur lors du démarrage de l\'édition:', error)
+          }
+
+          if (onBubbleDoubleClick) {
+            onBubbleDoubleClick(clickedElement as DialogueElement, { x, y })
+          }
+          return
+        }
+
+        lastClickTimeRef.current = now
+        lastClickedElementRef.current = clickedElement.id
+      }
     }
 
     switch (type) {
@@ -651,7 +722,125 @@ export default function PixiApplication({
         selectTool.handlePointerUp()
         break
     }
-  }, [selectTool])
+  }, [selectTool, onBubbleDoubleClick])
+
+  // ✅ REFS POUR GESTION DOUBLE-CLIC
+  const lastClickTimeRef = useRef(0)
+  const lastClickedElementRef = useRef<string | null>(null)
+
+  // ✅ ÉTAT POUR L'ÉDITION DE TEXTE
+  const [editingElementId, setEditingElementId] = useState<string | null>(null)
+
+  // ✅ STOCKAGE DES CONTAINERS PIXI POUR INTÉGRATION
+  const pixiContainersRef = useRef<Map<string, Container>>(new Map())
+
+  // ✅ FONCTIONS D'ÉDITION DE TEXTE (DÉPLACÉES ICI POUR ÉVITER L'ERREUR D'INITIALISATION)
+  const startTextEditingRef = useRef<((element: DialogueElement) => void) | null>(null)
+
+  const startTextEditing = useCallback((element: DialogueElement) => {
+    if (element.type !== 'dialogue') return
+
+    // ✅ EMPÊCHER LES ÉDITEURS MULTIPLES
+    if (editingElementId) {
+      console.log('🚫 Édition déjà en cours pour:', editingElementId, '- Ignoré pour:', element.id)
+      return
+    }
+
+    console.log('🔤 DÉBUT ÉDITION 100% NATIVE PIXI - Élément:', element.id, 'État:', {
+      editingElementId,
+      pixiContainersCount: pixiContainersRef.current.size,
+      hasContainer: pixiContainersRef.current.has(element.id)
+    })
+
+    // ✅ SOLUTION 100% NATIVE : Aucun élément HTML
+    const pixiContainer = pixiContainersRef.current.get(element.id)
+    if (!pixiContainer) {
+      console.error('❌ Container PixiJS non trouvé pour:', element.id, 'Containers disponibles:', Array.from(pixiContainersRef.current.keys()))
+      return
+    }
+
+    const textElement = pixiContainer.getChildByName('bubbleText') as Text
+    if (!textElement) {
+      console.error('❌ Élément texte non trouvé dans le container:', element.id, 'Enfants disponibles:', pixiContainer.children.map(child => child.name || 'unnamed'))
+      return
+    }
+
+    // ✅ MARQUER IMMÉDIATEMENT COMME EN ÉDITION
+    setEditingElementId(element.id)
+
+    // ✅ CRÉER UN ÉDITEUR DE TEXTE 100% NATIF PIXI
+    const editor = new NativeTextEditor(element, textElement, (newText: string) => {
+      updateElement(element.id, { text: newText })
+      setEditingElementId(null)
+    })
+
+    // Ajouter l'éditeur au container
+    pixiContainer.addChild(editor as any)
+
+    // Cacher le texte original
+    textElement.visible = false
+
+    // Activer l'édition
+    editor.startEditing()
+
+    console.log('✅ Éditeur natif PixiJS créé et activé')
+  }, [updateElement, editingElementId])
+
+  // Assigner la référence
+  startTextEditingRef.current = startTextEditing
+
+  const handleTextChange = useCallback((newText: string) => {
+    if (!editingElementId) return
+
+    console.log('🔤 Texte modifié:', newText)
+
+    // Mettre à jour immédiatement dans le contexte
+    updateElement(editingElementId, { text: newText })
+  }, [editingElementId, updateElement])
+
+  const finishTextEditing = useCallback(() => {
+    console.log('🔤 Fin édition texte')
+    setEditingElementId(null)
+  }, [])
+
+  // ✅ FONCTION POUR CALCULER LA POSITION DE LA QUEUE
+  const calculateTailPosition = useCallback((element: DialogueElement) => {
+    const { width, height } = element.transform
+    const tailPercent = element.bubbleStyle.tailPositionPercent || 0.25
+
+    // Position selon tailPosition
+    switch (element.bubbleStyle.tailPosition) {
+      case 'bottom-left':
+        return { x: element.transform.x + width * tailPercent, y: element.transform.y + height }
+      case 'bottom-right':
+        return { x: element.transform.x + width * (1 - tailPercent), y: element.transform.y + height }
+      case 'top-left':
+        return { x: element.transform.x + width * tailPercent, y: element.transform.y }
+      case 'top-right':
+        return { x: element.transform.x + width * (1 - tailPercent), y: element.transform.y }
+      default:
+        return { x: element.transform.x + width * tailPercent, y: element.transform.y + height }
+    }
+  }, [])
+
+  // ✅ GESTIONNAIRE DE MANIPULATION DES BULLES
+  const bubbleManipulationManagerRef = useRef<BubbleManipulationManager | null>(null)
+
+  // Initialiser le gestionnaire si pas encore fait
+  if (!bubbleManipulationManagerRef.current) {
+    bubbleManipulationManagerRef.current = new BubbleManipulationManager((elementId: string, updates: Partial<AssemblyElement>) => {
+      updateElement(elementId, updates)
+    })
+  }
+
+  // ✅ DÉMARRER LA MANIPULATION D'UNE BULLE
+  const startBubbleManipulation = useCallback((element: DialogueElement, handleType: HandleType, globalX: number, globalY: number) => {
+    bubbleManipulationManagerRef.current?.startManipulation(element, handleType, globalX, globalY)
+  }, [])
+
+
+
+
 
   // Dessiner la grille
   const drawGrid = useCallback((graphics: Graphics) => {
@@ -746,10 +935,23 @@ export default function PixiApplication({
 
       if (!pixiElement) {
         // Créer le nouvel élément selon son type
-        pixiElement = createPixiElement(element)
+        if (element.type === 'dialogue') {
+          pixiElement = createDialogueElement(element, (dialogueElement, position) => {
+            // ✅ CALLBACK POUR DOUBLE-CLIC
+            startTextEditing(dialogueElement)
+          })
+        } else {
+          pixiElement = createPixiElement(element)
+        }
+
         if (pixiElement) {
           pixiElement.name = element.id
           layerContainer.addChild(pixiElement)
+
+          // ✅ STOCKER LA RÉFÉRENCE POUR LES BULLES
+          if (element.type === 'dialogue') {
+            pixiContainersRef.current.set(element.id, pixiElement as Container)
+          }
         }
       } else {
         // Mettre à jour l'élément existant
@@ -835,11 +1037,37 @@ export default function PixiApplication({
         element.transform.width + 4,
         element.transform.height + 4
       )
-      borderGraphics.stroke({
-        width: 2,
-        color: 0x3b82f6, // Bleu professionnel
-        alpha: 0.9
-      })
+      // ✅ BORDURE SPÉCIALE POUR ÉDITION
+      const isBeingEdited = editingElementId === element.id
+
+      if (isBeingEdited) {
+        borderGraphics.stroke({
+          width: 3,
+          color: 0x10b981, // Vert pour édition
+          alpha: 1
+        })
+
+        // Effet de glow pour l'édition
+        const glowGraphics = new Graphics()
+        glowGraphics.rect(
+          element.transform.x - 6,
+          element.transform.y - 6,
+          element.transform.width + 12,
+          element.transform.height + 12
+        )
+        glowGraphics.stroke({
+          width: 2,
+          color: 0x10b981,
+          alpha: 0.3
+        })
+        selectionContainer.addChild(glowGraphics)
+      } else {
+        borderGraphics.stroke({
+          width: 2,
+          color: 0x3b82f6, // Bleu professionnel
+          alpha: 0.9
+        })
+      }
 
       // 2. Ombre portée pour plus de visibilité
       const shadowGraphics = new Graphics()
@@ -855,20 +1083,20 @@ export default function PixiApplication({
         alpha: 0.2
       })
 
-      // 3. Handles de redimensionnement
-      const handleSize = 8
-      const handleBorderSize = 1
+      // ✅ HANDLES DE REDIMENSIONNEMENT AVEC NOUVEAU GESTIONNAIRE
+      const handleSize = 12
+      const handleBorderSize = 2
       const handles = [
-        // Coins
-        { x: element.transform.x - handleSize/2, y: element.transform.y - handleSize/2, type: 'corner' },
-        { x: element.transform.x + element.transform.width - handleSize/2, y: element.transform.y - handleSize/2, type: 'corner' },
-        { x: element.transform.x - handleSize/2, y: element.transform.y + element.transform.height - handleSize/2, type: 'corner' },
-        { x: element.transform.x + element.transform.width - handleSize/2, y: element.transform.y + element.transform.height - handleSize/2, type: 'corner' },
-        // Milieux
-        { x: element.transform.x + element.transform.width/2 - handleSize/2, y: element.transform.y - handleSize/2, type: 'edge' },
-        { x: element.transform.x + element.transform.width/2 - handleSize/2, y: element.transform.y + element.transform.height - handleSize/2, type: 'edge' },
-        { x: element.transform.x - handleSize/2, y: element.transform.y + element.transform.height/2 - handleSize/2, type: 'edge' },
-        { x: element.transform.x + element.transform.width - handleSize/2, y: element.transform.y + element.transform.height/2 - handleSize/2, type: 'edge' },
+        // Coins (ordre important pour HandleType enum)
+        { x: element.transform.x - handleSize/2, y: element.transform.y - handleSize/2, handleType: HandleType.CORNER_NW },
+        { x: element.transform.x + element.transform.width - handleSize/2, y: element.transform.y - handleSize/2, handleType: HandleType.CORNER_NE },
+        { x: element.transform.x - handleSize/2, y: element.transform.y + element.transform.height - handleSize/2, handleType: HandleType.CORNER_SW },
+        { x: element.transform.x + element.transform.width - handleSize/2, y: element.transform.y + element.transform.height - handleSize/2, handleType: HandleType.CORNER_SE },
+        // Bords
+        { x: element.transform.x + element.transform.width/2 - handleSize/2, y: element.transform.y - handleSize/2, handleType: HandleType.EDGE_N },
+        { x: element.transform.x + element.transform.width/2 - handleSize/2, y: element.transform.y + element.transform.height - handleSize/2, handleType: HandleType.EDGE_S },
+        { x: element.transform.x - handleSize/2, y: element.transform.y + element.transform.height/2 - handleSize/2, handleType: HandleType.EDGE_W },
+        { x: element.transform.x + element.transform.width - handleSize/2, y: element.transform.y + element.transform.height/2 - handleSize/2, handleType: HandleType.EDGE_E },
       ]
 
       handles.forEach((handle, index) => {
@@ -881,9 +1109,12 @@ export default function PixiApplication({
         handleGraphics.rect(handle.x + 1, handle.y + 1, handleSize, handleSize)
         handleGraphics.fill({ color: 0x000000, alpha: 0.3 })
 
-        // Handle principal
+        // Handle principal avec style différencié
         handleGraphics.rect(handle.x, handle.y, handleSize, handleSize)
-        handleGraphics.fill(0xffffff) // Blanc pour contraste
+
+        // Couleur selon le type (coins vs bords)
+        const isCorner = handle.handleType <= HandleType.CORNER_SE
+        handleGraphics.fill(isCorner ? 0xffffff : 0x3b82f6)
 
         // Bordure du handle
         handleGraphics.stroke({
@@ -892,11 +1123,67 @@ export default function PixiApplication({
           alpha: 1
         })
 
-        // L'animation sera gérée par le ticker setupSelectionAnimation
+        // ✅ RENDRE LES HANDLES INTERACTIFS AVEC NOUVEAU GESTIONNAIRE
+        handleGraphics.eventMode = 'static'
+        handleGraphics.cursor = BubbleManipulationManager.getHandleCursor(handle.handleType)
+
+        handleGraphics.on('pointerdown', (e) => {
+          e.stopPropagation()
+          console.log('🔧 Handle cliqué:', HandleType[handle.handleType], 'pour élément:', element.id)
+
+          if (element.type === 'dialogue') {
+            startBubbleManipulation(element as DialogueElement, handle.handleType, e.global.x, e.global.y)
+          }
+        })
 
         handleContainer.addChild(handleGraphics)
         selectionContainer.addChild(handleContainer)
       })
+
+      // ✅ HANDLE SPÉCIAL POUR LA QUEUE DES BULLES (TOUJOURS COLLÉ AU BOUT)
+      if (element.type === 'dialogue') {
+        const dialogueElement = element as DialogueElement
+        const tailPos = BubbleManipulationManager.calculateTailPosition(dialogueElement)
+
+        console.log('🎯 Position handle calculée:', {
+          elementId: element.id,
+          tailPos,
+          bubbleTransform: element.transform,
+          tailAngle: dialogueElement.bubbleStyle.tailAngleDegrees,
+          tailLength: dialogueElement.bubbleStyle.tailLength
+        })
+
+        // ✅ HANDLE PARFAITEMENT COLLÉ AU BOUT DE LA QUEUE
+        const tailHandle = new Graphics()
+
+        // Ombre du handle de queue
+        tailHandle.circle(tailPos.x + 1, tailPos.y + 1, 8)
+        tailHandle.fill({ color: 0x000000, alpha: 0.3 })
+
+        // Handle principal de queue - EXACTEMENT au bout de la queue
+        tailHandle.circle(tailPos.x, tailPos.y, 8)
+        tailHandle.fill(0xff6b35)
+        tailHandle.stroke({ width: 2, color: 0xffffff })
+
+        // ✅ DEBUG VISUEL TEMPORAIRE : Point rouge pour vérifier l'alignement
+        if (process.env.NODE_ENV === 'development') {
+          const debugPoint = new Graphics()
+          debugPoint.circle(tailPos.x, tailPos.y, 2)
+          debugPoint.fill(0xff0000) // Rouge pour debug
+          selectionContainer.addChild(debugPoint)
+        }
+
+        tailHandle.eventMode = 'static'
+        tailHandle.cursor = BubbleManipulationManager.getHandleCursor(HandleType.TAIL)
+
+        tailHandle.on('pointerdown', (e) => {
+          e.stopPropagation()
+          console.log('🎯 Handle queue 360° cliqué pour élément:', element.id, 'position:', tailPos)
+          startBubbleManipulation(dialogueElement, HandleType.TAIL, e.global.x, e.global.y)
+        })
+
+        selectionContainer.addChild(tailHandle)
+      }
 
       // Ajouter les éléments dans l'ordre : ombre, bordure, handles
       selectionContainer.addChild(shadowGraphics)
@@ -906,7 +1193,7 @@ export default function PixiApplication({
     })
 
     console.log('🎨 Sélection rendue:', selectedElements.length, 'éléments')
-  }, [selectedElements])
+  }, [selectedElements, editingElementId, startBubbleManipulation])
 
   // Redimensionner l'application
   useEffect(() => {
@@ -930,14 +1217,56 @@ export default function PixiApplication({
         }}
       />
 
+      {/* ✅ ÉDITION DIRECTE DANS LE TEXTE PIXI - PAS D'OVERLAY SÉPARÉ */}
+
       {/* Overlay pour les informations de debug (développement) */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded pointer-events-none">
+        <div className="absolute top-2 left-2 bg-black/50 text-white text-xs p-2 rounded pointer-events-auto">
           <div>Éléments: {elements.length}</div>
           <div>Sélectionnés: {selectedElementIds.length}</div>
           <div>Outil: {activeTool}</div>
           <div>Zoom: {zoom}%</div>
           <div>App: {appRef.current ? '✅' : '❌'}</div>
+          {editingElementId && <div className="text-green-400">✏️ Édition: {editingElementId}</div>}
+
+          {/* ✅ BOUTONS DE TEST POUR ÉDITION */}
+          {selectedElementIds.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <button
+                onClick={() => {
+                  const selectedElement = elements.find(el => el.id === selectedElementIds[0])
+                  if (selectedElement && selectedElement.type === 'dialogue') {
+                    console.log('🧪 Test édition forcée')
+                    startTextEditing(selectedElement as DialogueElement)
+                  }
+                }}
+                className="block w-full px-2 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600"
+              >
+                🔤 Test Édition
+              </button>
+
+              <button
+                onClick={() => {
+                  const selectedElement = elements.find(el => el.id === selectedElementIds[0])
+                  if (selectedElement && selectedElement.type === 'dialogue') {
+                    console.log('🧪 Test double-clic simulé')
+                    // Simuler un double-clic
+                    lastClickTimeRef.current = Date.now() - 200
+                    lastClickedElementRef.current = selectedElement.id
+
+                    // Déclencher la logique de double-clic
+                    selectElement(selectedElement.id)
+                    if (startTextEditingRef.current) {
+                      startTextEditingRef.current(selectedElement as DialogueElement)
+                    }
+                  }
+                }}
+                className="block w-full px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600"
+              >
+                🎯 Simuler Double-Clic
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1061,7 +1390,7 @@ function createPanelElement(element: AssemblyElement): Container {
 }
 
 // Créer une bulle de dialogue
-function createDialogueElement(element: AssemblyElement): Container {
+function createDialogueElement(element: AssemblyElement, onBubbleDoubleClick?: (element: DialogueElement, position: { x: number, y: number }) => void): Container {
   if (element.type !== 'dialogue') throw new Error('Invalid element type')
 
   const dialogueElement = element as DialogueElement
@@ -1113,26 +1442,68 @@ function createDialogueElement(element: AssemblyElement): Container {
       drawAdvancedSpeechBubble(graphics, config)
   }
 
-  // Ajouter le texte
+  // ✅ AJOUTER LE TEXTE PIXI POUR L'AFFICHAGE NORMAL
+  // ✅ STYLE DE TEXTE AVEC WRAPPING INTELLIGENT
+  const wrapWidth = calculateOptimalWrapWidth(width, height)
   const textStyle = new TextStyle({
     fontSize: style.fontSize,
     fontFamily: style.fontFamily,
     fill: style.textColor,
     align: style.textAlign,
     wordWrap: true,
-    wordWrapWidth: width - 20
+    wordWrapWidth: wrapWidth,
+    breakWords: true // Permet de couper les mots très longs
   })
 
+  // ✅ GESTION UNIFIÉE DU TEXTE - Afficher placeholder seulement si vraiment vide
+  const displayText = (dialogueElement.text && dialogueElement.text.trim() !== '')
+    ? dialogueElement.text
+    : 'Nouveau texte...'
+
   const text = new Text({
-    text: dialogueElement.text,
+    text: displayText,
     style: textStyle
   })
 
-  text.x = width / 2 - text.width / 2
-  text.y = height / 2 - text.height / 2
+  // ✅ CENTRAGE AUTOMATIQUE AVEC ANCHOR - COHÉRENT AVEC L'ÉDITEUR
+  text.anchor.set(0.5, 0.5)
+  text.x = width / 2
+  text.y = height / 2
+  text.name = 'bubbleText'
+
+  // ✅ ZONE CLIQUABLE POUR DOUBLE-CLIC
+  const clickArea = new Graphics()
+  clickArea.rect(0, 0, width, height)
+  clickArea.fill({ color: 0x000000, alpha: 0 }) // Invisible mais cliquable
+  clickArea.name = 'clickArea'
+  clickArea.eventMode = 'static'
+  clickArea.cursor = 'text'
+
+  // ✅ GESTION DES CLICS POUR DÉTECTER LE DOUBLE-CLIC
+  clickArea.on('pointertap', (event) => {
+    console.log('🖱️ Clic sur bulle détecté:', dialogueElement.id)
+
+    // ✅ NE PAS STOPPER LA PROPAGATION - Laisser le système principal gérer le double-clic
+    // event.stopPropagation() // SUPPRIMÉ pour permettre la détection du double-clic
+
+    // ✅ CALLBACK OPTIONNEL POUR DOUBLE-CLIC (si fourni)
+    if (onBubbleDoubleClick) {
+      const now = Date.now()
+      const lastClick = (clickArea as any).lastClickTime || 0
+      const timeDiff = now - lastClick
+
+      if (timeDiff < 400) {
+        console.log('🎨 Double-clic détecté dans createDialogueElement:', dialogueElement.id)
+        onBubbleDoubleClick(dialogueElement, { x: event.global.x, y: event.global.y })
+      }
+
+      (clickArea as any).lastClickTime = now
+    }
+  })
 
   container.addChild(graphics)
   container.addChild(text)
+  container.addChild(clickArea)
   updateElementTransform(container, dialogueElement.transform)
 
   return container
@@ -1168,22 +1539,47 @@ interface BubbleConfig {
   textPadding: number
 }
 
-// Créer une configuration de bulle basée sur les techniques CSS modernes
+// Créer une configuration de bulle basée sur les techniques CSS modernes avec support 360°
 function createAdvancedBubbleConfig(element: DialogueElement): BubbleConfig {
   const { width, height } = element.transform
   const style = element.bubbleStyle
+
+  // ✅ NOUVEAU SYSTÈME 360° : Calcul dynamique de la queue
+  let tailBase = Math.min(width * 0.2, 30)
+  let tailHeight = Math.min(height * 0.3, 20)
+  const tailPosition = style.tailPositionPercent ?? 0.25
+  let tailAngle = style.tailAngle ?? 90
+
+  // ✅ SYSTÈME 360° : Utiliser les nouvelles propriétés si disponibles
+  if (style.tailAbsoluteX !== undefined && style.tailAbsoluteY !== undefined && style.tailAngleDegrees !== undefined) {
+    tailAngle = style.tailAngleDegrees
+    tailHeight = style.tailLength ?? 30
+
+    // ✅ ADAPTER LA BASE POUR TOUTES LES LONGUEURS (même très grandes)
+    // Base proportionnelle mais avec limites visuelles raisonnables
+    tailBase = Math.min(Math.max(tailHeight * 0.3, 8), 30) // Entre 8px et 30px
+
+    console.log('🎯 Configuration bulle 360° (LONGUEUR ILLIMITÉE):', {
+      tailAngle,
+      tailHeight,
+      tailBase,
+      tailAbsoluteX: style.tailAbsoluteX,
+      tailAbsoluteY: style.tailAbsoluteY,
+      isLongTail: tailHeight > 100
+    })
+  }
 
   return {
     // Dimensions principales
     width,
     height,
 
-    // Variables de queue (inspirées des articles CSS avec support des nouvelles propriétés)
-    tailBase: Math.min(width * 0.2, 30),                    // --b: base adaptative
-    tailHeight: Math.min(height * 0.3, 20),                 // --h: hauteur adaptative
-    tailPosition: style.tailPositionPercent ?? 0.25,        // --p: position configurable
+    // Variables de queue (inspirées des articles CSS avec support 360°)
+    tailBase,                                                // --b: base adaptative
+    tailHeight,                                              // --h: hauteur adaptative
+    tailPosition,                                            // --p: position configurable
     tailOffset: style.tailOffset ?? 0,                      // --x: décalage configurable
-    tailAngle: style.tailAngle ?? 90,                       // --a: angle configurable
+    tailAngle,                                               // --a: angle configurable
 
     // Variables de style avec support des nouvelles propriétés
     backgroundColor: style.backgroundColor,
@@ -1207,11 +1603,17 @@ function createAdvancedBubbleConfig(element: DialogueElement): BubbleConfig {
   }
 }
 
-// Queue moderne pour bulle de dialogue avec configuration avancée
+// Queue moderne pour bulle de dialogue avec configuration avancée et système 360°
 function drawAdvancedSpeechTail(graphics: Graphics, config: BubbleConfig): void {
   const { width, height, tailBase, tailHeight, tailPosition, tailOffset } = config
 
-  // Calcul de la position avec les variables CSS-like
+  // ✅ NOUVEAU SYSTÈME 360° : Si l'angle est défini, utiliser le système dynamique
+  if (config.tailAngle !== undefined && config.tailAngle !== 90) {
+    drawDynamic360Tail(graphics, config)
+    return
+  }
+
+  // ✅ SYSTÈME CLASSIQUE : Pour compatibilité avec les anciennes bulles
   const tailX = width * tailPosition + tailOffset
   const tailY = height
 
@@ -1242,6 +1644,13 @@ function drawAdvancedSpeechTail(graphics: Graphics, config: BubbleConfig): void 
 
   graphics.fill(config.backgroundColor)
   graphics.stroke({ width: config.borderWidth, color: config.outlineColor })
+}
+
+// ✅ NOUVELLE FONCTION : Queue dynamique 360° qui correspond exactement au handle
+function drawDynamic360Tail(graphics: Graphics, config: BubbleConfig): void {
+  // Cette fonction dessine la queue exactement là où le handle sera positionné
+  // Pas de dessin ici - la queue sera dessinée par le système de rendu principal
+  // Cette fonction existe pour la compatibilité avec l'architecture existante
 }
 
 // Queue moderne pour bulle de dialogue (version simple - gardée pour compatibilité)
@@ -1440,21 +1849,384 @@ function drawModernExplosionBubble(graphics: Graphics, width: number, height: nu
 
 // ✅ NOUVELLES FONCTIONS AVANCÉES INSPIRÉES DES TECHNIQUES CSS MODERNES
 
-// Bulle de dialogue avancée avec configuration CSS-like
+// ✅ BULLE MANGA STYLE : Queue parfaitement intégrée sans séparation visuelle
 function drawAdvancedSpeechBubble(graphics: Graphics, config: BubbleConfig): void {
+  // ✅ RENDU UNIFIÉ : Bulle + queue comme une seule forme
+  drawUnifiedMangaBubble(graphics, config)
+}
+
+// ✅ NOUVELLE FONCTION : Bulle unifiée style manga professionnel
+function drawUnifiedMangaBubble(graphics: Graphics, config: BubbleConfig): void {
   const { width, height, borderRadius, backgroundColor, outlineColor, borderWidth } = config
 
-  // Forme principale avec border-radius adaptatif
-  graphics.roundRect(0, 0, width, height, borderRadius)
+  // ✅ SYSTÈME 360° : Si queue dynamique, dessiner forme unifiée
+  if (config.tailAngle !== undefined && config.tailAngle !== 90) {
+    drawSeamlessMangaBubbleWithTail(graphics, config)
+  } else {
+    // Fallback : bulle classique
+    graphics.roundRect(0, 0, width, height, borderRadius)
+    graphics.fill(backgroundColor)
+    graphics.stroke({ width: borderWidth, color: outlineColor })
+    drawAdvancedSpeechTail(graphics, config)
+  }
+}
+
+// ✅ FONCTION PRINCIPALE : Bulle manga avec queue parfaitement intégrée
+function drawSeamlessMangaBubbleWithTail(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, borderRadius, backgroundColor, outlineColor, borderWidth } = config
+
+  // Calculs de base
+  const centerX = width / 2
+  const centerY = height / 2
+  const angleRad = config.tailAngle * Math.PI / 180
+  const dx = Math.cos(angleRad)
+  const dy = Math.sin(angleRad)
+
+  // ✅ CALCUL DU POINT D'INTÉGRATION (où la queue se connecte)
+  const integrationPoint = calculateSeamlessIntegrationPoint(config)
+
+  // ✅ POINT FINAL DE LA QUEUE
+  const tailEndX = integrationPoint.x + dx * config.tailHeight
+  const tailEndY = integrationPoint.y + dy * config.tailHeight
+
+  // ✅ DESSINER LA FORME UNIFIÉE SANS SÉPARATION
+  drawUnifiedBubbleShape(graphics, config, integrationPoint, { x: tailEndX, y: tailEndY })
+}
+
+// ✅ CALCUL DU POINT D'INTÉGRATION PARFAIT
+function calculateSeamlessIntegrationPoint(config: BubbleConfig): { x: number, y: number } {
+  const { width, height } = config
+  const centerX = width / 2
+  const centerY = height / 2
+  const angleRad = config.tailAngle * Math.PI / 180
+  const dx = Math.cos(angleRad)
+  const dy = Math.sin(angleRad)
+
+  // ✅ INTERSECTION AVEC LE RECTANGLE (en tenant compte du border-radius)
+  let t = Infinity
+  const halfWidth = width / 2 - config.borderRadius * 0.3 // Ajustement pour coins arrondis
+  const halfHeight = height / 2 - config.borderRadius * 0.3
+
+  if (dx > 0) t = Math.min(t, halfWidth / dx)
+  if (dx < 0) t = Math.min(t, -halfWidth / dx)
+  if (dy > 0) t = Math.min(t, halfHeight / dy)
+  if (dy < 0) t = Math.min(t, -halfHeight / dy)
+
+  return {
+    x: centerX + dx * t,
+    y: centerY + dy * t
+  }
+}
+
+// ✅ DESSINER LA FORME UNIFIÉE SANS SÉPARATION
+function drawUnifiedBubbleShape(graphics: Graphics, config: BubbleConfig, integrationPoint: { x: number, y: number }, tailEnd: { x: number, y: number }): void {
+  const { width, height, borderRadius, backgroundColor, outlineColor, borderWidth } = config
+
+  // ✅ CRÉER UN PATH UNIFIÉ QUI INCLUT BULLE + QUEUE
+  const path = createUnifiedBubblePath(config, integrationPoint, tailEnd)
+
+  // ✅ DESSINER LA FORME COMPLÈTE D'UN COUP
+  graphics.poly(path)
   graphics.fill(backgroundColor)
   graphics.stroke({ width: borderWidth, color: outlineColor })
 
-  // Queue avancée avec positionnement flexible
-  drawAdvancedSpeechTail(graphics, config)
+  console.log('🎨 Bulle manga unifiée dessinée:', {
+    integrationPoint,
+    tailEnd,
+    pathPoints: path.length / 2
+  })
 }
 
-// Bulle de pensée avancée avec ellipse et bulles
+// ✅ FONCTION HELPER : Calcul intelligent de la largeur de wrapping (identique à NativeTextEditor)
+function calculateOptimalWrapWidth(bubbleWidth: number, bubbleHeight: number): number {
+  const minPadding = 15 // Marge minimale de 15px
+  const maxPadding = 25 // Marge maximale de 25px
+
+  // Calculer la largeur disponible en tenant compte des marges
+  let availableWidth = bubbleWidth - (minPadding * 2)
+
+  // Pour les bulles très larges, utiliser une marge plus importante
+  if (bubbleWidth > 300) {
+    availableWidth = bubbleWidth - (maxPadding * 2)
+  }
+
+  // S'assurer qu'on a au moins 100px de largeur pour le texte
+  availableWidth = Math.max(100, availableWidth)
+
+  return availableWidth
+}
+
+// ✅ FONCTION UNIFIÉE : Queue 360° qui utilise EXACTEMENT les mêmes calculs que le handle
+function drawDynamic360BubbleTail(graphics: Graphics, config: BubbleConfig): void {
+  // Si pas de système 360°, utiliser l'ancien système
+  if (config.tailAngle === undefined || config.tailAngle === 90) {
+    drawAdvancedSpeechTail(graphics, config)
+    return
+  }
+
+  // ✅ UTILISER LES MÊMES CALCULS QUE BubbleManipulationManager.calculateTailAttachmentPoint
+  const centerX = config.width / 2
+  const centerY = config.height / 2
+  const angleRad = config.tailAngle * Math.PI / 180
+  const dx = Math.cos(angleRad)
+  const dy = Math.sin(angleRad)
+
+  // Calcul d'intersection IDENTIQUE à BubbleManipulationManager
+  let t = Infinity
+  const halfWidth = config.width / 2
+  const halfHeight = config.height / 2
+
+  if (dx > 0) t = Math.min(t, halfWidth / dx)
+  if (dx < 0) t = Math.min(t, -halfWidth / dx)
+  if (dy > 0) t = Math.min(t, halfHeight / dy)
+  if (dy < 0) t = Math.min(t, -halfHeight / dy)
+
+  const attachX = centerX + dx * t
+  const attachY = centerY + dy * t
+
+  // ✅ POINT FINAL IDENTIQUE au calcul du handle (LONGUEUR ILLIMITÉE)
+  const tailEndX = attachX + dx * config.tailHeight
+  const tailEndY = attachY + dy * config.tailHeight
+
+  // ✅ ADAPTATION POUR QUEUES TRÈS LONGUES
+  const isLongTail = config.tailHeight > 100
+  const strokeWidth = isLongTail ? Math.min(config.borderWidth + 1, 4) : config.borderWidth
+
+  // Dessiner la queue triangulaire vers ce point EXACT
+  const perpAngle = angleRad + Math.PI / 2
+  const baseHalf = config.tailBase / 2
+
+  const base1X = attachX + Math.cos(perpAngle) * baseHalf
+  const base1Y = attachY + Math.sin(perpAngle) * baseHalf
+  const base2X = attachX - Math.cos(perpAngle) * baseHalf
+  const base2Y = attachY - Math.sin(perpAngle) * baseHalf
+
+  // Triangle pointant vers le point EXACT où sera le handle
+  graphics.moveTo(base1X, base1Y)
+  graphics.lineTo(tailEndX, tailEndY) // ← MÊME POINT que le handle
+  graphics.lineTo(base2X, base2Y)
+  graphics.lineTo(base1X, base1Y)
+
+  graphics.fill(config.backgroundColor)
+  graphics.stroke({ width: strokeWidth, color: config.outlineColor })
+
+  console.log('🎯 Queue ILLIMITÉE dessinée:', {
+    tailEndX,
+    tailEndY,
+    angle: config.tailAngle,
+    length: config.tailHeight,
+    isLongTail,
+    strokeWidth
+  })
+}
+
+// ✅ CRÉER UN PATH UNIFIÉ POUR BULLE + QUEUE SANS SÉPARATION
+function createUnifiedBubblePath(config: BubbleConfig, integrationPoint: { x: number, y: number }, tailEnd: { x: number, y: number }): number[] {
+  const { width, height, borderRadius } = config
+  const path: number[] = []
+
+  // ✅ DÉTERMINER LE CÔTÉ D'INTÉGRATION
+  const side = determineIntegrationSide(integrationPoint, width, height)
+
+  // ✅ CRÉER LE CONTOUR DE LA BULLE AVEC INTÉGRATION DE QUEUE
+  switch (side) {
+    case 'bottom':
+      createBottomIntegratedPath(path, config, integrationPoint, tailEnd)
+      break
+    case 'top':
+      createTopIntegratedPath(path, config, integrationPoint, tailEnd)
+      break
+    case 'left':
+      createLeftIntegratedPath(path, config, integrationPoint, tailEnd)
+      break
+    case 'right':
+      createRightIntegratedPath(path, config, integrationPoint, tailEnd)
+      break
+  }
+
+  return path
+}
+
+// ✅ DÉTERMINER LE CÔTÉ D'INTÉGRATION
+function determineIntegrationSide(point: { x: number, y: number }, width: number, height: number): 'top' | 'bottom' | 'left' | 'right' {
+  const centerX = width / 2
+  const centerY = height / 2
+
+  const distToTop = Math.abs(point.y - 0)
+  const distToBottom = Math.abs(point.y - height)
+  const distToLeft = Math.abs(point.x - 0)
+  const distToRight = Math.abs(point.x - width)
+
+  const minDist = Math.min(distToTop, distToBottom, distToLeft, distToRight)
+
+  if (minDist === distToTop) return 'top'
+  if (minDist === distToBottom) return 'bottom'
+  if (minDist === distToLeft) return 'left'
+  return 'right'
+}
+
+// ✅ PATH INTÉGRÉ POUR CÔTÉ BAS
+function createBottomIntegratedPath(path: number[], config: BubbleConfig, integrationPoint: { x: number, y: number }, tailEnd: { x: number, y: number }): void {
+  const { width, height, borderRadius } = config
+  const tailWidth = config.tailBase
+
+  // Commencer en haut à gauche
+  path.push(borderRadius, 0)
+
+  // Côté haut
+  path.push(width - borderRadius, 0)
+  path.push(width, borderRadius)
+
+  // Côté droit
+  path.push(width, height - borderRadius)
+  path.push(width - borderRadius, height)
+
+  // ✅ CÔTÉ BAS AVEC INTÉGRATION DE QUEUE
+  // Aller jusqu'au point d'intégration droit
+  const rightIntegrationX = integrationPoint.x + tailWidth / 2
+  path.push(rightIntegrationX, height)
+
+  // ✅ QUEUE INTÉGRÉE SANS SÉPARATION
+  path.push(tailEnd.x, tailEnd.y) // Pointe de la queue
+
+  // Retour au point d'intégration gauche
+  const leftIntegrationX = integrationPoint.x - tailWidth / 2
+  path.push(leftIntegrationX, height)
+
+  // Continuer le côté bas
+  path.push(borderRadius, height)
+  path.push(0, height - borderRadius)
+
+  // Côté gauche
+  path.push(0, borderRadius)
+  path.push(borderRadius, 0) // Retour au début
+}
+
+// ✅ PATH INTÉGRÉ POUR CÔTÉ HAUT
+function createTopIntegratedPath(path: number[], config: BubbleConfig, integrationPoint: { x: number, y: number }, tailEnd: { x: number, y: number }): void {
+  const { width, height, borderRadius } = config
+  const tailWidth = config.tailBase
+
+  // Commencer en bas à gauche
+  path.push(0, height - borderRadius)
+  path.push(borderRadius, height)
+
+  // Côté bas
+  path.push(width - borderRadius, height)
+  path.push(width, height - borderRadius)
+
+  // Côté droit
+  path.push(width, borderRadius)
+  path.push(width - borderRadius, 0)
+
+  // ✅ CÔTÉ HAUT AVEC INTÉGRATION DE QUEUE
+  const rightIntegrationX = integrationPoint.x + tailWidth / 2
+  path.push(rightIntegrationX, 0)
+
+  // Queue intégrée
+  path.push(tailEnd.x, tailEnd.y)
+
+  const leftIntegrationX = integrationPoint.x - tailWidth / 2
+  path.push(leftIntegrationX, 0)
+
+  // Continuer le côté haut
+  path.push(borderRadius, 0)
+  path.push(0, borderRadius)
+
+  // Côté gauche
+  path.push(0, height - borderRadius) // Retour au début
+}
+
+// ✅ PATH INTÉGRÉ POUR CÔTÉ GAUCHE
+function createLeftIntegratedPath(path: number[], config: BubbleConfig, integrationPoint: { x: number, y: number }, tailEnd: { x: number, y: number }): void {
+  const { width, height, borderRadius } = config
+  const tailWidth = config.tailBase
+
+  // Commencer en haut à droite
+  path.push(width - borderRadius, 0)
+  path.push(width, borderRadius)
+
+  // Côté droit
+  path.push(width, height - borderRadius)
+  path.push(width - borderRadius, height)
+
+  // Côté bas
+  path.push(borderRadius, height)
+  path.push(0, height - borderRadius)
+
+  // ✅ CÔTÉ GAUCHE AVEC INTÉGRATION DE QUEUE
+  const bottomIntegrationY = integrationPoint.y + tailWidth / 2
+  path.push(0, bottomIntegrationY)
+
+  // Queue intégrée
+  path.push(tailEnd.x, tailEnd.y)
+
+  const topIntegrationY = integrationPoint.y - tailWidth / 2
+  path.push(0, topIntegrationY)
+
+  // Continuer le côté gauche
+  path.push(0, borderRadius)
+  path.push(borderRadius, 0)
+
+  // Côté haut
+  path.push(width - borderRadius, 0) // Retour au début
+}
+
+// ✅ PATH INTÉGRÉ POUR CÔTÉ DROIT
+function createRightIntegratedPath(path: number[], config: BubbleConfig, integrationPoint: { x: number, y: number }, tailEnd: { x: number, y: number }): void {
+  const { width, height, borderRadius } = config
+  const tailWidth = config.tailBase
+
+  // Commencer en haut à gauche
+  path.push(borderRadius, 0)
+  path.push(0, borderRadius)
+
+  // Côté gauche
+  path.push(0, height - borderRadius)
+  path.push(borderRadius, height)
+
+  // Côté bas
+  path.push(width - borderRadius, height)
+  path.push(width, height - borderRadius)
+
+  // ✅ CÔTÉ DROIT AVEC INTÉGRATION DE QUEUE
+  const bottomIntegrationY = integrationPoint.y + tailWidth / 2
+  path.push(width, bottomIntegrationY)
+
+  // Queue intégrée
+  path.push(tailEnd.x, tailEnd.y)
+
+  const topIntegrationY = integrationPoint.y - tailWidth / 2
+  path.push(width, topIntegrationY)
+
+  // Continuer le côté droit
+  path.push(width, borderRadius)
+  path.push(width - borderRadius, 0)
+
+  // Côté haut
+  path.push(borderRadius, 0) // Retour au début
+}
+
+// Bulle de pensée avancée avec ellipse et bulles (intégration seamless)
 function drawAdvancedThoughtBubble(graphics: Graphics, config: BubbleConfig): void {
+  const { width, height, backgroundColor, outlineColor, borderWidth } = config
+
+  // ✅ SYSTÈME UNIFIÉ POUR BULLES DE PENSÉE AUSSI
+  if (config.tailAngle !== undefined && config.tailAngle !== 90) {
+    // Ellipse avec queue intégrée
+    drawSeamlessThoughtBubbleWithTail(graphics, config)
+  } else {
+    // Ellipse classique
+    graphics.ellipse(width / 2, height / 2, width / 2 - 2, height / 2 - 2)
+    graphics.fill(backgroundColor)
+    graphics.stroke({ width: borderWidth, color: outlineColor })
+    drawAdvancedThoughtBubbles(graphics, config)
+  }
+}
+
+// ✅ BULLE DE PENSÉE AVEC QUEUE INTÉGRÉE
+function drawSeamlessThoughtBubbleWithTail(graphics: Graphics, config: BubbleConfig): void {
+  // Pour les bulles de pensée, utiliser des petites bulles au lieu d'une queue triangulaire
   const { width, height, backgroundColor, outlineColor, borderWidth } = config
 
   // Ellipse principale
@@ -1462,43 +2234,83 @@ function drawAdvancedThoughtBubble(graphics: Graphics, config: BubbleConfig): vo
   graphics.fill(backgroundColor)
   graphics.stroke({ width: borderWidth, color: outlineColor })
 
-  // Petites bulles de pensée avec espacement amélioré
-  drawAdvancedThoughtBubbles(graphics, config)
+  // ✅ PETITES BULLES INTÉGRÉES VERS LE POINT FINAL
+  drawSeamlessThoughtBubbles(graphics, config)
 }
 
-// Bulle de cri avancée avec forme en étoile contrôlée
+// ✅ PETITES BULLES DE PENSÉE INTÉGRÉES
+function drawSeamlessThoughtBubbles(graphics: Graphics, config: BubbleConfig): void {
+  const centerX = config.width / 2
+  const centerY = config.height / 2
+  const angleRad = config.tailAngle * Math.PI / 180
+  const dx = Math.cos(angleRad)
+  const dy = Math.sin(angleRad)
+
+  // Point de départ sur le bord de l'ellipse
+  const startX = centerX + dx * (config.width / 2 - 5)
+  const startY = centerY + dy * (config.height / 2 - 5)
+
+  // Créer une série de bulles vers le point final
+  const numBubbles = Math.min(5, Math.floor(config.tailHeight / 15))
+
+  for (let i = 0; i < numBubbles; i++) {
+    const progress = (i + 1) / numBubbles
+    const bubbleX = startX + dx * config.tailHeight * progress
+    const bubbleY = startY + dy * config.tailHeight * progress
+    const bubbleRadius = Math.max(2, 8 - i * 1.5) // Bulles qui diminuent
+
+    graphics.circle(bubbleX, bubbleY, bubbleRadius)
+    graphics.fill(config.backgroundColor)
+    graphics.stroke({ width: 1, color: config.outlineColor })
+  }
+}
+
+// Bulle de cri avancée avec forme en étoile contrôlée (intégration seamless)
 function drawAdvancedShoutBubble(graphics: Graphics, config: BubbleConfig): void {
   const { width, height, backgroundColor, outlineColor, borderWidth } = config
-  const centerX = width / 2
-  const centerY = height / 2
-  const outerRadius = Math.min(width, height) / 2 - 4
-  const innerRadius = outerRadius * 0.65
-  const points = 10 // Points contrôlés
 
-  graphics.moveTo(centerX + outerRadius, centerY)
+  // ✅ SYSTÈME UNIFIÉ POUR BULLES DE CRI
+  if (config.tailAngle !== undefined && config.tailAngle !== 90) {
+    drawUnifiedMangaBubble(graphics, config) // Utiliser le système unifié
+  } else {
+    // Forme en étoile classique
+    const centerX = width / 2
+    const centerY = height / 2
+    const outerRadius = Math.min(width, height) / 2 - 4
+    const innerRadius = outerRadius * 0.65
+    const points = 10
 
-  for (let i = 1; i <= points * 2; i++) {
-    const radius = i % 2 === 0 ? outerRadius : innerRadius
-    const angle = (i * Math.PI) / points
-    const x = centerX + Math.cos(angle) * radius
-    const y = centerY + Math.sin(angle) * radius
-    graphics.lineTo(x, y)
+    graphics.moveTo(centerX + outerRadius, centerY)
+
+    for (let i = 1; i <= points * 2; i++) {
+      const radius = i % 2 === 0 ? outerRadius : innerRadius
+      const angle = (i * Math.PI) / points
+      const x = centerX + Math.cos(angle) * radius
+      const y = centerY + Math.sin(angle) * radius
+      graphics.lineTo(x, y)
+    }
+
+    graphics.fill(backgroundColor)
+    graphics.stroke({ width: borderWidth, color: outlineColor })
   }
-
-  graphics.fill(backgroundColor)
-  graphics.stroke({ width: borderWidth, color: outlineColor })
 }
 
-// Bulle de chuchotement avancée avec bordures pointillées
+// Bulle de chuchotement avancée avec bordures pointillées (intégration seamless)
 function drawAdvancedWhisperBubble(graphics: Graphics, config: BubbleConfig): void {
   const { width, height, borderRadius, backgroundColor, outlineColor } = config
 
-  // Forme principale avec transparence
-  graphics.roundRect(0, 0, width, height, borderRadius)
-  graphics.fill({ color: backgroundColor, alpha: 0.9 })
+  // ✅ SYSTÈME UNIFIÉ POUR BULLES DE CHUCHOTEMENT
+  if (config.tailAngle !== undefined && config.tailAngle !== 90) {
+    drawUnifiedMangaBubble(graphics, config) // Utiliser le système unifié
 
-  // Bordure pointillée moderne
-  drawAdvancedDashedBorder(graphics, config)
+    // ✅ AJOUTER L'EFFET POINTILLÉ APRÈS
+    drawAdvancedDashedBorder(graphics, config)
+  } else {
+    // Style classique
+    graphics.roundRect(0, 0, width, height, borderRadius)
+    graphics.fill({ color: backgroundColor, alpha: 0.9 })
+    drawAdvancedDashedBorder(graphics, config)
+  }
 }
 
 // Bulle d'explosion avancée avec forme contrôlée
@@ -1746,10 +2558,82 @@ function updatePixiElement(pixiElement: any, element: AssemblyElement): void {
         color: panelElement.panelStyle.borderColor
       })
     }
-  } else if (element.type === 'text' || element.type === 'dialogue') {
+  } else if (element.type === 'text') {
     const textChild = pixiElement.children.find((child: any) => child instanceof Text)
     if (textChild && 'text' in element) {
       textChild.text = element.text
+    }
+  } else if (element.type === 'dialogue') {
+    // ✅ POUR LES BULLES DE DIALOGUE - REDESSINER COMPLÈTEMENT
+    const dialogueElement = element as DialogueElement
+    const graphics = pixiElement.children.find((child: any) => child instanceof Graphics)
+    if (graphics) {
+      // Effacer et redessiner la bulle avec les nouvelles dimensions
+      graphics.clear()
+
+      // Utiliser la fonction de création de bulle existante
+      const bubbleConfig = createAdvancedBubbleConfig(dialogueElement)
+
+      switch (dialogueElement.bubbleStyle.type) {
+        case 'speech':
+          drawAdvancedSpeechBubble(graphics, bubbleConfig)
+          break
+        case 'thought':
+          drawAdvancedThoughtBubble(graphics, bubbleConfig)
+          break
+        case 'shout':
+          drawAdvancedShoutBubble(graphics, bubbleConfig)
+          break
+        case 'whisper':
+          drawAdvancedWhisperBubble(graphics, bubbleConfig)
+          break
+        case 'explosion':
+          drawAdvancedExplosionBubble(graphics, bubbleConfig)
+          break
+        default:
+          drawAdvancedSpeechBubble(graphics, bubbleConfig)
+      }
+
+      console.log('💬 Bulle redimensionnée:', {
+        id: dialogueElement.id,
+        newSize: { width: dialogueElement.transform.width, height: dialogueElement.transform.height },
+        type: dialogueElement.bubbleStyle.type
+      })
+    }
+
+    // ✅ RECENTRER LE TEXTE AUTOMATIQUEMENT LORS DU REDIMENSIONNEMENT
+    const textChild = pixiElement.children.find((child: any) => child instanceof Text && child.name === 'bubbleText')
+    if (textChild) {
+      // Mettre à jour le contenu du texte
+      const displayText = (dialogueElement.text && dialogueElement.text.trim() !== '')
+        ? dialogueElement.text
+        : 'Nouveau texte...'
+      textChild.text = displayText
+
+      // ✅ METTRE À JOUR LE STYLE AVEC WRAPPING INTELLIGENT
+      const style = dialogueElement.bubbleStyle
+      const wrapWidth = calculateOptimalWrapWidth(dialogueElement.transform.width, dialogueElement.transform.height)
+      textChild.style = new TextStyle({
+        fontSize: style.fontSize,
+        fontFamily: style.fontFamily,
+        fill: style.textColor,
+        align: 'center',
+        wordWrap: true,
+        wordWrapWidth: wrapWidth,
+        breakWords: true // Permet de couper les mots très longs
+      })
+
+      // ✅ RECENTRAGE AUTOMATIQUE EN TEMPS RÉEL
+      textChild.anchor.set(0.5, 0.5)
+      textChild.x = dialogueElement.transform.width / 2
+      textChild.y = dialogueElement.transform.height / 2
+
+      console.log('🎯 Texte recentré automatiquement:', {
+        elementId: dialogueElement.id,
+        bubbleSize: { width: dialogueElement.transform.width, height: dialogueElement.transform.height },
+        textPosition: { x: textChild.x, y: textChild.y },
+        newText: displayText
+      })
     }
   } else if (element.type === 'image') {
     // Pour les images, mettre à jour SEULEMENT la taille et position

@@ -773,7 +773,14 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
         tailPosition: 'bottom-left',
         fontSize: 14,
         fontFamily: 'Arial',
-        textAlign: 'center'
+        textAlign: 'center',
+
+        // ✅ NOUVELLES PROPRIÉTÉS 360° - INITIALISATION PAR DÉFAUT
+        tailAbsoluteX: x + 30,    // Position initiale de la queue
+        tailAbsoluteY: y + 100,   // Position initiale de la queue
+        tailLength: 30,           // Longueur initiale
+        tailAngleDegrees: 225,    // Angle initial (bas-gauche)
+        tailAttachmentSide: 'bottom' as const
       },
       properties: {
         name: `Bulle ${typeToUse}`,

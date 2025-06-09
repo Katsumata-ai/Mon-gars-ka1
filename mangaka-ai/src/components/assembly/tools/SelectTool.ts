@@ -895,92 +895,30 @@ export class SelectTool {
   }
 
   /**
-   * Vérifie si un point est dans un élément en utilisant les bounds PixiJS réels
+   * Vérifie si un point est dans un élément - MÉTHODE SIMPLIFIÉE ET FIABLE
    */
   private isPointInElement(x: number, y: number, element: AssemblyElement): boolean {
-    // Utiliser d'abord les coordonnées du state React (plus fiables)
-    const { transform } = element
-    const width = transform.width || 0
-    const height = transform.height || 0
+    // ✅ UTILISER LA MÊME LOGIQUE QUE handleSelectTool (qui fonctionne)
+    const bounds = {
+      left: element.transform.x,
+      top: element.transform.y,
+      right: element.transform.x + element.transform.width,
+      bottom: element.transform.y + element.transform.height
+    }
 
-    // Ajouter une petite tolérance pour améliorer la détection
-    const tolerance = 2
+    const isInside = x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom
 
-    const isInsideReactBounds = x >= (transform.x - tolerance) &&
-                               x <= (transform.x + width + tolerance) &&
-                               y >= (transform.y - tolerance) &&
-                               y <= (transform.y + height + tolerance)
-
-    console.log('🔍 Test collision avec coordonnées React:', {
+    console.log('🔍 Test collision SIMPLIFIÉ:', {
       point: { x, y },
       element: {
         id: element.id,
-        reactBounds: {
-          x: transform.x,
-          y: transform.y,
-          width,
-          height
-        },
-        withTolerance: {
-          x: transform.x - tolerance,
-          y: transform.y - tolerance,
-          width: width + (tolerance * 2),
-          height: height + (tolerance * 2)
-        }
+        bounds,
+        transform: element.transform
       },
-      isInside: isInsideReactBounds
+      isInside
     })
 
-    // Si la détection React fonctionne, l'utiliser
-    if (isInsideReactBounds) {
-      return true
-    }
-
-    // Fallback : essayer avec les bounds PixiJS si disponible
-    const pixiElement = this.getPixiElementFromStage(element.id)
-    if (pixiElement) {
-      try {
-        // Utiliser getLocalBounds() pour éviter les transformations du parent
-        const localBounds = pixiElement.getLocalBounds()
-        const boundsRect = localBounds.rectangle || localBounds
-
-        // Convertir en coordonnées globales
-        const globalPos = pixiElement.toGlobal({ x: boundsRect.x, y: boundsRect.y })
-
-        const isInsidePixiBounds = x >= globalPos.x &&
-                                  x <= globalPos.x + boundsRect.width &&
-                                  y >= globalPos.y &&
-                                  y <= globalPos.y + boundsRect.height
-
-        console.log('🔍 Test collision fallback PixiJS:', {
-          point: { x, y },
-          element: {
-            id: element.id,
-            localBounds: {
-              x: boundsRect.x,
-              y: boundsRect.y,
-              width: boundsRect.width,
-              height: boundsRect.height
-            },
-            globalBounds: {
-              x: globalPos.x,
-              y: globalPos.y,
-              width: boundsRect.width,
-              height: boundsRect.height
-            }
-          },
-          isInside: isInsidePixiBounds
-        })
-
-        return isInsidePixiBounds
-      } catch (error) {
-        console.warn('⚠️ Erreur lors du calcul des bounds PixiJS:', error)
-      }
-    }
-
-    // Si tout échoue, retourner false
-    console.warn('⚠️ Impossible de déterminer la collision pour:', element.id)
-    return false
+    return isInside
   }
 
   /**

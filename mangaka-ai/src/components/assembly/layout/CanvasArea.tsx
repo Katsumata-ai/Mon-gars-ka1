@@ -24,6 +24,8 @@ interface CanvasAreaProps {
   height?: number
   onElementClick?: (element: any) => void
   onCanvasClick?: (x: number, y: number) => void
+  onBubbleDoubleClick?: (element: any, position: { x: number, y: number }) => void
+  onBubbleRightClick?: (element: any, position: { x: number, y: number }) => void
   className?: string
 }
 
@@ -39,6 +41,8 @@ export default function CanvasArea({
   height = 1600,
   onElementClick,
   onCanvasClick,
+  onBubbleDoubleClick,
+  onBubbleRightClick,
   className = ''
 }: CanvasAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -561,6 +565,8 @@ export default function CanvasArea({
             height={height}
             onElementClick={handleElementClick}
             onCanvasClick={handleCanvasClick}
+            onBubbleDoubleClick={onBubbleDoubleClick}
+            onBubbleRightClick={onBubbleRightClick}
             canvasTransform={canvasTransform}
             className="block"
           />
