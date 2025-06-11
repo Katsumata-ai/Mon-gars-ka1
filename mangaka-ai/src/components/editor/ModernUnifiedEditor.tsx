@@ -40,7 +40,7 @@ import ScriptEditorPanel from '@/components/editor/ScriptEditorPanel'
 import CachedMangaCharacterStudio from '@/components/character/CachedMangaCharacterStudio'
 import CachedMangaDecorStudio from '@/components/decor/CachedMangaDecorStudio'
 import SceneComposerPanel from '@/components/editor/SceneComposerPanel'
-import PixiAssemblyAppOptimized from '@/components/assembly/PixiAssemblyAppOptimized'
+import PolotnoAssemblyApp from '@/components/assembly/PolotnoAssemblyApp'
 
 // Import des composants mobile
 import MobileBottomNavigation from '@/components/mobile/MobileBottomNavigation'
@@ -536,7 +536,7 @@ function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEdi
         return <SceneComposerPanel projectId={projectId} />
 
       case 'assembly':
-        return <PixiAssemblyAppOptimized projectId={projectId} currentPage={currentPage} />
+        return <PolotnoAssemblyApp projectId={projectId} currentPage={currentPage} />
 
       default:
         return (

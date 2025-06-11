@@ -80,7 +80,7 @@ export class SelectTool {
    */
   private updateCursor(cursor: string): void {
     if (!this.canvasElement) {
-      console.warn('⚠️ SelectTool: canvasElement non défini pour updateCursor')
+      // ✅ CORRECTION : Désactiver les logs d'erreur pour Konva (pas de canvas HTML)
       return
     }
 
@@ -115,10 +115,19 @@ export class SelectTool {
   handlePointerDown(x: number, y: number, elements: AssemblyElement[]): boolean {
     console.log('🎯 SelectTool handlePointerDown:', { x, y, elementsCount: elements.length })
 
+    // ✅ CORRECTION KONVA : Inclure les bulles Konva dans la sélection
+    const pixiElements = elements // Plus de filtrage, toutes les bulles sont maintenant en Konva
+
+    console.log('🔥 SelectTool: Éléments filtrés (sans bulles HTML):', {
+      total: elements.length,
+      pixiOnly: pixiElements.length,
+      htmlBubblesFiltered: elements.length - pixiElements.length
+    })
+
     // Séparer les éléments par type pour une sélection intelligente
-    const images = elements.filter(el => el.type === 'image')
-    const panels = elements.filter(el => el.type === 'panel')
-    const otherElements = elements.filter(el => el.type !== 'image' && el.type !== 'panel')
+    const images = pixiElements.filter(el => el.type === 'image')
+    const panels = pixiElements.filter(el => el.type === 'panel')
+    const otherElements = pixiElements.filter(el => el.type !== 'image' && el.type !== 'panel')
 
     // 🎯 SÉLECTION INTELLIGENTE AVEC DISTINCTION PANEL/IMAGE
 
@@ -210,6 +219,8 @@ export class SelectTool {
    * Gère le déplacement de la souris avec logique de curseur cohérente
    */
   handlePointerMove(x: number, y: number, elements: AssemblyElement[]): void {
+    // ✅ CORRECTION KONVA : Inclure les bulles Konva dans la sélection
+    const pixiElements = elements // Plus de filtrage, toutes les bulles sont maintenant en Konva
     // Si on a préparé une action mais qu'elle n'a pas encore commencé, la démarrer maintenant
     if (this.state.originalBounds && !this.state.isDragging && !this.state.isResizing) {
       const deltaX = Math.abs(x - this.state.dragStartX)
@@ -229,17 +240,17 @@ export class SelectTool {
 
     // 🎯 GESTION DES ACTIONS EN COURS
     if (this.state.isDragging && this.state.selectedElementId) {
-      this.updateDrag(x, y, elements)
+      this.updateDrag(x, y, pixiElements)
       // Pendant le drag, garder le curseur move
       this.updateCursor('move')
       return
     }
 
     if (this.state.isResizing && this.state.selectedElementId) {
-      this.updateResize(x, y, elements)
+      this.updateResize(x, y, pixiElements)
       // Pendant le resize, garder le curseur de resize approprié
       if (this.state.resizeHandle) {
-        const selectedElement = elements.find(el => el.id === this.state.selectedElementId)
+        const selectedElement = pixiElements.find(el => el.id === this.state.selectedElementId)
         if (selectedElement) {
           const handles = this.getResizeHandles(selectedElement)
           const handle = handles.find(h => h.position === this.state.resizeHandle)
@@ -252,16 +263,16 @@ export class SelectTool {
     }
 
     // 🎯 GESTION DU CURSEUR SELON LE CONTEXTE
-    this.updateCursorBasedOnContext(x, y, elements)
+    this.updateCursorBasedOnContext(x, y, pixiElements)
   }
 
   /**
    * Met à jour le curseur selon le contexte actuel (logique centralisée)
    */
-  private updateCursorBasedOnContext(x: number, y: number, elements: AssemblyElement[]): void {
+  private updateCursorBasedOnContext(x: number, y: number, pixiElements: AssemblyElement[]): void {
     // 1. PRIORITÉ HAUTE : Handles de l'élément sélectionné
     if (this.state.selectedElementId) {
-      const selectedElement = elements.find(el => el.id === this.state.selectedElementId)
+      const selectedElement = pixiElements.find(el => el.id === this.state.selectedElementId)
       if (selectedElement) {
         const handle = this.getResizeHandleAt(x, y, selectedElement)
         if (handle) {
@@ -279,7 +290,7 @@ export class SelectTool {
     }
 
     // 3. PRIORITÉ BASSE : Autres éléments survolés
-    const hoveredElement = this.findElementUnderCursor(x, y, elements)
+    const hoveredElement = this.findElementUnderCursor(x, y, pixiElements)
     if (hoveredElement) {
       this.updateCursor('move')
       return
@@ -292,11 +303,13 @@ export class SelectTool {
   /**
    * Trouve l'élément sous le curseur (pour le survol) avec même logique de priorité que la sélection
    */
-  private findElementUnderCursor(x: number, y: number, elements: AssemblyElement[]): AssemblyElement | null {
+  private findElementUnderCursor(x: number, y: number, pixiElements: AssemblyElement[]): AssemblyElement | null {
+    // ✅ Les éléments sont déjà filtrés dans handlePointerMove
+
     // Séparer les éléments par type pour une détection intelligente (même logique que handlePointerDown)
-    const images = elements.filter(el => el.type === 'image')
-    const panels = elements.filter(el => el.type === 'panel')
-    const otherElements = elements.filter(el => el.type !== 'image' && el.type !== 'panel')
+    const images = pixiElements.filter(el => el.type === 'image')
+    const panels = pixiElements.filter(el => el.type === 'panel')
+    const otherElements = pixiElements.filter(el => el.type !== 'image' && el.type !== 'panel')
 
     // 1. D'abord, vérifier les images (priorité haute)
     const sortedImages = [...images].sort((a, b) => b.transform.zIndex - a.transform.zIndex)

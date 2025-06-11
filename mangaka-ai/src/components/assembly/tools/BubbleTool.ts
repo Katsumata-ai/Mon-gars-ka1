@@ -64,35 +64,36 @@ export class BubbleTool {
 
   /**
    * Place la bulle à la position actuelle
+   * ✅ MIGRATION : Crée maintenant des bulles compatibles HTML/CSS
    */
   placeBubble(x: number, y: number, stage: any): DialogueElement | null {
     // ✅ CORRECTION : Permettre la création même sans mode placement pour simplifier
     // if (!this.state.isPlacing) return null
 
-    // Créer l'élément bulle avec la BONNE STRUCTURE
+    // ✅ MIGRATION : Créer l'élément bulle compatible HTML/CSS
     const bubble: DialogueElement = {
       id: generateElementId(),
       type: 'dialogue',
       layerType: 'dialogue',
-      text: 'Nouveau texte...', // ✅ AU NIVEAU RACINE
+      text: '', // ✅ Texte vide pour édition immédiate
       transform: {
         x,
         y,
         rotation: 0,
         alpha: 1,
         zIndex: 200, // Au-dessus des panels
-        width: 150,
+        width: 150,  // ✅ Taille optimale pour HTML
         height: 80
       },
-      bubbleStyle: { // ✅ BONNE STRUCTURE
+      bubbleStyle: { // ✅ STRUCTURE COMPATIBLE HTML/CSS
         type: this.state.bubbleType,
         backgroundColor: 0xffffff,
         outlineColor: 0x000000,
-        textColor: 0x000000,
+        textColor: '#000000', // ✅ Format CSS pour HTML
         dashedOutline: this.state.bubbleType === 'whisper',
         tailPosition: 'bottom-left', // Position de la queue
-        fontSize: 14,
-        fontFamily: 'Arial',
+        fontSize: 16, // ✅ Taille optimale pour HTML
+        fontFamily: 'Arial, sans-serif', // ✅ Fallback CSS
         textAlign: 'center',
 
         // ✅ NOUVELLES PROPRIÉTÉS 360° - INITIALISATION PAR DÉFAUT
@@ -107,7 +108,9 @@ export class BubbleTool {
         locked: false,
         visible: true,
         blendMode: 'normal'
-      }
+      },
+      // ✅ NOUVEAU : Marqueur pour rendu HTML
+      renderMode: 'html' as const // Nouveau champ pour la migration
     }
 
     // Nettoyer la prévisualisation
@@ -115,6 +118,13 @@ export class BubbleTool {
 
     // Notifier la création
     this.onBubbleCreated?.(bubble)
+
+    console.log('🎈 HTML Bubble created:', {
+      id: bubble.id,
+      type: bubble.bubbleStyle.type,
+      position: { x, y },
+      renderMode: 'html'
+    })
 
     return bubble
   }

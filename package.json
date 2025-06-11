@@ -4,10 +4,12 @@
   "description": "MANGAKA AI - Plateforme de création de manga avec IA",
   "scripts": {
     "dev": "cd mangaka-ai && npm run dev",
+    "dev:port": "cd mangaka-ai && npm run dev -- -p 3001",
     "build": "cd mangaka-ai && npm run build",
     "start": "cd mangaka-ai && npm run start",
     "lint": "cd mangaka-ai && npm run lint",
-    "install-deps": "cd mangaka-ai && npm install"
+    "install-deps": "cd mangaka-ai && npm install",
+    "setup": "cd mangaka-ai && npm install && npm run dev"
   },
   "keywords": [
     "manga",
@@ -18,6 +20,9 @@
   "author": "MANGAKA AI Team",
   "license": "MIT",
   "dependencies": {
+    "@tiptap/extension-placeholder": "^2.14.0",
+    "@tiptap/react": "^2.14.0",
+    "@tiptap/starter-kit": "^2.14.0",
     "@types/lodash": "^4.17.17",
     "date-fns": "^4.1.0",
     "react-hot-toast": "^2.5.2",

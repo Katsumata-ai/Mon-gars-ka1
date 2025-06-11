@@ -1,6 +1,7 @@
 // Outil de création de panels pour le workflow Dashtoon
 
-import { Graphics, FederatedPointerEvent } from 'pixi.js'
+// ✅ MIGRATION KONVA : Remplacement PixiJS par Konva.js
+import Konva from 'konva'
 import { AssemblyElement, PanelElement } from '../types/assembly.types'
 import { generateElementId } from '../managers/StateManager'
 // Le service sera passé via les callbacks

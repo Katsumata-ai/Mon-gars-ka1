@@ -8,7 +8,7 @@ import { BubbleManipulationManager, HandleType } from './BubbleManipulationManag
 import { PanelTool } from '../tools/PanelTool'
 import { BubbleTool } from '../tools/BubbleTool'
 import { SelectTool } from '../tools/SelectTool'
-import { NativeTextEditor } from './NativeTextEditor'
+// ✅ PHASE 2B : NativeTextEditor supprimé - utilisation TipTap HTML
 import { applyCenteringUniversal, createOptimalTextStyle } from '../utils/TextCenteringUtils'
 // import { panelMaskingService } from '../services/PanelMaskingService'
 // import { useDragDrop } from '../hooks/useDragDrop'
@@ -328,7 +328,7 @@ export default function PixiApplication({
   }, [canvas.ui.bubblePlacementMode, canvas.ui.bubbleTypeToPlace])
 
   // Gestionnaire unifié des interactions selon l'outil actif
-  const handleCanvasInteraction = useCallback((x: number, y: number, type: 'down' | 'move' | 'up') => {
+  const handleCanvasInteraction = useCallback((x: number, y: number, type: 'down' | 'move' | 'up', originalX?: number, originalY?: number) => {
     // Lire l'outil actuel depuis la ref pour éviter les stale closures
     const currentTool = activeToolRef.current
     console.log('🎯 handleCanvasInteraction - Outil actuel:', currentTool, 'Type:', type)
@@ -351,8 +351,10 @@ export default function PixiApplication({
     })
 
     if (currentBubblePlacementMode && currentBubbleTypeToPlace && type === 'down') {
-      console.log('💬 Mode placement bulle actif - placement direct')
-      placeBubbleAtPosition(x, y, currentBubbleTypeToPlace)
+      console.log('💬 Mode placement bulle actif - DÉSACTIVÉ dans PixiJS')
+      console.log('🔥 Les bulles sont maintenant créées via le système DOM natif dans BubbleLayer')
+      // ✅ SOLUTION RADICALE : Désactiver la création via PixiJS
+      // Les bulles sont maintenant créées via le gestionnaire DOM natif dans BubbleLayer
       return
     }
 
@@ -471,7 +473,8 @@ export default function PixiApplication({
         stageScale: stageContainerRef.current?.scale || 'N/A'
       })
 
-      handleCanvasInteraction(adjustedPos.x, adjustedPos.y, 'down')
+      // ✅ CORRECTION RADICALE : Passer les coordonnées originales ET ajustées
+      handleCanvasInteraction(adjustedPos.x, adjustedPos.y, 'down', localPos.x, localPos.y)
     })
 
     stage.on('pointermove', (event: FederatedPointerEvent) => {
@@ -493,7 +496,7 @@ export default function PixiApplication({
 
         // Si le pointeur est enfoncé, traiter comme une action de drag/resize
         if (isPointerDownRef.current) {
-          handleCanvasInteraction(adjustedPos.x, adjustedPos.y, 'move')
+          handleCanvasInteraction(adjustedPos.x, adjustedPos.y, 'move', localPos.x, localPos.y)
         } else {
           // Sinon, traiter seulement pour le curseur (survol)
           handleCursorUpdate(adjustedPos.x, adjustedPos.y)
@@ -521,7 +524,7 @@ export default function PixiApplication({
         canvasTransform
       })
 
-      handleCanvasInteraction(adjustedPos.x, adjustedPos.y, 'up')
+      handleCanvasInteraction(adjustedPos.x, adjustedPos.y, 'up', localPos.x, localPos.y)
     })
 
     // Gestionnaire pour la sortie du curseur du canvas
@@ -740,6 +743,12 @@ export default function PixiApplication({
   const startTextEditing = useCallback((element: DialogueElement) => {
     if (element.type !== 'dialogue') return
 
+    // ✅ CORRECTION RADICALE : Ignorer les bulles HTML
+    if (element.renderMode === 'html') {
+      console.log('🔄 Bulle HTML détectée - édition gérée par le système HTML, pas PixiJS')
+      return
+    }
+
     // ✅ EMPÊCHER LES ÉDITEURS MULTIPLES
     if (editingElementId) {
       console.log('🚫 Édition déjà en cours pour:', editingElementId, '- Ignoré pour:', element.id)
@@ -768,22 +777,9 @@ export default function PixiApplication({
     // ✅ MARQUER IMMÉDIATEMENT COMME EN ÉDITION
     setEditingElementId(element.id)
 
-    // ✅ CRÉER UN ÉDITEUR DE TEXTE 100% NATIF PIXI
-    const editor = new NativeTextEditor(element, textElement, (newText: string) => {
-      updateElement(element.id, { text: newText })
-      setEditingElementId(null)
-    })
-
-    // Ajouter l'éditeur au container
-    pixiContainer.addChild(editor as any)
-
-    // Cacher le texte original
-    textElement.visible = false
-
-    // Activer l'édition
-    editor.startEditing()
-
-    console.log('✅ Éditeur natif PixiJS créé et activé')
+    // ✅ PHASE 2B : Édition PixiJS supprimée - utilisation TipTap HTML uniquement
+    console.log('⚠️ Édition PixiJS désactivée - utiliser les bulles HTML avec TipTap')
+    setEditingElementId(null)
   }, [updateElement, editingElementId])
 
   // Assigner la référence
@@ -926,7 +922,16 @@ export default function PixiApplication({
     // Logs supprimés pour optimisation
 
     // Rendre chaque élément selon son type
-    elements.forEach(element => {
+    // ✅ NETTOYAGE : Supprimer TOUTES les bulles de dialogue (ne garder que HTML)
+    const pixiElements = elements.filter(element => element.type !== 'dialogue')
+
+    console.log('🎨 Rendu éléments PixiJS (sans bulles):', {
+      totalElements: elements.length,
+      pixiElements: pixiElements.length,
+      bubblesFiltered: elements.length - pixiElements.length
+    })
+
+    pixiElements.forEach(element => {
       const layerContainer = stageContainerRef.current!.getChildByName(`${element.layerType}Layer`) as Container
       if (!layerContainer) return
 
@@ -935,23 +940,14 @@ export default function PixiApplication({
 
       if (!pixiElement) {
         // Créer le nouvel élément selon son type
-        if (element.type === 'dialogue') {
-          pixiElement = createDialogueElement(element, (dialogueElement, position) => {
-            // ✅ CALLBACK POUR DOUBLE-CLIC
-            startTextEditing(dialogueElement)
-          })
-        } else {
-          pixiElement = createPixiElement(element)
-        }
+        // ✅ NETTOYAGE : Plus de bulles PixiJS - toutes sont HTML maintenant
+        pixiElement = createPixiElement(element)
 
         if (pixiElement) {
           pixiElement.name = element.id
           layerContainer.addChild(pixiElement)
 
-          // ✅ STOCKER LA RÉFÉRENCE POUR LES BULLES
-          if (element.type === 'dialogue') {
-            pixiContainersRef.current.set(element.id, pixiElement as Container)
-          }
+          // ✅ NETTOYAGE : Plus de références aux bulles PixiJS
         }
       } else {
         // Mettre à jour l'élément existant
@@ -1025,7 +1021,16 @@ export default function PixiApplication({
     }
 
     // Dessiner les indicateurs pour chaque élément sélectionné
-    selectedElements.forEach((element: AssemblyElement) => {
+    // ✅ CORRECTION : Supprimer TOUTES les bulles de dialogue (ne garder que panels/images)
+    const pixiSelectedElements = selectedElements.filter(element => element.type !== 'dialogue')
+
+    console.log('🎨 Rendu sélection PixiJS (sans bulles HTML):', {
+      totalSelected: selectedElements.length,
+      pixiElements: pixiSelectedElements.length,
+      htmlBubbles: selectedElements.length - pixiSelectedElements.length
+    })
+
+    pixiSelectedElements.forEach((element: AssemblyElement) => {
       const selectionContainer = new Container()
       selectionContainer.label = `selection-${element.id}`
 
@@ -1304,7 +1309,8 @@ function createPixiElement(element: AssemblyElement): Container | null {
     case 'panel':
       return createPanelElement(element)
     case 'dialogue':
-      return createDialogueElement(element)
+      // ✅ NETTOYAGE : Plus de bulles PixiJS - toutes sont HTML
+      return null
     case 'text':
       return createTextElement(element)
     case 'sprite':
@@ -1389,125 +1395,8 @@ function createPanelElement(element: AssemblyElement): Container {
   return container
 }
 
-// Créer une bulle de dialogue
-function createDialogueElement(element: AssemblyElement, onBubbleDoubleClick?: (element: DialogueElement, position: { x: number, y: number }) => void): Container {
-  if (element.type !== 'dialogue') throw new Error('Invalid element type')
-
-  const dialogueElement = element as DialogueElement
-  const container = new Container()
-  const graphics = new Graphics()
-
-  console.log('💬 Création bulle de dialogue:', {
-    id: dialogueElement.id,
-    type: dialogueElement.bubbleStyle.type,
-    text: dialogueElement.text,
-    size: { width: dialogueElement.transform.width, height: dialogueElement.transform.height }
-  })
-
-  // ✅ AMÉLIORATION : Support de tous les types de bulles
-  const { width, height } = dialogueElement.transform
-  const style = dialogueElement.bubbleStyle
-
-  // ✅ NOUVEAU SYSTÈME AVANCÉ AVEC CONFIGURATION CSS-LIKE
-  const config = createAdvancedBubbleConfig(dialogueElement)
-
-  switch (style.type) {
-    case 'speech':
-      // ✅ Bulle de dialogue avec système avancé
-      drawAdvancedSpeechBubble(graphics, config)
-      break
-
-    case 'thought':
-      // ✅ Bulle de pensée avec ellipse moderne
-      drawAdvancedThoughtBubble(graphics, config)
-      break
-
-    case 'shout':
-      // ✅ Bulle de cri avec forme en étoile dynamique
-      drawAdvancedShoutBubble(graphics, config)
-      break
-
-    case 'whisper':
-      // ✅ Bulle de chuchotement avec bordures pointillées
-      drawAdvancedWhisperBubble(graphics, config)
-      break
-
-    case 'explosion':
-      // ✅ Bulle d'explosion avec forme contrôlée
-      drawAdvancedExplosionBubble(graphics, config)
-      break
-
-    default:
-      // Fallback vers speech
-      drawAdvancedSpeechBubble(graphics, config)
-  }
-
-  // ✅ AJOUTER LE TEXTE PIXI POUR L'AFFICHAGE NORMAL
-  // ✅ STYLE DE TEXTE AVEC WRAPPING INTELLIGENT
-  const wrapWidth = calculateOptimalWrapWidth(width, height)
-  const textStyle = new TextStyle({
-    fontSize: style.fontSize,
-    fontFamily: style.fontFamily,
-    fill: style.textColor,
-    align: style.textAlign,
-    wordWrap: true,
-    wordWrapWidth: wrapWidth,
-    breakWords: true // Permet de couper les mots très longs
-  })
-
-  // ✅ GESTION UNIFIÉE DU TEXTE - Afficher placeholder seulement si vraiment vide
-  const displayText = (dialogueElement.text && dialogueElement.text.trim() !== '')
-    ? dialogueElement.text
-    : 'Nouveau texte...'
-
-  const text = new Text({
-    text: displayText,
-    style: textStyle
-  })
-
-  // ✅ CENTRAGE AUTOMATIQUE AVEC ANCHOR - COHÉRENT AVEC L'ÉDITEUR
-  text.anchor.set(0.5, 0.5)
-  text.x = width / 2
-  text.y = height / 2
-  text.name = 'bubbleText'
-
-  // ✅ ZONE CLIQUABLE POUR DOUBLE-CLIC
-  const clickArea = new Graphics()
-  clickArea.rect(0, 0, width, height)
-  clickArea.fill({ color: 0x000000, alpha: 0 }) // Invisible mais cliquable
-  clickArea.name = 'clickArea'
-  clickArea.eventMode = 'static'
-  clickArea.cursor = 'text'
-
-  // ✅ GESTION DES CLICS POUR DÉTECTER LE DOUBLE-CLIC
-  clickArea.on('pointertap', (event) => {
-    console.log('🖱️ Clic sur bulle détecté:', dialogueElement.id)
-
-    // ✅ NE PAS STOPPER LA PROPAGATION - Laisser le système principal gérer le double-clic
-    // event.stopPropagation() // SUPPRIMÉ pour permettre la détection du double-clic
-
-    // ✅ CALLBACK OPTIONNEL POUR DOUBLE-CLIC (si fourni)
-    if (onBubbleDoubleClick) {
-      const now = Date.now()
-      const lastClick = (clickArea as any).lastClickTime || 0
-      const timeDiff = now - lastClick
-
-      if (timeDiff < 400) {
-        console.log('🎨 Double-clic détecté dans createDialogueElement:', dialogueElement.id)
-        onBubbleDoubleClick(dialogueElement, { x: event.global.x, y: event.global.y })
-      }
-
-      (clickArea as any).lastClickTime = now
-    }
-  })
-
-  container.addChild(graphics)
-  container.addChild(text)
-  container.addChild(clickArea)
-  updateElementTransform(container, dialogueElement.transform)
-
-  return container
-}
+// ✅ NETTOYAGE : Fonction createDialogueElement supprimée
+// Toutes les bulles utilisent maintenant le système HTML
 
 // ✅ FONCTIONS HELPER POUR LES DIFFÉRENTS TYPES DE BULLES
 

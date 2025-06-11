@@ -15,10 +15,11 @@ interface PageMetadata {
 // GET /api/projects/[id]/pages - Récupérer toutes les pages d'un projet
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const projectId = params.id
+    const resolvedParams = await params
+    const projectId = resolvedParams.id
     const supabase = await createClient()
 
     // Récupérer les pages depuis Supabase
@@ -59,10 +60,11 @@ export async function GET(
 // POST /api/projects/[id]/pages - Créer une nouvelle page
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const projectId = params.id
+    const resolvedParams = await params
+    const projectId = resolvedParams.id
     const body = await request.json()
     const { page_number, title } = body
     const supabase = await createClient()
@@ -115,10 +117,11 @@ export async function POST(
 // DELETE /api/projects/[id]/pages - Supprimer une page
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const projectId = params.id
+    const resolvedParams = await params
+    const projectId = resolvedParams.id
     const { searchParams } = new URL(request.url)
     const pageNumber = searchParams.get('page_number')
 

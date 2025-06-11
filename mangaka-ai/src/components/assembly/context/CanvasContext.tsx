@@ -747,32 +747,35 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
       return
     }
 
-    console.log('💬 Placement bulle:', typeToUse, 'à position:', { x, y })
+    // ✅ SOLUTION SIMPLE : Utiliser les coordonnées directement !
+    // Les coordonnées du clic sont DÉJÀ en coordonnées DOM
+    // Pas besoin de conversion compliquée !
+    console.log('💬 Placement bulle HTML SIMPLE:', typeToUse, 'à position directe:', { x, y })
 
-    // Créer la bulle
-    const bubble: AssemblyElement = {
+    // ✅ MIGRATION : Créer une bulle HTML avec coordonnées DOM
+    const bubble: DialogueElement = {
       id: generateElementId(),
       type: 'dialogue',
       layerType: 'dialogue',
-      text: 'Nouveau texte...',
+      text: '', // ✅ Texte vide pour édition immédiate
       transform: {
-        x,
-        y,
+        x, // ✅ Utiliser les coordonnées directement (déjà DOM)
+        y, // ✅ Utiliser les coordonnées directement (déjà DOM)
         rotation: 0,
         alpha: 1,
         zIndex: 200,
-        width: 150,
+        width: 150, // ✅ Taille optimale pour HTML
         height: 80
       },
       bubbleStyle: {
         type: typeToUse,
         backgroundColor: 0xffffff,
         outlineColor: 0x000000,
-        textColor: 0x000000,
+        textColor: '#000000', // ✅ Format CSS pour HTML
         dashedOutline: typeToUse === 'whisper',
         tailPosition: 'bottom-left',
-        fontSize: 14,
-        fontFamily: 'Arial',
+        fontSize: 16, // ✅ Taille optimale pour HTML
+        fontFamily: 'Arial, sans-serif', // ✅ Fallback CSS
         textAlign: 'center',
 
         // ✅ NOUVELLES PROPRIÉTÉS 360° - INITIALISATION PAR DÉFAUT
@@ -787,7 +790,9 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
         locked: false,
         visible: true,
         blendMode: 'normal'
-      }
+      },
+      // ✅ NOUVEAU : Marqueur pour rendu HTML
+      renderMode: 'html' as const
     }
 
     // Ajouter la bulle
@@ -795,6 +800,13 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
 
     // Sélectionner automatiquement la bulle créée
     selectElement(bubble.id)
+
+    console.log('🎈 Bulle HTML créée via modal:', {
+      id: bubble.id,
+      type: bubble.bubbleStyle.type,
+      position: { x, y },
+      renderMode: 'html'
+    })
 
     // Sortir du mode placement et passer au SelectTool
     setState(prev => ({

@@ -8,13 +8,14 @@ import { useCanvasContext } from '../context/CanvasContext'
 import { getCursorForTool } from '../utils/CursorUtils'
 import { AssemblyElement, ImageElement } from '../types/assembly.types'
 import { generateElementId } from '../context/CanvasContext'
+// ✅ MIGRATION KONVA : BubbleLayer supprimé - bulles intégrées dans Konva
 
-// Import dynamique pour éviter l'hydratation
-const PixiApplication = dynamic(() => import('../core/PixiApplication'), {
+// ✅ MIGRATION KONVA : Import dynamique KonvaApplication
+const KonvaApplication = dynamic(() => import('../core/KonvaApplication'), {
   ssr: false,
   loading: () => (
     <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-      <div className="text-white text-sm">Chargement du canvas...</div>
+      <div className="text-white text-sm">Chargement du canvas Konva...</div>
     </div>
   )
 })
@@ -554,13 +555,14 @@ export default function CanvasArea({
       {/* Zone de canvas - Centrée et transformable */}
       <div className="h-full flex items-center justify-center p-8 relative">
         <div
-          className="bg-white shadow-2xl rounded-lg overflow-hidden transition-transform duration-200"
+          className="bg-white shadow-2xl rounded-lg overflow-hidden transition-transform duration-200 relative"
           style={{
             transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale})`,
             transformOrigin: 'center'
           }}
         >
-          <PixiApplication
+          {/* ✅ MIGRATION KONVA : Remplacement PixiApplication par KonvaApplication */}
+          <KonvaApplication
             width={width}
             height={height}
             onElementClick={handleElementClick}
@@ -570,6 +572,8 @@ export default function CanvasArea({
             canvasTransform={canvasTransform}
             className="block"
           />
+
+          {/* ✅ MIGRATION KONVA : BubbleLayer supprimé - bulles intégrées dans KonvaApplication */}
         </div>
 
         {/* 🎯 Feedback visuel maintenant géré dans PixiJS - Plus de problème de positionnement ! */}
