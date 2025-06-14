@@ -66,12 +66,6 @@ export default function PolotnoVerticalToolbar({
       shortcut: 'P'
     },
     {
-      id: 'circle',
-      icon: Circle,
-      label: 'Panel Circulaire',
-      shortcut: 'O'
-    },
-    {
       id: 'bubble',
       icon: MessageCircle,
       label: 'Bulle de dialogue',
@@ -80,14 +74,8 @@ export default function PolotnoVerticalToolbar({
     {
       id: 'text',
       icon: Type,
-      label: 'Texte',
+      label: 'Texte libre',
       shortcut: 'T'
-    },
-    {
-      id: 'image',
-      icon: Image,
-      label: 'Image',
-      shortcut: 'I'
     }
   ]
 

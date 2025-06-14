@@ -144,7 +144,7 @@ export const DEFAULT_BUBBLE_STYLES: Record<BubbleType, Partial<BubbleElement['bu
     borderColor: '#ff4500',
     borderWidth: 3,
     borderRadius: 10,
-    tailVisible: true,
+    tailVisible: false, // Pas de queue pour les cris
     tailPosition: 'bottom-right'
   },
   whisper: {

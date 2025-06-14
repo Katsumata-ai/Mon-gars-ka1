@@ -35,8 +35,7 @@ const TOOLS = [
   { id: 'move', name: 'Déplacer', icon: Move, shortcut: 'M' },
   { id: 'panel', name: 'Panel', icon: Square, shortcut: 'P' },
   { id: 'dialogue', name: 'Bulle', icon: Circle, shortcut: 'B' },
-  { id: 'text', name: 'Texte', icon: Type, shortcut: 'T' },
-  { id: 'image', name: 'Image', icon: ImageIcon, shortcut: 'I' }
+  { id: 'text', name: 'Texte libre', icon: Type, shortcut: 'T' }
 ] as const
 
 export default function ToolBar({ onSave, onExport, onTogglePages, className }: ToolBarProps) {

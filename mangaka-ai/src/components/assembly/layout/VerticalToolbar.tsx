@@ -64,20 +64,8 @@ export default function VerticalToolbar({
     {
       id: 'text',
       icon: Type,
-      label: 'Texte',
+      label: 'Texte libre',
       shortcut: 'T'
-    },
-    {
-      id: 'zoom',
-      icon: ZoomIn,
-      label: 'Zoom',
-      shortcut: 'Z'
-    },
-    {
-      id: 'pan',
-      icon: Hand,
-      label: 'Déplacement',
-      shortcut: 'H'
     }
   ]
 

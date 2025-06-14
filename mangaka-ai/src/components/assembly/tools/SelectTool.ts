@@ -50,15 +50,18 @@ export class SelectTool {
   private stageContainerRef?: Container | null
   private canvasElement: HTMLCanvasElement | null = null
   private panelContentService?: any // Service pour les associations panel-image
+  private findBubbleAtPosition?: (x: number, y: number) => DialogueElement | null
 
   constructor(
     onElementSelect?: (elementId: string | null) => void,
     onElementUpdate?: (elementId: string, updates: Partial<AssemblyElement>) => void,
-    panelContentService?: any
+    panelContentService?: any,
+    findBubbleAtPosition?: (x: number, y: number) => DialogueElement | null
   ) {
     this.onElementSelect = onElementSelect
     this.onElementUpdate = onElementUpdate
     this.panelContentService = panelContentService
+    this.findBubbleAtPosition = findBubbleAtPosition
   }
 
   /**
@@ -115,19 +118,21 @@ export class SelectTool {
   handlePointerDown(x: number, y: number, elements: AssemblyElement[]): boolean {
     console.log('🎯 SelectTool handlePointerDown:', { x, y, elementsCount: elements.length })
 
-    // ✅ CORRECTION KONVA : Inclure les bulles Konva dans la sélection
-    const pixiElements = elements // Plus de filtrage, toutes les bulles sont maintenant en Konva
+    // ✅ NOUVEAU : Inclure TOUTES les bulles (DOM et Konva) dans la sélection
+    const allElements = elements // Tous les éléments, y compris les bulles DOM
 
-    console.log('🔥 SelectTool: Éléments filtrés (sans bulles HTML):', {
+    console.log('🔥 SelectTool: Tous les éléments (panels, images, bulles DOM):', {
       total: elements.length,
-      pixiOnly: pixiElements.length,
-      htmlBubblesFiltered: elements.length - pixiElements.length
+      panels: elements.filter(e => e.type === 'panel').length,
+      images: elements.filter(e => e.type === 'image').length,
+      bubbles: elements.filter(e => e.type === 'dialogue').length
     })
 
     // Séparer les éléments par type pour une sélection intelligente
-    const images = pixiElements.filter(el => el.type === 'image')
-    const panels = pixiElements.filter(el => el.type === 'panel')
-    const otherElements = pixiElements.filter(el => el.type !== 'image' && el.type !== 'panel')
+    const images = allElements.filter(el => el.type === 'image') as ImageElement[]
+    const panels = allElements.filter(el => el.type === 'panel') as PanelElement[]
+    const bubbles = allElements.filter(el => el.type === 'dialogue') as DialogueElement[]
+    const otherElements = allElements.filter(el => el.type !== 'image' && el.type !== 'panel' && el.type !== 'dialogue')
 
     // 🎯 SÉLECTION INTELLIGENTE AVEC DISTINCTION PANEL/IMAGE
 
@@ -164,7 +169,25 @@ export class SelectTool {
       }
     }
 
-    // 3. Vérifier les autres éléments (dialogue, text, etc.)
+    // 3. Vérifier les bulles de dialogue DOM (priorité haute après images)
+    if (this.findBubbleAtPosition) {
+      const domBubble = this.findBubbleAtPosition(x, y)
+      if (domBubble) {
+        console.log('💬 Bulle DOM trouvée sous le curseur:', domBubble.id)
+        return this.handleElementSelection(x, y, domBubble)
+      }
+    }
+
+    // 3b. Vérifier les bulles Konva (fallback)
+    const sortedBubbles = [...bubbles].sort((a, b) => b.transform.zIndex - a.transform.zIndex)
+    for (const bubble of sortedBubbles) {
+      if (this.isPointInElement(x, y, bubble)) {
+        console.log('💬 Bulle Konva trouvée sous le curseur:', bubble.id)
+        return this.handleElementSelection(x, y, bubble)
+      }
+    }
+
+    // 4. Vérifier les autres éléments (text, etc.)
     const sortedOthers = [...otherElements].sort((a, b) => b.transform.zIndex - a.transform.zIndex)
     for (const element of sortedOthers) {
       if (this.isPointInElement(x, y, element)) {
@@ -173,7 +196,7 @@ export class SelectTool {
       }
     }
 
-    // 4. Enfin, vérifier les panels (priorité basse)
+    // 5. Enfin, vérifier les panels (priorité basse)
     const sortedPanels = [...panels].sort((a, b) => b.transform.zIndex - a.transform.zIndex)
     for (const panel of sortedPanels) {
       if (this.isPointInElement(x, y, panel)) {
@@ -182,8 +205,8 @@ export class SelectTool {
       }
     }
 
-    // Aucun élément trouvé, désélectionner
-    console.log('❌ Aucun élément trouvé, désélection')
+    // Aucun élément trouvé, désélectionner TOUT (panels ET bulles)
+    console.log('🧹 Aucun élément trouvé, désélection complète de tous les éléments')
     this.selectElement(null)
     return true // Retourner true pour indiquer que l'événement a été traité
   }

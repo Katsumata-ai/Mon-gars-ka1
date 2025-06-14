@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback, useMemo, useRef, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, ReactNode } from 'react'
 import { Application } from 'pixi.js'
 import { AssemblyElement, LayerType, PageState, PixiConfig, BubbleType } from '../types/assembly.types'
 
@@ -168,7 +168,7 @@ interface CanvasState {
   
   // Éléments de la page courante
   elements: AssemblyElement[]
-  selectedElementIds: string[]
+  // ✅ SUPPRIMÉ : selectedElementIds - les bulles utilisent maintenant le système SimpleCanvasEditor
   
   // Outils et interface
   activeTool: 'select' | 'move' | 'panel' | 'dialogue' | 'text' | 'image'
@@ -221,10 +221,10 @@ interface CanvasActions {
   removeElement: (id: string) => void
   removeElements: (ids: string[]) => void
 
-  // Sélection
-  selectElement: (id: string | null) => void
-  selectElements: (ids: string[]) => void
-  clearSelection: () => void
+  // ✅ SUPPRIMÉ : Sélection - maintenant gérée par SimpleCanvasEditor
+
+  // Détection des bulles DOM pour le SelectTool
+  findBubbleAtPosition: (x: number, y: number) => DialogueElement | null
 
   // Outils
   setActiveTool: (tool: CanvasState['activeTool']) => void
@@ -283,7 +283,7 @@ const initialState: CanvasState = {
   currentPageId: null,
   pages: new Map(),
   elements: [],
-  selectedElementIds: [],
+  // ✅ SUPPRIMÉ : selectedElementIds
   activeTool: 'select',
   showGrid: true,
   gridSize: 20,
@@ -331,9 +331,8 @@ export const useCanvasContext = () => {
       updateElement: () => {},
       removeElement: () => {},
       removeElements: () => {},
-      selectElement: () => {},
-      selectElements: () => {},
-      clearSelection: () => {},
+      // ✅ SUPPRIMÉ : selectElement, selectElements, clearSelection
+      findBubbleAtPosition: () => null,
       setActiveTool: () => {},
       setZoom: () => {},
       setGridSize: () => {},
@@ -443,45 +442,25 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     })
   }, [])
 
-  // Sélection
-  const selectElement = useCallback((id: string | null) => {
-    console.log('🎯 CanvasContext selectElement appelé:', {
-      id,
-      currentSelectedElementIds: state.selectedElementIds,
-      willBecome: id ? [id] : []
-    })
-    setState(prev => {
-      const newState = { ...prev, selectedElementIds: id ? [id] : [] }
-      console.log('🎯 CanvasContext setState selectElement:', {
-        before: prev.selectedElementIds,
-        after: newState.selectedElementIds
-      })
-      return newState
-    })
-  }, [state.selectedElementIds])
+  // ✅ SUPPRIMÉ : Fonctions de sélection - maintenant gérées par SimpleCanvasEditor
 
-  const selectElements = useCallback((ids: string[]) => {
-    setState(prev => ({ ...prev, selectedElementIds: ids }))
-  }, [])
+  // ✅ DÉTECTION DES BULLES DOM POUR LE SELECTTOOL
+  const findBubbleAtPosition = useCallback((x: number, y: number): DialogueElement | null => {
+    const bubbles = state.elements.filter((el): el is DialogueElement => el.type === 'dialogue')
 
-  const clearSelection = useCallback(() => {
-    console.log('🧹 CanvasContext clearSelection appelé:', {
-      currentSelectedElementIds: state.selectedElementIds
-    })
-    // Éviter les appels inutiles si déjà vide
-    if (state.selectedElementIds.length === 0) {
-      console.log('🧹 CanvasContext clearSelection ignoré: déjà vide')
-      return
+    // Parcourir les bulles par z-index décroissant
+    const sortedBubbles = [...bubbles].sort((a, b) => b.transform.zIndex - a.transform.zIndex)
+
+    for (const bubble of sortedBubbles) {
+      const { x: bx, y: by, width, height } = bubble.transform
+      if (x >= bx && x <= bx + width && y >= by && y <= by + height) {
+        console.log('💬 Bulle DOM trouvée à la position:', { x, y, bubbleId: bubble.id })
+        return bubble
+      }
     }
-    setState(prev => {
-      const newState = { ...prev, selectedElementIds: [] }
-      console.log('🧹 CanvasContext setState clearSelection:', {
-        before: prev.selectedElementIds,
-        after: newState.selectedElementIds
-      })
-      return newState
-    })
-  }, [state.selectedElementIds])
+
+    return null
+  }, [state.elements])
 
   // Outils
   const setActiveTool = useCallback((tool: CanvasState['activeTool']) => {
@@ -774,8 +753,8 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
         textColor: '#000000', // ✅ Format CSS pour HTML
         dashedOutline: typeToUse === 'whisper',
         tailPosition: 'bottom-left',
-        fontSize: 16, // ✅ Taille optimale pour HTML
-        fontFamily: 'Arial, sans-serif', // ✅ Fallback CSS
+        fontSize: 20, // ✅ Taille augmentée pour meilleure lisibilité
+        fontFamily: 'Comic Sans MS, Bangers, Roboto, system-ui, sans-serif', // ✅ Police comic optimisée
         textAlign: 'center',
 
         // ✅ NOUVELLES PROPRIÉTÉS 360° - INITIALISATION PAR DÉFAUT
@@ -798,8 +777,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     // Ajouter la bulle
     addElement(bubble)
 
-    // Sélectionner automatiquement la bulle créée
-    selectElement(bubble.id)
+    // ✅ SUPPRIMÉ : Sélection maintenant gérée par SimpleCanvasEditor
 
     console.log('🎈 Bulle HTML créée via modal:', {
       id: bubble.id,
@@ -818,7 +796,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
         bubbleTypeToPlace: null
       }
     }))
-  }, [state.ui.bubbleTypeToPlace, addElement, selectElement])
+  }, [state.ui.bubbleTypeToPlace, addElement])
 
   const cancelBubblePlacement = useCallback(() => {
     console.log('❌ Annulation placement bulle')
@@ -868,9 +846,8 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     updateElement,
     removeElement,
     removeElements,
-    selectElement,
-    selectElements,
-    clearSelection,
+    // ✅ SUPPRIMÉ : selectElement, selectElements, clearSelection
+    findBubbleAtPosition,
     setActiveTool,
     setZoom,
     setGridSize,
@@ -904,9 +881,8 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     updateElement,
     removeElement,
     removeElements,
-    selectElement,
-    selectElements,
-    clearSelection,
+    // ✅ SUPPRIMÉ : selectElement, selectElements, clearSelection
+    findBubbleAtPosition,
     setActiveTool,
     setZoom,
     setGridSize,

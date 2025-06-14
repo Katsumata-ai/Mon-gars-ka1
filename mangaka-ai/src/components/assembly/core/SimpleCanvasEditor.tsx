@@ -1,8 +1,12 @@
 'use client'
 
 import React, { useRef, useEffect, useState, useCallback } from 'react'
+import BubbleSelectionOverlay from '../ui/BubbleSelectionOverlay'
+import TextSelectionOverlay from '../ui/TextSelectionOverlay'
 import { usePolotnoContext } from '../context/PolotnoContext'
+import { useCanvasContext } from '../context/CanvasContext'
 import { BubbleType } from '../types/polotno.types'
+import { TextElement } from '../types/assembly.types'
 
 interface SimpleCanvasEditorProps {
   width?: number
@@ -11,6 +15,7 @@ interface SimpleCanvasEditorProps {
   onCanvasClick?: (x: number, y: number) => void
   onBubbleDoubleClick?: (element: any, position: { x: number, y: number }) => void
   onBubbleRightClick?: (element: any, position: { x: number, y: number }) => void
+  onCanvasTransformChange?: (transform: { x: number, y: number, scale: number }) => void
   className?: string
 }
 
@@ -85,11 +90,15 @@ export default function SimpleCanvasEditor({
   onCanvasClick,
   onBubbleDoubleClick,
   onBubbleRightClick,
+  onCanvasTransformChange,
   className = ''
 }: SimpleCanvasEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [elements, setElements] = useState<CanvasElement[]>([])
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
+
+  // ✅ NOUVEAU : Registre des bulles TipTap DOM pour la détection
+  const [tipTapBubbles, setTipTapBubbles] = useState<Map<string, { element: HTMLElement, bounds: DOMRect }>>(new Map())
   const [resizeHandles, setResizeHandles] = useState<ResizeHandle[]>([])
   const [creationState, setCreationState] = useState<CreationState>({
     isCreating: false,
@@ -126,6 +135,9 @@ export default function SimpleCanvasEditor({
     cancelBubbleCreation,
     setActiveTool
   } = usePolotnoContext()
+
+  // ✅ NOUVEAU : Accès au contexte Canvas pour les textes libres
+  const { elements: canvasElements, updateElement } = useCanvasContext()
 
   // Fonction pour créer un panel avec des dimensions optimales
   const createOptimalPanel = useCallback((x: number, y: number): CanvasElement => {
@@ -234,7 +246,7 @@ export default function SimpleCanvasEditor({
     ctx.stroke()
   }, [])
 
-  // Fonction pour calculer les coordonnées correctes du canvas
+  // Fonction pour calculer les coordonnées correctes du canvas (pour les éléments canvas)
   const getCanvasCoordinates = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
@@ -252,9 +264,43 @@ export default function SimpleCanvasEditor({
     return { x, y }
   }, [])
 
-  // Fonction pour calculer les handles de redimensionnement
+  // ✅ NOUVELLE FONCTION : Coordonnées DOM pures pour les bulles TipTap
+  const getDOMCoordinates = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+
+    const rect = canvas.getBoundingClientRect()
+
+    // Coordonnées DOM pures (sans scaling) - exactement où l'utilisateur a cliqué
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+
+    return { x, y }
+  }, [])
+
+  // ✅ NOUVEAU : Calculer et notifier la transformation du canvas
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !onCanvasTransformChange) return
+
+    const rect = canvas.getBoundingClientRect()
+    const parentRect = canvas.parentElement?.getBoundingClientRect()
+
+    if (parentRect) {
+      const transform = {
+        x: rect.left - parentRect.left,
+        y: rect.top - parentRect.top,
+        scale: 1 // Pour l'instant, pas de zoom
+      }
+
+      onCanvasTransformChange(transform)
+    }
+  }, [onCanvasTransformChange])
+
+  // Fonction pour calculer les handles de redimensionnement (panels seulement)
   const calculateResizeHandles = useCallback((element: CanvasElement): ResizeHandle[] => {
     const handleSize = 14 // Augmenté pour une meilleure ergonomie
+
     return [
       { id: 'tl', position: 'top-left', x: element.x - handleSize/2, y: element.y - handleSize/2, size: handleSize },
       { id: 'tr', position: 'top-right', x: element.x + element.width - handleSize/2, y: element.y - handleSize/2, size: handleSize },
@@ -281,9 +327,10 @@ export default function SimpleCanvasEditor({
            y >= handle.y - hitPadding && y <= handle.y + handle.size + hitPadding
   }, [])
 
-  // Fonction pour trouver l'élément sous le curseur
+  // ✅ SUPPRIMÉ : Détection des bulles TipTap dans findElementAtPosition
+  // Les bulles TipTap utilisent maintenant leur propre système d'événements DOM
   const findElementAtPosition = useCallback((x: number, y: number): CanvasElement | null => {
-    // Parcourir les éléments en ordre inverse (du plus récent au plus ancien)
+    // Vérifier seulement les éléments canvas (panels, etc.)
     for (let i = elements.length - 1; i >= 0; i--) {
       const element = elements[i]
       if (isPointInElement(x, y, element)) {
@@ -345,17 +392,21 @@ export default function SimpleCanvasEditor({
     img.src = imageUrl
   }, [])
 
-  // Mettre à jour les handles de redimensionnement quand la sélection change
+  // Mettre à jour les handles de redimensionnement quand la sélection change (panels seulement)
   useEffect(() => {
     if (selectedElementId) {
       const selectedElement = elements.find(el => el.id === selectedElementId)
       if (selectedElement) {
         setResizeHandles(calculateResizeHandles(selectedElement))
+      } else {
+        setResizeHandles([])
       }
     } else {
       setResizeHandles([])
     }
   }, [selectedElementId, elements, calculateResizeHandles])
+
+  // ✅ SUPPRIMÉ : Canvas feedback pour bulles - remplacé par système DOM
 
   // Fonction pour dessiner les handles de redimensionnement améliorés
   const drawResizeHandles = useCallback((ctx: CanvasRenderingContext2D) => {
@@ -652,7 +703,7 @@ export default function SimpleCanvasEditor({
       drawCreationPreview(ctx)
     }
 
-    // Dessiner les handles de redimensionnement
+    // Dessiner les handles de redimensionnement (panels seulement)
     if (selectedElementId && resizeHandles.length > 0) {
       drawResizeHandles(ctx)
     }
@@ -663,12 +714,529 @@ export default function SimpleCanvasEditor({
     redrawCanvas()
   }, [redrawCanvas])
 
+  // ✅ HELPER : Vérifier si l'élément sélectionné est une bulle TipTap
+  const isSelectedElementBubble = useCallback(() => {
+    return selectedElementId && selectedElementId.startsWith('bubble_')
+  }, [selectedElementId])
+
+  // ✅ HELPER : Vérifier si l'élément sélectionné est un texte libre TipTap
+  const isSelectedElementText = useCallback(() => {
+    return selectedElementId && selectedElementId.startsWith('text_')
+  }, [selectedElementId])
+
+  // ✅ GESTION DES MODES DES BULLES TIPTAP
+  const [bubbleMode, setBubbleMode] = useState<'reading' | 'manipulating' | 'editing'>('reading')
+
+  // ✅ GESTION DES MODES DES TEXTES LIBRES TIPTAP
+  const [textMode, setTextMode] = useState<'reading' | 'manipulating' | 'editing'>('reading')
+
+  // ✅ NOUVEAU : Système de désélection globale pour le mode édition
+  useEffect(() => {
+    const handleGlobalClick = (event: MouseEvent) => {
+      if (bubbleMode === 'editing' && selectedElementId) {
+        const target = event.target as HTMLElement
+
+        // Vérifier si le clic est à l'extérieur de la bulle en cours d'édition
+        const bubbleElement = document.querySelector(`[data-bubble-id="${selectedElementId}"]`)
+
+        if (bubbleElement && !bubbleElement.contains(target)) {
+          console.log('🎯 SimpleCanvasEditor: Clic extérieur détecté, sortie du mode édition')
+          setBubbleMode('reading')
+          setSelectedElementId(null)
+
+          // Dispatcher l'événement pour la bulle
+          const modeChangeEvent = new CustomEvent('bubbleModeChange', {
+            detail: { bubbleId: selectedElementId, newMode: 'reading' }
+          })
+          window.dispatchEvent(modeChangeEvent)
+        }
+      }
+    }
+
+    if (bubbleMode === 'editing') {
+      document.addEventListener('click', handleGlobalClick, true) // Capture phase
+      return () => document.removeEventListener('click', handleGlobalClick, true)
+    }
+  }, [bubbleMode, selectedElementId])
+
+  const handleBubbleDoubleClick = useCallback((bubbleId: string) => {
+    console.log('🎯 SimpleCanvasEditor: Double-click sur bulle:', bubbleId)
+    setBubbleMode('editing')
+
+    // Dispatcher l'événement de changement de mode
+    const modeChangeEvent = new CustomEvent('bubbleModeChange', {
+      detail: { bubbleId, newMode: 'editing' }
+    })
+    window.dispatchEvent(modeChangeEvent)
+  }, [])
+
+  const handleBubbleModeChange = useCallback((bubbleId: string, newMode: 'reading' | 'manipulating' | 'editing') => {
+    console.log('🎯 SimpleCanvasEditor: Mode change:', bubbleId, newMode)
+    setBubbleMode(newMode)
+
+    if (newMode === 'reading') {
+      // Désélectionner la bulle quand on sort du mode édition
+      setSelectedElementId(null)
+    }
+  }, [])
+
+  // ✅ MANIPULATION DES BULLES TIPTAP VIA DOM
+  const [bubbleDragState, setBubbleDragState] = useState<{ bubbleId: string, startLeft: number, startTop: number } | null>(null)
+
+  const handleBubbleDragStart = useCallback((bubbleId: string, startX: number, startY: number) => {
+    const bubbleElement = document.querySelector(`[data-bubble-id="${bubbleId}"]`) as HTMLElement
+    if (bubbleElement && bubbleElement.parentElement) {
+      const parent = bubbleElement.parentElement
+      const currentLeft = parseInt(parent.style.left || '0', 10)
+      const currentTop = parseInt(parent.style.top || '0', 10)
+
+      setBubbleDragState({ bubbleId, startLeft: currentLeft, startTop: currentTop })
+      console.log('🎯 Bubble drag start state:', { bubbleId, startLeft: currentLeft, startTop: currentTop })
+    }
+  }, [])
+
+  const handleBubbleDrag = useCallback((bubbleId: string, deltaX: number, deltaY: number) => {
+    if (!bubbleDragState || bubbleDragState.bubbleId !== bubbleId) return
+
+    const bubbleElement = document.querySelector(`[data-bubble-id="${bubbleId}"]`) as HTMLElement
+    if (bubbleElement && bubbleElement.parentElement) {
+      const parent = bubbleElement.parentElement
+      const newLeft = bubbleDragState.startLeft + deltaX
+      const newTop = bubbleDragState.startTop + deltaY
+
+      parent.style.left = `${newLeft}px`
+      parent.style.top = `${newTop}px`
+
+      console.log('🎯 Bubble drag applied:', bubbleId, { deltaX, deltaY, newLeft, newTop })
+    }
+  }, [bubbleDragState])
+
+  const handleBubbleDragEnd = useCallback((bubbleId: string) => {
+    setBubbleDragState(null)
+    console.log('🎯 Bubble drag end:', bubbleId)
+  }, [])
+
+  const [bubbleResizeState, setBubbleResizeState] = useState<{
+    bubbleId: string,
+    handle: string,
+    startWidth: number,
+    startHeight: number,
+    startLeft: number,
+    startTop: number
+  } | null>(null)
+
+  const handleBubbleResizeStart = useCallback((bubbleId: string, handle: string, startX: number, startY: number) => {
+    const bubbleElement = document.querySelector(`[data-bubble-id="${bubbleId}"]`) as HTMLElement
+    if (bubbleElement && bubbleElement.parentElement) {
+      const parent = bubbleElement.parentElement
+      const currentWidth = parseInt(parent.style.width || '150', 10)
+      const currentHeight = parseInt(parent.style.height || '80', 10)
+      const currentLeft = parseInt(parent.style.left || '0', 10)
+      const currentTop = parseInt(parent.style.top || '0', 10)
+
+      setBubbleResizeState({
+        bubbleId,
+        handle,
+        startWidth: currentWidth,
+        startHeight: currentHeight,
+        startLeft: currentLeft,
+        startTop: currentTop
+      })
+      console.log('🎯 Bubble resize start state:', { bubbleId, handle, startWidth: currentWidth, startHeight: currentHeight })
+    }
+  }, [])
+
+  const handleBubbleResize = useCallback((bubbleId: string, handle: string, deltaX: number, deltaY: number) => {
+    if (!bubbleResizeState || bubbleResizeState.bubbleId !== bubbleId || bubbleResizeState.handle !== handle) return
+
+    const bubbleElement = document.querySelector(`[data-bubble-id="${bubbleId}"]`) as HTMLElement
+    if (bubbleElement && bubbleElement.parentElement) {
+      const parent = bubbleElement.parentElement
+      const { startWidth, startHeight, startLeft, startTop } = bubbleResizeState
+
+      let newWidth = startWidth
+      let newHeight = startHeight
+      let newLeft = startLeft
+      let newTop = startTop
+
+      // ✅ LOGIQUE DE RESIZE SELON LE HANDLE (identique aux panels)
+      switch (handle) {
+        case 'tl': // top-left
+          newWidth = Math.max(50, startWidth - deltaX)
+          newHeight = Math.max(30, startHeight - deltaY)
+          newLeft = startLeft + (startWidth - newWidth)
+          newTop = startTop + (startHeight - newHeight)
+          break
+        case 'tr': // top-right
+          newWidth = Math.max(50, startWidth + deltaX)
+          newHeight = Math.max(30, startHeight - deltaY)
+          newTop = startTop + (startHeight - newHeight)
+          break
+        case 'bl': // bottom-left
+          newWidth = Math.max(50, startWidth - deltaX)
+          newHeight = Math.max(30, startHeight + deltaY)
+          newLeft = startLeft + (startWidth - newWidth)
+          break
+        case 'br': // bottom-right
+          newWidth = Math.max(50, startWidth + deltaX)
+          newHeight = Math.max(30, startHeight + deltaY)
+          break
+        case 'tc': // top-center
+          newHeight = Math.max(30, startHeight - deltaY)
+          newTop = startTop + (startHeight - newHeight)
+          break
+        case 'bc': // bottom-center
+          newHeight = Math.max(30, startHeight + deltaY)
+          break
+        case 'ml': // middle-left
+          newWidth = Math.max(50, startWidth - deltaX)
+          newLeft = startLeft + (startWidth - newWidth)
+          break
+        case 'mr': // middle-right
+          newWidth = Math.max(50, startWidth + deltaX)
+          break
+      }
+
+      // ✅ MISE À JOUR VISUELLE IMMÉDIATE
+      parent.style.width = `${newWidth}px`
+      parent.style.height = `${newHeight}px`
+      parent.style.left = `${newLeft}px`
+      parent.style.top = `${newTop}px`
+
+      // ✅ NOUVEAU : Mettre à jour les données de la bulle TipTap
+      const bubbleUpdateEvent = new CustomEvent('updateTipTapBubbleTransform', {
+        detail: {
+          bubbleId,
+          transform: {
+            x: newLeft,
+            y: newTop,
+            width: newWidth,
+            height: newHeight
+          }
+        }
+      })
+      window.dispatchEvent(bubbleUpdateEvent)
+
+      console.log('🎯 Bubble resize applied:', bubbleId, handle, {
+        deltaX, deltaY,
+        newWidth, newHeight,
+        newLeft, newTop
+      })
+    }
+  }, [bubbleResizeState])
+
+  const handleBubbleResizeEnd = useCallback((bubbleId: string) => {
+    setBubbleResizeState(null)
+    console.log('🎯 Bubble resize end:', bubbleId)
+  }, [])
+
+  // ✅ NOUVEAU : Écouter les clics sur les bulles TipTap DOM
+  useEffect(() => {
+    const handleBubbleClick = (event: CustomEvent) => {
+      const { bubbleId, clientX, clientY, element } = event.detail
+      console.log('🎯 SimpleCanvasEditor: Bulle TipTap cliquée:', bubbleId)
+
+      // Sélectionner la bulle avec le même système que les panels
+      setSelectedElementId(bubbleId)
+      setBubbleMode('manipulating')
+
+      // ✅ ÉMETTRE L'ÉVÉNEMENT POUR TIPTAPBUBBLELAYER
+      const elementSelectedEvent = new CustomEvent('elementSelected', {
+        detail: { id: bubbleId, type: 'bubble' }
+      })
+      window.dispatchEvent(elementSelectedEvent)
+      console.log('🎯 SimpleCanvasEditor: Événement elementSelected émis pour:', bubbleId)
+
+      // Créer un CanvasElement virtuel pour la bulle
+      const bubbleElement: CanvasElement = {
+        id: bubbleId,
+        type: 'bubble',
+        x: element.offsetLeft,
+        y: element.offsetTop,
+        width: element.offsetWidth,
+        height: element.offsetHeight,
+        bubbleType: 'speech'
+      }
+
+      onElementClick?.(bubbleElement)
+      console.log('✅ SimpleCanvasEditor: Bulle sélectionnée:', bubbleId)
+    }
+
+    const handleBubbleModeChangeEvent = (event: CustomEvent) => {
+      const { bubbleId, newMode } = event.detail
+      handleBubbleModeChange(bubbleId, newMode)
+    }
+
+    const handleRegisterBubble = (event: CustomEvent) => {
+      const { bubbleId, element, bounds } = event.detail
+      console.log('📝 SimpleCanvasEditor: Enregistrement bulle TipTap:', bubbleId)
+      setTipTapBubbles(prev => new Map(prev.set(bubbleId, { element, bounds })))
+    }
+
+    const handleUnregisterBubble = (event: CustomEvent) => {
+      const { bubbleId } = event.detail
+      console.log('🗑️ SimpleCanvasEditor: Désenregistrement bulle TipTap:', bubbleId)
+      setTipTapBubbles(prev => {
+        const newMap = new Map(prev)
+        newMap.delete(bubbleId)
+        return newMap
+      })
+    }
+
+    window.addEventListener('bubbleClicked', handleBubbleClick as EventListener)
+    window.addEventListener('registerTipTapBubble', handleRegisterBubble as EventListener)
+    window.addEventListener('unregisterTipTapBubble', handleUnregisterBubble as EventListener)
+    window.addEventListener('bubbleModeChangeFromBubble', handleBubbleModeChangeEvent as EventListener)
+
+    return () => {
+      window.removeEventListener('bubbleClicked', handleBubbleClick as EventListener)
+      window.removeEventListener('registerTipTapBubble', handleRegisterBubble as EventListener)
+      window.removeEventListener('unregisterTipTapBubble', handleUnregisterBubble as EventListener)
+      window.removeEventListener('bubbleModeChangeFromBubble', handleBubbleModeChangeEvent as EventListener)
+    }
+  }, [onElementClick])
+
+  // ✅ MANIPULATION DES TEXTES LIBRES TIPTAP VIA DOM
+  const [textDragState, setTextDragState] = useState<{ textId: string, startLeft: number, startTop: number } | null>(null)
+
+  const handleTextDragStart = useCallback((textId: string, startX: number, startY: number) => {
+    const textElement = document.querySelector(`[data-text-id="${textId}"]`) as HTMLElement
+    if (textElement) {
+      const currentLeft = parseInt(textElement.style.left || '0', 10)
+      const currentTop = parseInt(textElement.style.top || '0', 10)
+
+      setTextDragState({ textId, startLeft: currentLeft, startTop: currentTop })
+      console.log('🎯 Text drag start state:', { textId, startLeft: currentLeft, startTop: currentTop })
+    }
+  }, [])
+
+  const handleTextDrag = useCallback((textId: string, deltaX: number, deltaY: number) => {
+    if (!textDragState || textDragState.textId !== textId) return
+
+    const textElement = document.querySelector(`[data-text-id="${textId}"]`) as HTMLElement
+    if (textElement) {
+      const newLeft = textDragState.startLeft + deltaX
+      const newTop = textDragState.startTop + deltaY
+
+      // ✅ MISE À JOUR DIRECTE DU STYLE DOM (comme les bulles)
+      textElement.style.left = `${newLeft}px`
+      textElement.style.top = `${newTop}px`
+
+      console.log('🎯 Text drag applied:', textId, { deltaX, deltaY, newLeft, newTop })
+    }
+  }, [textDragState])
+
+  const handleTextDragEnd = useCallback((textId: string) => {
+    setTextDragState(null)
+    setTextMode('reading')
+    console.log('🎯 Text drag end:', textId)
+  }, [])
+
+  const [textResizeState, setTextResizeState] = useState<{
+    textId: string,
+    handle: string,
+    startWidth: number,
+    startHeight: number,
+    startLeft: number,
+    startTop: number
+  } | null>(null)
+
+  const handleTextResizeStart = useCallback((textId: string, handle: string, startX: number, startY: number) => {
+    console.log('🎯 SimpleCanvasEditor: handleTextResizeStart appelé:', { textId, handle, startX, startY })
+
+    // ✅ RÉCUPÉRER LES PROPRIÉTÉS TEXTUELLES ACTUELLES DEPUIS LE CONTEXTE CANVAS
+    const textElement = canvasElements.find(el => el.id === textId && el.type === 'text') as TextElement | undefined
+    if (textElement) {
+      setTextResizeState({
+        textId,
+        handle,
+        startWidth: textElement.textStyle.maxWidth,
+        startHeight: textElement.textStyle.fontSize,
+        startLeft: textElement.transform.x,
+        startTop: textElement.transform.y
+      })
+      console.log('🎯 Text resize start - propriétés textuelles:', {
+        textId,
+        handle,
+        startMaxWidth: textElement.textStyle.maxWidth,
+        startFontSize: textElement.textStyle.fontSize
+      })
+    } else {
+      console.error('🎯 SimpleCanvasEditor: TextElement non trouvé pour:', textId, 'dans', canvasElements.length, 'éléments')
+    }
+  }, [canvasElements])
+
+  const handleTextResize = useCallback((textId: string, handle: string, deltaX: number, deltaY: number) => {
+    console.log('🎯 SimpleCanvasEditor: handleTextResize appelé:', { textId, handle, deltaX, deltaY })
+
+    if (!textResizeState || textResizeState.textId !== textId || textResizeState.handle !== handle) {
+      console.warn('🎯 SimpleCanvasEditor: État de resize invalide:', { textResizeState, textId, handle })
+      return
+    }
+
+    const { startWidth: startMaxWidth, startHeight: startFontSize } = textResizeState
+
+    // ✅ CALCUL DES NOUVELLES PROPRIÉTÉS TEXTUELLES
+    let newMaxWidth = startMaxWidth
+    let newFontSize = startFontSize
+
+    // Facteurs de sensibilité pour le redimensionnement
+    const widthSensitivity = 1.0  // 1px de delta = 1px de largeur
+    const fontSensitivity = 0.2   // 5px de delta = 1px de police
+
+    // ✅ LOGIQUE DE RESIZE SELON LE HANDLE
+    switch (handle) {
+      case 'tl': // top-left: largeur (inverse) + police (inverse)
+        newMaxWidth = Math.max(50, startMaxWidth - deltaX * widthSensitivity)
+        newFontSize = Math.max(12, Math.min(72, startFontSize - deltaY * fontSensitivity))
+        break
+      case 'tr': // top-right: largeur + police (inverse)
+        newMaxWidth = Math.max(50, startMaxWidth + deltaX * widthSensitivity)
+        newFontSize = Math.max(12, Math.min(72, startFontSize - deltaY * fontSensitivity))
+        break
+      case 'bl': // bottom-left: largeur (inverse) + police
+        newMaxWidth = Math.max(50, startMaxWidth - deltaX * widthSensitivity)
+        newFontSize = Math.max(12, Math.min(72, startFontSize + deltaY * fontSensitivity))
+        break
+      case 'br': // bottom-right: largeur + police
+        newMaxWidth = Math.max(50, startMaxWidth + deltaX * widthSensitivity)
+        newFontSize = Math.max(12, Math.min(72, startFontSize + deltaY * fontSensitivity))
+        break
+      case 'tc': // top-center: police seulement (inverse)
+        newFontSize = Math.max(12, Math.min(72, startFontSize - deltaY * fontSensitivity))
+        break
+      case 'bc': // bottom-center: police seulement
+        newFontSize = Math.max(12, Math.min(72, startFontSize + deltaY * fontSensitivity))
+        break
+      case 'ml': // middle-left: largeur seulement (inverse)
+        newMaxWidth = Math.max(50, startMaxWidth - deltaX * widthSensitivity)
+        break
+      case 'mr': // middle-right: largeur seulement
+        newMaxWidth = Math.max(50, startMaxWidth + deltaX * widthSensitivity)
+        break
+    }
+
+    // ✅ METTRE À JOUR L'ÉLÉMENT DANS LE CONTEXTE CANVAS EN PREMIER
+    const currentElement = canvasElements.find(el => el.id === textId && el.type === 'text') as TextElement | undefined
+    if (currentElement) {
+      updateElement(textId, {
+        textStyle: {
+          ...currentElement.textStyle,
+          fontSize: Math.round(newFontSize),
+          maxWidth: Math.round(newMaxWidth)
+        }
+      })
+
+      console.log('🎯 Text resize applied - Contexte mis à jour:', textId, {
+        fontSize: Math.round(newFontSize),
+        maxWidth: Math.round(newMaxWidth)
+      })
+    }
+
+    // ✅ SUPPRIMÉ : L'événement personnalisé qui créait des conflits
+
+    console.log('🎯 Text resize applied - propriétés textuelles:', textId, handle, {
+      deltaX, deltaY,
+      newMaxWidth: Math.round(newMaxWidth),
+      newFontSize: Math.round(newFontSize)
+    })
+  }, [textResizeState, canvasElements, updateElement])
+
+  const handleTextResizeEnd = useCallback((textId: string) => {
+    setTextResizeState(null)
+    setTextMode('reading')
+    console.log('🎯 Text resize end:', textId)
+  }, [])
+
+  const handleTextDoubleClick = useCallback((textId: string) => {
+    console.log('🎯 SimpleCanvasEditor: Double-click sur texte:', textId)
+    setTextMode('editing')
+    setSelectedElementId(textId)
+
+    // Dispatcher l'événement de changement de mode
+    const modeChangeEvent = new CustomEvent('textModeChange', {
+      detail: { textId, newMode: 'editing' }
+    })
+    window.dispatchEvent(modeChangeEvent)
+  }, [])
+
+  // ✅ ÉCOUTER LES CLICS SUR LES TEXTES LIBRES TIPTAP DOM
+  useEffect(() => {
+    const handleTextClick = (event: CustomEvent) => {
+      const { textId, clientX, clientY, element } = event.detail
+      console.log('🎯 SimpleCanvasEditor: Texte libre TipTap cliqué:', textId)
+
+      // Sélectionner le texte avec le même système que les panels
+      setSelectedElementId(textId)
+      setTextMode('manipulating')
+
+      // ✅ ÉMETTRE L'ÉVÉNEMENT POUR TIPTAPFREETEXTLAYER
+      const elementSelectedEvent = new CustomEvent('elementSelected', {
+        detail: { id: textId, type: 'text' }
+      })
+      window.dispatchEvent(elementSelectedEvent)
+      console.log('🎯 SimpleCanvasEditor: Événement elementSelected émis pour:', textId)
+
+      // Créer un CanvasElement virtuel pour le texte
+      const textElement: CanvasElement = {
+        id: textId,
+        type: 'text',
+        x: element.offsetLeft,
+        y: element.offsetTop,
+        width: element.offsetWidth,
+        height: element.offsetHeight
+      }
+
+      onElementClick?.(textElement)
+      console.log('✅ SimpleCanvasEditor: Texte libre sélectionné:', textId)
+    }
+
+    const handleTextModeChangeEvent = (event: CustomEvent) => {
+      const { textId, newMode } = event.detail
+      handleTextModeChange(textId, newMode)
+    }
+
+    const handleRegisterText = (event: CustomEvent) => {
+      const { textId, element, bounds } = event.detail
+      console.log('📝 SimpleCanvasEditor: Enregistrement texte libre TipTap:', textId)
+      // Ajouter à une map similaire aux bulles si nécessaire
+    }
+
+    const handleUnregisterText = (event: CustomEvent) => {
+      const { textId } = event.detail
+      console.log('🗑️ SimpleCanvasEditor: Désenregistrement texte libre TipTap:', textId)
+    }
+
+    window.addEventListener('textClicked', handleTextClick as EventListener)
+    window.addEventListener('registerTipTapText', handleRegisterText as EventListener)
+    window.addEventListener('unregisterTipTapText', handleUnregisterText as EventListener)
+    window.addEventListener('textModeChangeFromText', handleTextModeChangeEvent as EventListener)
+
+    return () => {
+      window.removeEventListener('textClicked', handleTextClick as EventListener)
+      window.removeEventListener('registerTipTapText', handleRegisterText as EventListener)
+      window.removeEventListener('unregisterTipTapText', handleUnregisterText as EventListener)
+      window.removeEventListener('textModeChangeFromText', handleTextModeChangeEvent as EventListener)
+    }
+  }, [onElementClick])
+
+  const handleTextModeChange = useCallback((textId: string, newMode: 'reading' | 'manipulating' | 'editing') => {
+    console.log('🎯 SimpleCanvasEditor: Text Mode change:', textId, newMode)
+    setTextMode(newMode)
+
+    if (newMode === 'reading') {
+      // Désélectionner le texte quand on sort du mode édition
+      setSelectedElementId(null)
+    }
+  }, [])
+
   // Gestionnaire de mousedown
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
 
     const { x, y } = getCanvasCoordinates(event)
+    console.log('🖱️ SimpleCanvasEditor mouseDown:', { x, y, tipTapBubblesCount: tipTapBubbles.size })
 
     // Vérifier si on clique sur un handle de redimensionnement
     const handle = findHandleAtPosition(x, y)
@@ -715,6 +1283,12 @@ export default function SimpleCanvasEditor({
 
     // Clic sur canvas vide - commencer la création ou désélectionner
     setSelectedElementId(null)
+    setBubbleMode('reading')
+    setTextMode('reading')
+
+    // ✅ ÉMETTRE ÉVÉNEMENT DE DÉSÉLECTION GLOBALE
+    const globalDeselectEvent = new CustomEvent('globalDeselect')
+    window.dispatchEvent(globalDeselectEvent)
 
     if (activeTool === 'panel') {
       // Commencer le mode création par drag
@@ -727,47 +1301,46 @@ export default function SimpleCanvasEditor({
         elementType: 'panel'
       })
     } else if (activeTool === 'text') {
-      // Créer un texte immédiatement
-      const newText: CanvasElement = {
-        id: `text-${Date.now()}`,
-        type: 'text',
-        x: x,
-        y: y,
-        width: 100,
-        height: 20,
-        content: 'Nouveau texte'
-      }
-      setElements(prev => [...prev, newText])
-      setSelectedElementId(newText.id)
-    } else if (bubbleCreationMode && bubbleTypeToCreate) {
-      // Créer une bulle immédiatement avec Canvas Editor
-      const newBubble: CanvasElement = {
-        id: `bubble-${Date.now()}`,
-        type: 'bubble',
-        x: x - 100,
-        y: y - 50,
-        width: 200,
-        height: 100,
-        content: 'Votre texte ici',
-        textContent: 'Votre texte ici',
-        bubbleType: bubbleTypeToCreate,
-        bubbleShape: 'oval', // Forme par défaut
-        fontSize: 16,
-        fontFamily: 'Arial',
-        textAlign: 'center',
-        isEditing: false,
-        style: {
-          backgroundColor: '#ffffff',
-          borderColor: '#000000',
-          borderWidth: 2,
-          borderRadius: 20
-        }
-      }
-      setElements(prev => [...prev, newBubble])
-      setSelectedElementId(newBubble.id)
-      cancelBubbleCreation()
+      // ✅ CRÉER UN TEXTE LIBRE AVEC TIPTAP
+      const domCoords = getDOMCoordinates(event)
+      console.log('🎯 Création texte libre TipTap:', {
+        canvasCoords: { x, y },
+        domCoords
+      })
 
-      // ✅ SUPPRIMÉ : Plus besoin d'initialiser d'éditeur externe
+      // Créer l'événement personnalisé pour le système TipTap
+      const textCreationEvent = new CustomEvent('createTipTapFreeText', {
+        detail: {
+          x: domCoords.x,
+          y: domCoords.y
+        }
+      })
+
+      // Dispatcher l'événement pour que le système TipTap le capture
+      window.dispatchEvent(textCreationEvent)
+      setActiveTool('select')
+    } else if (bubbleCreationMode && bubbleTypeToCreate) {
+      // ✅ RESTAURÉ : Utiliser le système TipTap-first existant
+      const domCoords = getDOMCoordinates(event)
+      console.log('🎯 Création bulle TipTap:', {
+        canvasCoords: { x, y },
+        domCoords,
+        type: bubbleTypeToCreate
+      })
+
+      // Créer l'événement personnalisé pour le système TipTap-first
+      const bubbleCreationEvent = new CustomEvent('createTipTapBubble', {
+        detail: {
+          x: domCoords.x,
+          y: domCoords.y,
+          bubbleType: bubbleTypeToCreate
+        }
+      })
+
+      // Dispatcher l'événement pour que TipTapBubbleLayer le capture
+      window.dispatchEvent(bubbleCreationEvent)
+
+      cancelBubbleCreation()
     } else {
       onCanvasClick?.(x, y)
     }
@@ -1221,6 +1794,34 @@ export default function SimpleCanvasEditor({
                 Panel: Clic = optimal, Drag = custom
               </div>
             </div>
+          )}
+
+          {/* ✅ NOUVEAU : DOM Selection Overlay pour les bulles TipTap (désactivé en mode édition) */}
+          {bubbleMode !== 'editing' && (
+            <BubbleSelectionOverlay
+              selectedBubbleId={isSelectedElementBubble() ? selectedElementId : null}
+              onDragStart={handleBubbleDragStart}
+              onDrag={handleBubbleDrag}
+              onDragEnd={handleBubbleDragEnd}
+              onResizeStart={handleBubbleResizeStart}
+              onResize={handleBubbleResize}
+              onResizeEnd={handleBubbleResizeEnd}
+              onDoubleClick={handleBubbleDoubleClick}
+            />
+          )}
+
+          {/* ✅ NOUVEAU : DOM Selection Overlay pour les textes libres TipTap (désactivé en mode édition) */}
+          {textMode !== 'editing' && (
+            <TextSelectionOverlay
+              selectedTextId={isSelectedElementText() ? selectedElementId : null}
+              onDragStart={handleTextDragStart}
+              onDrag={handleTextDrag}
+              onDragEnd={handleTextDragEnd}
+              onResizeStart={handleTextResizeStart}
+              onResize={handleTextResize}
+              onResizeEnd={handleTextResizeEnd}
+              onDoubleClick={handleTextDoubleClick}
+            />
           )}
         </div>
       </div>

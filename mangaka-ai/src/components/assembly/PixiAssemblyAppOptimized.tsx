@@ -6,8 +6,7 @@ import DashtoonLayout from './layout/DashtoonLayout'
 import VerticalToolbar from './layout/VerticalToolbar'
 import CanvasArea from './layout/CanvasArea'
 import RightPanel from './layout/RightPanel'
-import BubbleTypeModal from './ui/BubbleTypeModal'
-import BubbleContextMenu from './ui/BubbleContextMenu'
+import TipTapBubbleTypeModal from './ui/TipTapBubbleTypeModal'
 // BubbleTextEditor supprimé - utilisation du nouveau système d'overlay intégré
 import { CanvasProvider } from './context/CanvasContext'
 import { useCanvas } from './hooks/useCanvasOptimized'
@@ -121,15 +120,7 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
     canvas.closeBubbleTypeModal()
   }, [canvas])
 
-  const handleBubbleModalCancel = useCallback(() => {
-    console.log('💬 Annulation modal bulle - annulation mode placement')
-    // Annuler le mode placement si actif
-    if (canvas.ui.bubblePlacementMode) {
-      canvas.cancelBubblePlacement()
-    }
-    // Fermer la modal
-    canvas.toggleBubbleTypeModal()
-  }, [canvas])
+  // Gestionnaire d'annulation supprimé - géré directement par le modal
 
   // ✅ ÉDITION DE TEXTE GÉRÉE DANS PIXIAPPLICATION
 
@@ -156,13 +147,13 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
   const handleBubbleTypeChange = useCallback((type: BubbleType) => {
     if (!contextMenu) return
 
-    const updatedBubbleStyle = {
-      ...contextMenu.element.bubbleStyle,
+    const updatedDialogueStyle = {
+      ...contextMenu.element.dialogueStyle,
       type
     }
 
     canvas.updateElement(contextMenu.element.id, {
-      bubbleStyle: updatedBubbleStyle
+      dialogueStyle: updatedDialogueStyle
     })
     setContextMenu(null)
     console.log('🎨 MANGAKA: Type de bulle changé vers', type)
@@ -189,7 +180,7 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
         e.preventDefault()
         selectedBubbles.forEach(bubble => {
           canvas.updateElement(bubble.id, {
-            bubbleStyle: { ...bubble.bubbleStyle, type: typeMap[e.key] }
+            dialogueStyle: { ...bubble.dialogueStyle, type: typeMap[e.key] }
           })
         })
         return
@@ -256,20 +247,10 @@ const PixiAssemblyAppContent: React.FC<PixiAssemblyAppProps> = ({
       />
 
       {/* ✅ MODAL DE SÉLECTION DU TYPE DE BULLE */}
-      <BubbleTypeModal
+      <TipTapBubbleTypeModal
         isOpen={canvas.ui.bubbleTypeModalVisible}
         onClose={handleBubbleModalClose}
-        onCancel={handleBubbleModalCancel}
         onSelectType={handleBubbleTypeSelect}
-      />
-
-      {/* ✅ MENU CONTEXTUEL MANGAKA POUR BULLES */}
-      <BubbleContextMenu
-        isOpen={!!contextMenu}
-        position={contextMenu?.position || { x: 0, y: 0 }}
-        currentType={contextMenu?.element.bubbleStyle.type || 'speech'}
-        onSelectType={handleBubbleTypeChange}
-        onClose={handleCloseMenus}
       />
 
       {/* ✅ ÉDITEUR DE TEXTE INTÉGRÉ DANS PIXIAPPLICATION */}

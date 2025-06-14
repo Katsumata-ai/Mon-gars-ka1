@@ -58,6 +58,27 @@ export interface SpriteElement {
   metadata: ElementMetadata
 }
 
+// Enhanced queue configuration interface
+export interface QueueConfiguration {
+  // Core positioning (360° system)
+  angle: number // 0-360 degrees, 0 = right, 90 = down, 180 = left, 270 = up
+  length: number // Distance from bubble edge to queue tip
+  thickness: number // Queue thickness/width
+
+  // Visual styling
+  style: 'triangle' | 'curved' | 'jagged' | 'thin' // Queue shape style
+  seamlessConnection: boolean // Whether queue connects seamlessly to bubble border
+
+  // Interactive manipulation
+  isManipulating: boolean // Whether queue is currently being manipulated
+  showHandles: boolean // Whether to show manipulation handles
+  snapToCardinal: boolean // Whether to snap to 0°, 90°, 180°, 270°
+
+  // Advanced properties
+  curvature?: number // For curved queues (0-1, 0 = straight, 1 = maximum curve)
+  tapering?: number // Queue tapering factor (0-1, 0 = no taper, 1 = maximum taper)
+}
+
 // Interface pour les bulles de dialogue
 export interface DialogueElement {
   type: 'dialogue'
@@ -75,10 +96,13 @@ export interface DialogueElement {
     fontFamily: string
     textAlign: 'left' | 'center' | 'right'
     dashedOutline: boolean
-    tailPosition: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
-    tailLength: number
-    tailAngleDegrees: number
-    tailAttachmentSide: 'top' | 'bottom' | 'left' | 'right'
+    // ✅ LEGACY SUPPORT - Keep for backward compatibility
+    tailPosition?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+    tailLength?: number
+    tailAngleDegrees?: number
+    tailAttachmentSide?: 'top' | 'bottom' | 'left' | 'right'
+    // ✅ NEW ENHANCED QUEUE SYSTEM
+    queue: QueueConfiguration
   }
   properties: ElementProperties
 }
@@ -111,10 +135,16 @@ export interface TextElement {
   textStyle: {
     fontSize: number
     fontFamily: string
-    color: number
-    align: 'left' | 'center' | 'right'
-    fontWeight: 'normal' | 'bold'
-    fontStyle: 'normal' | 'italic'
+    fontWeight: string
+    textColor: string
+    textAlign: 'left' | 'center' | 'right'
+    lineHeight: number
+    letterSpacing: string
+    textShadow: string
+    backgroundColor: string
+    borderColor: string
+    borderWidth: number
+    maxWidth: number // Largeur maximale pour le retour à la ligne
   }
   properties: ElementProperties
 }

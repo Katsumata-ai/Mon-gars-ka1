@@ -4,7 +4,8 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { Application, Container, Graphics, FederatedPointerEvent, Text, TextStyle, Sprite } from 'pixi.js'
 import { useCanvasContext, generateElementId } from '../context/CanvasContext'
 import { AssemblyElement, PanelElement, DialogueElement, TextElement, SpriteElement, ImageElement } from '../types/assembly.types'
-import { BubbleManipulationManager, HandleType } from './BubbleManipulationManager'
+// ✅ SUPPRIMÉ : BubbleManipulationManager - remplacé par IntegratedBubbleQueue
+import { HandleType } from '../types/assembly.types'
 import { PanelTool } from '../tools/PanelTool'
 import { BubbleTool } from '../tools/BubbleTool'
 import { SelectTool } from '../tools/SelectTool'
@@ -127,7 +128,8 @@ export default function PixiApplication({
       }
     },
     (elementId, updates) => updateElement(elementId, updates),
-    panelContentService // Passer le service d'associations panel-image
+    panelContentService, // Passer le service d'associations panel-image
+    findBubbleAtPosition // ✅ NOUVEAU : Passer la fonction de détection des bulles DOM
   ))
   const [isCreating, setIsCreating] = useState(false)
 
@@ -427,19 +429,8 @@ export default function PixiApplication({
   const lastMousePosRef = useRef({ x: 0, y: 0 })
   const isPointerDownRef = useRef(false)
 
-  // ✅ GESTIONNAIRE DE MOUVEMENT POUR MANIPULATION DES BULLES
-  const handleGlobalPointerMove = useCallback((globalX: number, globalY: number) => {
-    if (bubbleManipulationManagerRef.current?.isManipulating()) {
-      bubbleManipulationManagerRef.current.updateManipulation(globalX, globalY)
-    }
-  }, [])
-
-  // ✅ GESTIONNAIRE DE FIN DE MANIPULATION
-  const handleGlobalPointerUp = useCallback(() => {
-    if (bubbleManipulationManagerRef.current?.isManipulating()) {
-      bubbleManipulationManagerRef.current.endManipulation()
-    }
-  }, [])
+  // ✅ SUPPRIMÉ : Gestionnaires de manipulation des bulles
+  // Maintenant géré par IntegratedBubbleQueue
 
   // Configurer les gestionnaires d'événements
   const setupEventHandlers = useCallback((app: Application) => {
@@ -616,8 +607,8 @@ export default function PixiApplication({
           textColor: 0x000000,
           dashedOutline: false,
           tailPosition: 'bottom-left',
-          fontSize: 14,
-          fontFamily: 'Arial',
+          fontSize: 20,
+          fontFamily: 'Comic Sans MS, Bangers, Roboto, system-ui, sans-serif',
           textAlign: 'center',
 
           // ✅ Configuration optimisée pour mangaka
@@ -819,20 +810,8 @@ export default function PixiApplication({
     }
   }, [])
 
-  // ✅ GESTIONNAIRE DE MANIPULATION DES BULLES
-  const bubbleManipulationManagerRef = useRef<BubbleManipulationManager | null>(null)
-
-  // Initialiser le gestionnaire si pas encore fait
-  if (!bubbleManipulationManagerRef.current) {
-    bubbleManipulationManagerRef.current = new BubbleManipulationManager((elementId: string, updates: Partial<AssemblyElement>) => {
-      updateElement(elementId, updates)
-    })
-  }
-
-  // ✅ DÉMARRER LA MANIPULATION D'UNE BULLE
-  const startBubbleManipulation = useCallback((element: DialogueElement, handleType: HandleType, globalX: number, globalY: number) => {
-    bubbleManipulationManagerRef.current?.startManipulation(element, handleType, globalX, globalY)
-  }, [])
+  // ✅ SUPPRIMÉ : Ancien système de manipulation des bulles
+  // Maintenant géré par IntegratedBubbleQueue
 
 
 
@@ -1128,9 +1107,9 @@ export default function PixiApplication({
           alpha: 1
         })
 
-        // ✅ RENDRE LES HANDLES INTERACTIFS AVEC NOUVEAU GESTIONNAIRE
+        // ✅ RENDRE LES HANDLES INTERACTIFS
         handleGraphics.eventMode = 'static'
-        handleGraphics.cursor = BubbleManipulationManager.getHandleCursor(handle.handleType)
+        handleGraphics.cursor = getHandleCursor(handle.handleType)
 
         handleGraphics.on('pointerdown', (e) => {
           e.stopPropagation()
@@ -1145,49 +1124,13 @@ export default function PixiApplication({
         selectionContainer.addChild(handleContainer)
       })
 
-      // ✅ HANDLE SPÉCIAL POUR LA QUEUE DES BULLES (TOUJOURS COLLÉ AU BOUT)
+      // ✅ SUPPRIMÉ : Handle spécial pour la queue des bulles
+      // Maintenant géré par IntegratedBubbleQueue
       if (element.type === 'dialogue') {
-        const dialogueElement = element as DialogueElement
-        const tailPos = BubbleManipulationManager.calculateTailPosition(dialogueElement)
+        // Les handles de queue sont maintenant gérés par IntegratedBubbleQueue
+        console.log('🎯 Queue gérée par IntegratedBubbleQueue pour:', element.id)
 
-        console.log('🎯 Position handle calculée:', {
-          elementId: element.id,
-          tailPos,
-          bubbleTransform: element.transform,
-          tailAngle: dialogueElement.bubbleStyle.tailAngleDegrees,
-          tailLength: dialogueElement.bubbleStyle.tailLength
-        })
-
-        // ✅ HANDLE PARFAITEMENT COLLÉ AU BOUT DE LA QUEUE
-        const tailHandle = new Graphics()
-
-        // Ombre du handle de queue
-        tailHandle.circle(tailPos.x + 1, tailPos.y + 1, 8)
-        tailHandle.fill({ color: 0x000000, alpha: 0.3 })
-
-        // Handle principal de queue - EXACTEMENT au bout de la queue
-        tailHandle.circle(tailPos.x, tailPos.y, 8)
-        tailHandle.fill(0xff6b35)
-        tailHandle.stroke({ width: 2, color: 0xffffff })
-
-        // ✅ DEBUG VISUEL TEMPORAIRE : Point rouge pour vérifier l'alignement
-        if (process.env.NODE_ENV === 'development') {
-          const debugPoint = new Graphics()
-          debugPoint.circle(tailPos.x, tailPos.y, 2)
-          debugPoint.fill(0xff0000) // Rouge pour debug
-          selectionContainer.addChild(debugPoint)
-        }
-
-        tailHandle.eventMode = 'static'
-        tailHandle.cursor = BubbleManipulationManager.getHandleCursor(HandleType.TAIL)
-
-        tailHandle.on('pointerdown', (e) => {
-          e.stopPropagation()
-          console.log('🎯 Handle queue 360° cliqué pour élément:', element.id, 'position:', tailPos)
-          startBubbleManipulation(dialogueElement, HandleType.TAIL, e.global.x, e.global.y)
-        })
-
-        selectionContainer.addChild(tailHandle)
+        // ✅ SUPPRIMÉ : Handles de queue maintenant gérés par IntegratedBubbleQueue
       }
 
       // Ajouter les éléments dans l'ordre : ombre, bordure, handles
@@ -1198,7 +1141,7 @@ export default function PixiApplication({
     })
 
     console.log('🎨 Sélection rendue:', selectedElements.length, 'éléments')
-  }, [selectedElements, editingElementId, startBubbleManipulation])
+  }, [selectedElements, editingElementId])
 
   // Redimensionner l'application
   useEffect(() => {
@@ -1276,6 +1219,30 @@ export default function PixiApplication({
       )}
     </div>
   )
+}
+
+// Utilitaire pour obtenir le curseur selon le type de handle
+function getHandleCursor(handleType: HandleType): string {
+  switch (handleType) {
+    case HandleType.TOP_LEFT:
+    case HandleType.BOTTOM_RIGHT:
+      return 'nw-resize'
+    case HandleType.TOP_RIGHT:
+    case HandleType.BOTTOM_LEFT:
+      return 'ne-resize'
+    case HandleType.TOP:
+    case HandleType.BOTTOM:
+      return 'ns-resize'
+    case HandleType.LEFT:
+    case HandleType.RIGHT:
+      return 'ew-resize'
+    case HandleType.MOVE:
+      return 'move'
+    case HandleType.TAIL:
+      return 'grab'
+    default:
+      return 'default'
+  }
 }
 
 // Utilitaire pour obtenir le curseur selon l'outil actif et le mode
@@ -1853,14 +1820,14 @@ function drawDynamic360BubbleTail(graphics: Graphics, config: BubbleConfig): voi
     return
   }
 
-  // ✅ UTILISER LES MÊMES CALCULS QUE BubbleManipulationManager.calculateTailAttachmentPoint
+  // ✅ CALCULS ELLIPTIQUES POUR QUEUE 360°
   const centerX = config.width / 2
   const centerY = config.height / 2
   const angleRad = config.tailAngle * Math.PI / 180
   const dx = Math.cos(angleRad)
   const dy = Math.sin(angleRad)
 
-  // Calcul d'intersection IDENTIQUE à BubbleManipulationManager
+  // Calcul d'intersection avec le périmètre de la bulle
   let t = Infinity
   const halfWidth = config.width / 2
   const halfHeight = config.height / 2

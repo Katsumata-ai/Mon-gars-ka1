@@ -6,9 +6,11 @@ import { toast } from 'react-hot-toast'
 import DashtoonLayout from './layout/DashtoonLayout'
 import PolotnoVerticalToolbar from './layout/PolotnoVerticalToolbar'
 import RightPanel from './layout/RightPanel'
-import BubbleTypeModal from './ui/BubbleTypeModal'
-import BubbleContextMenu from './ui/BubbleContextMenu'
+import TipTapBubbleTypeModal from './ui/TipTapBubbleTypeModal'
+import TipTapBubbleLayer from './ui/TipTapBubbleLayer'
+import TipTapFreeTextLayer from './ui/TipTapFreeTextLayer'
 import { PolotnoProvider, usePolotnoContext } from './context/PolotnoContext'
+import { CanvasProvider } from './context/CanvasContext'
 import { BubbleType, PolotnoAssemblyAppProps } from './types/polotno.types'
 
 // Import du SimpleCanvasEditor (compatible React 19)
@@ -39,6 +41,7 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
     element: any
     position: { x: number, y: number }
   } | null>(null)
+  const [canvasTransform, setCanvasTransform] = useState({ x: 0, y: 0, scale: 1 })
 
   // Gestionnaires d'événements
   const handleSave = useCallback(async () => {
@@ -91,12 +94,10 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
     setBubbleTypeModalVisible(false)
   }, [])
 
-  const handleBubbleModalCancel = useCallback(() => {
-    setBubbleTypeModalVisible(false)
-    cancelBubbleCreation()
-  }, [cancelBubbleCreation])
+  // Gestionnaire d'annulation supprimé - géré directement par le modal
 
   const handleBubbleTypeSelect = useCallback((bubbleType: BubbleType) => {
+    console.log('🎯 PolotnoAssemblyApp: Type de bulle sélectionné:', bubbleType)
     setBubbleTypeModalVisible(false)
     startBubbleCreation(bubbleType)
   }, [startBubbleCreation])
@@ -116,6 +117,7 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
 
   // Gestionnaire pour l'ouverture de la modal de bulle
   const handleOpenBubbleModal = useCallback(() => {
+    console.log('🎯 PolotnoAssemblyApp: Ouverture modal bulle')
     setBubbleTypeModalVisible(true)
   }, [])
 
@@ -135,8 +137,8 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
           />
         }
         centerCanvas={
-          <div className="h-full bg-dark-600 flex items-center justify-center p-8">
-            <div className="bg-white shadow-2xl rounded-lg overflow-hidden">
+          <div className="h-full bg-dark-600 flex items-center justify-center p-8 relative">
+            <div className="bg-white shadow-2xl rounded-lg overflow-hidden relative">
               <SimpleCanvasEditor
                 width={1200}
                 height={1600}
@@ -144,7 +146,21 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
                 onCanvasClick={handleCanvasClick}
                 onBubbleDoubleClick={handleBubbleDoubleClick}
                 onBubbleRightClick={handleBubbleRightClick}
+                onCanvasTransformChange={setCanvasTransform}
                 className="block"
+              />
+
+              {/* ✅ NOUVEAU SYSTÈME TIPTAP BUBBLES */}
+              <TipTapBubbleLayer
+                canvasTransform={canvasTransform}
+                canvasSize={{ width: 1200, height: 1600 }}
+                viewport={{ x: 0, y: 0, width: 1200, height: 1600, scale: 1 }}
+                className="absolute inset-0"
+              />
+
+              {/* ✅ NOUVEAU SYSTÈME TIPTAP TEXTE LIBRE */}
+              <TipTapFreeTextLayer
+                className="absolute inset-0"
               />
             </div>
           </div>
@@ -161,21 +177,13 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
       />
 
       {/* Modal de sélection du type de bulle */}
-      <BubbleTypeModal
+      <TipTapBubbleTypeModal
         isOpen={bubbleTypeModalVisible}
         onClose={handleBubbleModalClose}
-        onCancel={handleBubbleModalCancel}
         onSelectType={handleBubbleTypeSelect}
       />
 
-      {/* Menu contextuel pour bulles */}
-      <BubbleContextMenu
-        isOpen={!!contextMenu}
-        position={contextMenu?.position || { x: 0, y: 0 }}
-        currentType={contextMenu?.element?.attrs?.bubbleType || 'speech'}
-        onSelectType={handleBubbleTypeChange}
-        onClose={handleCloseMenus}
-      />
+      {/* Menu contextuel pour bulles - À réimplémenter avec le nouveau système */}
 
       {/* Indicateur de mode création de bulle */}
       {bubbleCreationMode && (
@@ -198,11 +206,13 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
   )
 }
 
-// Composant principal avec Provider Polotno
+// Composant principal avec Providers
 const PolotnoAssemblyApp: React.FC<PolotnoAssemblyAppProps> = (props) => {
   return (
     <PolotnoProvider>
-      <PolotnoAssemblyAppContent {...props} />
+      <CanvasProvider>
+        <PolotnoAssemblyAppContent {...props} />
+      </CanvasProvider>
     </PolotnoProvider>
   )
 }

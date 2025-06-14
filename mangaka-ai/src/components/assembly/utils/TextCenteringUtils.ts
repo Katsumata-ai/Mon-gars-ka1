@@ -156,14 +156,19 @@ export function createOptimalTextStyle(
   const wrapWidth = calculateOptimalWrapWidth(bubbleWidth, bubbleHeight)
   
   return new TextStyle({
-    fontSize,
-    fontFamily,
+    fontSize: Math.max(fontSize, 20), // Minimum 20px
+    fontFamily: 'Comic Sans MS, Bangers, Roboto, system-ui, sans-serif',
+    fontWeight: 'bold',
     fill: textColor,
     align: 'center',
     wordWrap: true,
     wordWrapWidth: wrapWidth,
     breakWords: true,
-    lineHeight: fontSize * 1.2
+    lineHeight: fontSize * 1.3,
+    dropShadow: true,
+    dropShadowColor: 'rgba(255, 255, 255, 0.8)',
+    dropShadowBlur: 1,
+    dropShadowDistance: 0
   })
 }
 

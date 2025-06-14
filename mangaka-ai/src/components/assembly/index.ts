@@ -20,8 +20,8 @@ export {
 export {
   PanelTool,
   usePanelTool,
-  BubbleTool,
-  useBubbleTool
+  TipTapBubbleTool,
+  useTipTapBubbleTool
 } from './tools'
 
 // Objets interactifs

@@ -1,0 +1,186 @@
+/* Styles pour le composant TipTapFreeText */
+
+.tiptap-free-text {
+  position: relative;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+/* Styles pour l'éditeur TipTap */
+.tiptap-free-text-editor {
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.tiptap-free-text-editor .ProseMirror {
+  outline: none !important;
+  border: none !important;
+  background: transparent !important;
+  width: 100%;
+  height: auto; /* Hauteur automatique */
+  padding: 4px;
+  margin: 0;
+  min-height: 20px;
+  font-family: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+  line-height: 1.3 !important;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.8);
+  /* ✅ RETOUR À LA LIGNE AUTOMATIQUE */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.tiptap-free-text-editor .ProseMirror p {
+  margin: 0;
+  padding: 0;
+  line-height: 1.3;
+  font-family: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  color: #000000 !important;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.8);
+  /* ✅ RETOUR À LA LIGNE AUTOMATIQUE */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.tiptap-free-text-editor .ProseMirror:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Styles pour le texte affiché en mode lecture */
+.tiptap-free-text-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  padding: 4px;
+  line-height: 1.3;
+  color: #000000 !important;
+  font-family: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  /* ✅ SUPPRIMÉ : font-size hardcodé - utilise maintenant les styles dynamiques */
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.8);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+/* ✅ STYLES OPTIMISÉS POUR TOUS LES ÉLÉMENTS DE TEXTE */
+.tiptap-free-text-content *,
+.tiptap-free-text-content p,
+.tiptap-free-text-content span,
+.tiptap-free-text-content div {
+  color: #000000 !important;
+  font-family: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  /* ✅ SUPPRIMÉ : font-size hardcodé - utilise maintenant les styles dynamiques */
+  line-height: 1.3 !important;
+  text-shadow: 0 0 1px rgba(255, 255, 255, 0.8);
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* ✅ OVERRIDE ULTRA-AGRESSIF AVEC STYLES COMIC */
+[data-text-id] *,
+[data-text-id] p,
+[data-text-id] span,
+[data-text-id] div {
+  color: #000000 !important;
+  font-family: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  /* ✅ SUPPRIMÉ : font-size hardcodé - utilise maintenant les styles dynamiques */
+  line-height: 1.3 !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+}
+
+/* Styles pour les différents modes */
+.tiptap-free-text[data-text-mode="reading"] {
+  /* Mode lecture - style par défaut */
+}
+
+.tiptap-free-text[data-text-mode="editing"] {
+  /* Mode édition - curseur texte */
+  cursor: text;
+}
+
+.tiptap-free-text[data-text-mode="editing"] .tiptap-free-text-editor {
+  cursor: text;
+}
+
+.tiptap-free-text[data-text-mode="manipulating"] {
+  /* Mode manipulation - curseur grab */
+  cursor: grabbing;
+}
+
+/* ✅ PLACEHOLDER POUR LE TEXTE VIDE - AMÉLIORÉ */
+.tiptap-free-text-editor .ProseMirror.is-editor-empty:first-child::before {
+  content: 'Tapez votre texte...';
+  color: #999999;
+  font-style: italic;
+  font-size: 18px;
+  font-family: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif;
+  font-weight: 400;
+  pointer-events: none;
+  position: absolute;
+  top: 4px;
+  left: 4px;
+}
+
+/* ✅ PLACEHOLDER POUR PARAGRAPHE VIDE */
+.tiptap-free-text-editor .ProseMirror p.is-empty:first-child::before {
+  content: 'Tapez votre texte...';
+  color: #999999;
+  font-style: italic;
+  font-size: 18px;
+  font-family: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif;
+  font-weight: 400;
+  pointer-events: none;
+  position: absolute;
+}
+
+/* Styles pour la sélection de texte */
+.tiptap-free-text-editor .ProseMirror::selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.tiptap-free-text-editor .ProseMirror::-moz-selection {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+/* Styles pour le curseur */
+.tiptap-free-text-editor .ProseMirror {
+  caret-color: #000000;
+}
+
+/* Styles responsifs */
+@media (max-width: 768px) {
+  .tiptap-free-text-editor .ProseMirror,
+  .tiptap-free-text-content {
+    font-size: 18px !important;
+  }
+  
+  /* ✅ SUPPRIMÉ : font-size hardcodé pour mobile - utilise maintenant les styles dynamiques */
+}
+
+/* Styles pour l'accessibilité */
+.tiptap-free-text:focus-within {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* Styles pour le drag */
+.tiptap-free-text.dragging {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.tiptap-free-text.dragging * {
+  pointer-events: none;
+}

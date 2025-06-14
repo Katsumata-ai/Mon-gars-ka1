@@ -9,12 +9,9 @@ import { Stage, Layer, Group, Line, Rect } from 'react-konva'
 import { useCanvasContext } from '../context/CanvasContext'
 import { AssemblyElement, PanelElement, DialogueElement } from '../types/assembly.types'
 import { KonvaPanelTool } from '../tools/KonvaPanelTool'
-import { KonvaSpeechBubbleTool } from '../tools/KonvaSpeechBubbleTool'
+import { TipTapBubbleTool } from '../tools/TipTapBubbleTool'
 import { SelectTool } from '../tools/SelectTool'
-import { BubbleTool } from '../tools/BubbleTool'
 import KonvaPanel from '../objects/KonvaPanel'
-import KonvaSpeechBubble from '../objects/KonvaSpeechBubble'
-import KonvaSpeechBubbleUnified from '../objects/KonvaSpeechBubbleUnified'
 // ✅ SUPPRIMÉ : KonvaInPlaceEditor remplacé par système unifié
 import KonvaBubble from '../objects/KonvaBubble'
 
@@ -68,7 +65,7 @@ export default function KonvaApplication({
     addElement(panel)
   }))
 
-  const [speechBubbleTool] = useState(() => new KonvaSpeechBubbleTool((bubble: DialogueElement) => {
+  const [speechBubbleTool] = useState(() => new TipTapBubbleTool((bubble: DialogueElement) => {
     addElement(bubble)
   }))
 
@@ -362,19 +359,8 @@ export default function KonvaApplication({
             />
           ))}
           
-          {/* ✅ BULLES KONVA UNIFIÉES - Nouveau système unifié avec édition native */}
-          {bubbleElements.map(bubble => (
-            <KonvaSpeechBubbleUnified
-              key={bubble.id}
-              element={bubble}
-              isSelected={selectedElementIds.includes(bubble.id)}
-              isEditing={editingBubbleId === bubble.id}
-              onSelect={selectElement}
-              onUpdate={updateElement}
-              onStartEdit={handleStartBubbleEdit}
-              onFinishEdit={handleCloseBubbleEdit}
-            />
-          ))}
+          {/* ✅ NOUVEAU SYSTÈME TIPTAP BUBBLES - Rendu dans une couche HTML séparée */}
+          {/* Les bulles TipTap sont maintenant rendues en HTML au-dessus du canvas */}
           
           {/* ✅ PRÉVISUALISATION PANEL */}
           {currentPanelPreview && (
