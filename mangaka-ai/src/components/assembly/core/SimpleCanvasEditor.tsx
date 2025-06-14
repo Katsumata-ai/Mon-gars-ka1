@@ -133,7 +133,8 @@ export default function SimpleCanvasEditor({
     bubbleCreationMode,
     bubbleTypeToCreate,
     cancelBubbleCreation,
-    setActiveTool
+    setActiveTool,
+    gridVisible
   } = usePolotnoContext()
 
   // ✅ NOUVEAU : Accès au contexte Canvas pour les textes libres
@@ -670,24 +671,26 @@ export default function SimpleCanvasEditor({
     // Dessiner le fond
     ctx.fillStyle = '#f8f9fa'
     ctx.fillRect(0, 0, width, height)
-    
-    // Dessiner une grille légère
-    ctx.strokeStyle = '#e9ecef'
-    ctx.lineWidth = 1
-    const gridSize = 20
-    
-    for (let x = 0; x <= width; x += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
-      ctx.stroke()
-    }
-    
-    for (let y = 0; y <= height; y += gridSize) {
-      ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
-      ctx.stroke()
+
+    // Dessiner une grille visible (conditionnel)
+    if (gridVisible) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)' // Noir avec 40% d'opacité pour une bonne visibilité
+      ctx.lineWidth = 1.5 // Légèrement plus épais pour plus de contraste
+      const gridSize = 20
+
+      for (let x = 0; x <= width; x += gridSize) {
+        ctx.beginPath()
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, height)
+        ctx.stroke()
+      }
+
+      for (let y = 0; y <= height; y += gridSize) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(width, y)
+        ctx.stroke()
+      }
     }
     
     // Dessiner tous les éléments
@@ -707,7 +710,7 @@ export default function SimpleCanvasEditor({
     if (selectedElementId && resizeHandles.length > 0) {
       drawResizeHandles(ctx)
     }
-  }, [elements, width, height, drawElement, creationState, selectedElementId, resizeHandles, drawCreationPreview, drawResizeHandles, isDragOverPanel, drawDragFeedback])
+  }, [elements, width, height, gridVisible, drawElement, creationState, selectedElementId, resizeHandles, drawCreationPreview, drawResizeHandles, isDragOverPanel, drawDragFeedback])
 
   // Redessiner quand les éléments changent
   useEffect(() => {
@@ -1088,25 +1091,25 @@ export default function SimpleCanvasEditor({
     switch (handle) {
       case 'tl': // top-left: largeur (inverse) + police (inverse)
         newMaxWidth = Math.max(50, startMaxWidth - deltaX * widthSensitivity)
-        newFontSize = Math.max(12, Math.min(72, startFontSize - deltaY * fontSensitivity))
+        newFontSize = Math.max(12, startFontSize - deltaY * fontSensitivity) // ✅ SUPPRIMÉ Math.min(72)
         break
       case 'tr': // top-right: largeur + police (inverse)
         newMaxWidth = Math.max(50, startMaxWidth + deltaX * widthSensitivity)
-        newFontSize = Math.max(12, Math.min(72, startFontSize - deltaY * fontSensitivity))
+        newFontSize = Math.max(12, startFontSize - deltaY * fontSensitivity) // ✅ SUPPRIMÉ Math.min(72)
         break
       case 'bl': // bottom-left: largeur (inverse) + police
         newMaxWidth = Math.max(50, startMaxWidth - deltaX * widthSensitivity)
-        newFontSize = Math.max(12, Math.min(72, startFontSize + deltaY * fontSensitivity))
+        newFontSize = Math.max(12, startFontSize + deltaY * fontSensitivity) // ✅ SUPPRIMÉ Math.min(72)
         break
       case 'br': // bottom-right: largeur + police
         newMaxWidth = Math.max(50, startMaxWidth + deltaX * widthSensitivity)
-        newFontSize = Math.max(12, Math.min(72, startFontSize + deltaY * fontSensitivity))
+        newFontSize = Math.max(12, startFontSize + deltaY * fontSensitivity) // ✅ SUPPRIMÉ Math.min(72)
         break
       case 'tc': // top-center: police seulement (inverse)
-        newFontSize = Math.max(12, Math.min(72, startFontSize - deltaY * fontSensitivity))
+        newFontSize = Math.max(12, startFontSize - deltaY * fontSensitivity) // ✅ SUPPRIMÉ Math.min(72)
         break
       case 'bc': // bottom-center: police seulement
-        newFontSize = Math.max(12, Math.min(72, startFontSize + deltaY * fontSensitivity))
+        newFontSize = Math.max(12, startFontSize + deltaY * fontSensitivity) // ✅ SUPPRIMÉ Math.min(72)
         break
       case 'ml': // middle-left: largeur seulement (inverse)
         newMaxWidth = Math.max(50, startMaxWidth - deltaX * widthSensitivity)

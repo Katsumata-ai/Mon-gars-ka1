@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
 import { Container, Graphics, Text, TextStyle } from 'pixi.js'
 import { useCanvasContext } from '../context/CanvasContext'
+import { usePolotnoContext } from '../context/PolotnoContext'
 import { getCursorForTool } from '../utils/CursorUtils'
 import { AssemblyElement, ImageElement } from '../types/assembly.types'
 import { generateElementId } from '../context/CanvasContext'
@@ -59,6 +60,9 @@ export default function CanvasArea({
 
   // Utiliser le contexte canvas principal
   const { elements, addElement, updateElement, removeElement, panelContentService, activeTool, setZoom, zoom, pixiApp } = useCanvasContext()
+
+  // Utiliser le contexte Polotno pour le zoom unifié
+  const { zoomLevel, zoomIn, zoomOut, resetZoom } = usePolotnoContext()
 
   // Gérer le drop d'images sur le canvas - UNIQUEMENT DANS LES PANELS
   const handleDrop = useCallback((event: React.DragEvent) => {
@@ -414,32 +418,7 @@ export default function CanvasArea({
     }
   }, [])
 
-  // Gestionnaire de zoom avec molette (utilise useEffect pour éviter les event listeners passifs)
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault()
-
-      const delta = e.deltaY > 0 ? -0.1 : 0.1
-      const newScale = Math.max(0.1, Math.min(3, canvasTransform.scale + delta))
-
-      setCanvasTransform(prev => ({
-        ...prev,
-        scale: newScale
-      }))
-
-      setZoom(Math.round(newScale * 100))
-    }
-
-    // Ajouter l'event listener avec { passive: false } pour permettre preventDefault
-    container.addEventListener('wheel', handleWheel, { passive: false })
-
-    return () => {
-      container.removeEventListener('wheel', handleWheel)
-    }
-  }, [canvasTransform.scale, setZoom])
+  // ZOOM AVEC MOLETTE SUPPRIMÉ - Utilisation uniquement des contrôles toolbar et boutons
 
   // Gestionnaire de déplacement (pan)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -466,23 +445,14 @@ export default function CanvasArea({
     document.addEventListener('mouseup', handleMouseUp)
   }, [canvasTransform.x, canvasTransform.y])
 
-  // Contrôles de zoom optimisés
-  const handleZoomIn = () => {
-    const newScale = Math.min(3, canvasTransform.scale + 0.2)
-    setCanvasTransform(prev => ({ ...prev, scale: newScale }))
-    setZoom(Math.round(newScale * 100))
-  }
+  // Synchronisation avec le contexte Polotno - Conversion zoomLevel vers scale CSS
+  const scale = zoomLevel / 100 // Convertir 25-400% vers 0.25-4.0
 
-  const handleZoomOut = () => {
-    const newScale = Math.max(0.1, canvasTransform.scale - 0.2)
-    setCanvasTransform(prev => ({ ...prev, scale: newScale }))
-    setZoom(Math.round(newScale * 100))
-  }
-
-  const handleResetView = () => {
-    setCanvasTransform({ x: 0, y: 0, scale: 1 })
-    setZoom(100)
-  }
+  // Mettre à jour canvasTransform quand zoomLevel change
+  useEffect(() => {
+    setCanvasTransform(prev => ({ ...prev, scale }))
+    setZoom(zoomLevel) // Synchroniser avec l'ancien système
+  }, [zoomLevel, setZoom, scale])
 
   // Gestionnaire de clic optimisé selon l'outil actif
   const handleCanvasClick = useCallback((x: number, y: number) => {
@@ -521,31 +491,31 @@ export default function CanvasArea({
       <div className="absolute bottom-4 left-4 z-10 flex items-center space-x-2">
         <div className="bg-dark-800/90 backdrop-blur-sm rounded-lg p-2 flex items-center space-x-1">
           <button
-            onClick={handleZoomOut}
+            onClick={zoomOut}
             className="p-2 text-gray-400 hover:text-white hover:bg-dark-700 rounded transition-colors"
-            title="Zoom arrière"
+            title="Zoom arrière (-)"
           >
             <ZoomOut size={16} />
           </button>
-          
+
           <span className="text-sm text-gray-300 min-w-[3rem] text-center">
-            {zoom}%
+            {zoomLevel}%
           </span>
-          
+
           <button
-            onClick={handleZoomIn}
+            onClick={zoomIn}
             className="p-2 text-gray-400 hover:text-white hover:bg-dark-700 rounded transition-colors"
-            title="Zoom avant"
+            title="Zoom avant (+)"
           >
             <ZoomIn size={16} />
           </button>
-          
+
           <div className="w-px h-6 bg-dark-600 mx-1" />
-          
+
           <button
-            onClick={handleResetView}
+            onClick={resetZoom}
             className="p-2 text-gray-400 hover:text-white hover:bg-dark-700 rounded transition-colors"
-            title="Réinitialiser la vue"
+            title="Réinitialiser le zoom (0)"
           >
             <RotateCcw size={16} />
           </button>
@@ -584,8 +554,8 @@ export default function CanvasArea({
         <div className="absolute top-4 left-4 bg-black/50 text-white text-xs p-2 rounded">
           <div>X: {Math.round(canvasTransform.x)}</div>
           <div>Y: {Math.round(canvasTransform.y)}</div>
-          <div>Scale: {canvasTransform.scale.toFixed(2)}</div>
-          <div>Zoom: {zoom}%</div>
+          <div>Scale: {scale.toFixed(2)}</div>
+          <div>Zoom: {zoomLevel}%</div>
         </div>
       )}
     </div>

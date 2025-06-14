@@ -2,7 +2,7 @@
 // Note: Types Polotno chargés dynamiquement pour éviter les erreurs SSR
 
 // Types d'outils Polotno adaptés pour Dashtoon
-export type PolotnoTool = 'select' | 'text' | 'rectangle' | 'circle' | 'image' | 'panel' | 'bubble'
+export type PolotnoTool = 'select' | 'text' | 'rectangle' | 'circle' | 'image' | 'panel' | 'bubble' | 'grid' | 'zoom'
 
 // Types de bulles de dialogue pour Polotno
 export type BubbleType = 'speech' | 'thought' | 'shout' | 'whisper' | 'explosion'
@@ -53,20 +53,26 @@ export interface BubbleElement {
 export interface PolotnoContextState {
   // Store Polotno principal
   store: any | null
-  
+
   // État de l'interface
   activeTool: PolotnoTool
   selectedElementIds: string[]
-  
+
   // Configuration du canvas
   canvasWidth: number
   canvasHeight: number
   zoom: number
-  
+
   // État des bulles
   bubbleCreationMode: boolean
   bubbleTypeToCreate: BubbleType | null
-  
+
+  // État de la grille
+  gridVisible: boolean
+
+  // État du zoom
+  zoomLevel: number // Pourcentage (25-400)
+
   // État de sauvegarde
   isDirty: boolean
   isLoading: boolean
@@ -99,7 +105,16 @@ export interface PolotnoContextActions {
   // Gestion des bulles
   startBubbleCreation: (bubbleType: BubbleType) => void
   cancelBubbleCreation: () => void
-  
+
+  // Gestion de la grille
+  toggleGrid: () => void
+
+  // Gestion du zoom
+  zoomIn: () => void
+  zoomOut: () => void
+  resetZoom: () => void
+  setZoom: (level: number) => void
+
   // Sauvegarde
   saveProject: () => Promise<void>
   loadProject: (projectData: any) => Promise<void>

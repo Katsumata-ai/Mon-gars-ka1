@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   MousePointer2,
   Square,
@@ -11,9 +11,14 @@ import {
   Save,
   Download,
   HelpCircle,
-  Loader2
+  Loader2,
+  Grid,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw
 } from 'lucide-react'
 import { PolotnoTool } from '../types/polotno.types'
+import { usePolotnoContext } from '../context/PolotnoContext'
 import ShortcutsHelp from '../ui/ShortcutsHelp'
 
 interface ToolbarButton {
@@ -51,6 +56,27 @@ export default function PolotnoVerticalToolbar({
   isLoading = false,
   className = ''
 }: PolotnoVerticalToolbarProps) {
+
+  const { gridVisible, toggleGrid, zoomLevel, zoomIn, zoomOut, resetZoom } = usePolotnoContext()
+  const [showZoomSubmenu, setShowZoomSubmenu] = useState(false)
+  const submenuRef = useRef<HTMLDivElement>(null)
+
+  // Fermer le sous-menu quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (submenuRef.current && !submenuRef.current.contains(event.target as Node)) {
+        setShowZoomSubmenu(false)
+      }
+    }
+
+    if (showZoomSubmenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showZoomSubmenu])
   
   const tools: ToolbarButton[] = [
     {
@@ -76,6 +102,18 @@ export default function PolotnoVerticalToolbar({
       icon: Type,
       label: 'Texte libre',
       shortcut: 'T'
+    },
+    {
+      id: 'grid',
+      icon: Grid,
+      label: 'Grille',
+      shortcut: 'G'
+    },
+    {
+      id: 'zoom',
+      icon: ZoomIn,
+      label: `Zoom (${zoomLevel}%)`,
+      shortcut: '+/-'
     }
   ]
 
@@ -108,6 +146,12 @@ export default function PolotnoVerticalToolbar({
     } else if (toolId === 'rectangle') {
       // Activer l'outil panel rectangle
       onToolChange('panel')
+    } else if (toolId === 'grid') {
+      // Basculer l'affichage de la grille
+      toggleGrid()
+    } else if (toolId === 'zoom') {
+      // Basculer l'affichage du sous-menu zoom
+      setShowZoomSubmenu(!showZoomSubmenu)
     } else {
       // Activer l'outil directement
       onToolChange(toolId as PolotnoTool)
@@ -143,6 +187,10 @@ export default function PolotnoVerticalToolbar({
               isActive = activeTool === 'panel'
             } else if (tool.id === 'bubble') {
               isActive = activeTool === 'bubble'
+            } else if (tool.id === 'grid') {
+              isActive = gridVisible
+            } else if (tool.id === 'zoom') {
+              isActive = showZoomSubmenu
             } else {
               isActive = activeTool === tool.id
             }
@@ -182,6 +230,57 @@ export default function PolotnoVerticalToolbar({
           })}
         </div>
       </div>
+
+      {/* Sous-menu Zoom */}
+      {showZoomSubmenu && (
+        <div ref={submenuRef} className="absolute left-16 top-0 z-50 bg-dark-800 rounded-lg p-3 shadow-lg border border-dark-600 min-w-[200px]">
+          <div className="space-y-2">
+            <div className="text-sm text-gray-300 font-medium mb-3">Contrôles de zoom</div>
+
+            <button
+              onClick={() => {
+                zoomIn()
+                setShowZoomSubmenu(false)
+              }}
+              className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-dark-700 rounded transition-colors"
+            >
+              <ZoomIn size={16} />
+              <span>Zoom avant</span>
+              <span className="ml-auto text-xs text-gray-400">+</span>
+            </button>
+
+            <button
+              onClick={() => {
+                zoomOut()
+                setShowZoomSubmenu(false)
+              }}
+              className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-dark-700 rounded transition-colors"
+            >
+              <ZoomOut size={16} />
+              <span>Zoom arrière</span>
+              <span className="ml-auto text-xs text-gray-400">-</span>
+            </button>
+
+            <div className="border-t border-dark-600 my-2"></div>
+
+            <div className="text-center py-1">
+              <span className="text-sm text-gray-300">{zoomLevel}%</span>
+            </div>
+
+            <button
+              onClick={() => {
+                resetZoom()
+                setShowZoomSubmenu(false)
+              }}
+              className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-dark-700 rounded transition-colors"
+            >
+              <RotateCcw size={16} />
+              <span>Réinitialiser</span>
+              <span className="ml-auto text-xs text-gray-400">0</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Actions (Sauvegarde, Export) */}
       <div className="border-t border-dark-700 py-4">

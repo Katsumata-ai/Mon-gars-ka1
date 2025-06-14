@@ -12,6 +12,9 @@ import {
   DEFAULT_CANVAS_CONFIG
 } from '../types/polotno.types'
 
+// Niveaux de zoom autorisés (en pourcentage)
+const ZOOM_LEVELS = [25, 50, 75, 100, 125, 150, 200, 300, 400]
+
 // Actions pour le reducer
 type PolotnoAction =
   | { type: 'INITIALIZE_STORE'; payload: any }
@@ -20,6 +23,11 @@ type PolotnoAction =
   | { type: 'SET_ZOOM'; payload: number }
   | { type: 'START_BUBBLE_CREATION'; payload: BubbleType }
   | { type: 'CANCEL_BUBBLE_CREATION' }
+  | { type: 'TOGGLE_GRID' }
+  | { type: 'ZOOM_IN' }
+  | { type: 'ZOOM_OUT' }
+  | { type: 'SET_ZOOM_LEVEL'; payload: number }
+  | { type: 'RESET_ZOOM' }
   | { type: 'MARK_DIRTY' }
   | { type: 'MARK_CLEAN' }
   | { type: 'SET_LOADING'; payload: boolean }
@@ -35,6 +43,8 @@ const initialState: PolotnoContextState = {
   zoom: 100,
   bubbleCreationMode: false,
   bubbleTypeToCreate: null,
+  gridVisible: false,
+  zoomLevel: 100,
   isDirty: false,
   isLoading: false,
   lastSaved: null
@@ -75,7 +85,27 @@ function polotnoReducer(state: PolotnoContextState, action: PolotnoAction): Polo
         bubbleTypeToCreate: null,
         activeTool: 'select'
       }
-    
+
+    case 'TOGGLE_GRID':
+      return { ...state, gridVisible: !state.gridVisible }
+
+    case 'ZOOM_IN':
+      const currentIndexIn = ZOOM_LEVELS.indexOf(state.zoomLevel)
+      const nextIndexIn = Math.min(currentIndexIn + 1, ZOOM_LEVELS.length - 1)
+      return { ...state, zoomLevel: ZOOM_LEVELS[nextIndexIn], zoom: ZOOM_LEVELS[nextIndexIn] }
+
+    case 'ZOOM_OUT':
+      const currentIndexOut = ZOOM_LEVELS.indexOf(state.zoomLevel)
+      const nextIndexOut = Math.max(currentIndexOut - 1, 0)
+      return { ...state, zoomLevel: ZOOM_LEVELS[nextIndexOut], zoom: ZOOM_LEVELS[nextIndexOut] }
+
+    case 'SET_ZOOM_LEVEL':
+      const validLevel = ZOOM_LEVELS.includes(action.payload) ? action.payload : 100
+      return { ...state, zoomLevel: validLevel, zoom: validLevel }
+
+    case 'RESET_ZOOM':
+      return { ...state, zoomLevel: 100, zoom: 100 }
+
     case 'MARK_DIRTY':
       return { ...state, isDirty: true }
     
@@ -202,6 +232,26 @@ export const PolotnoProvider: React.FC<PolotnoProviderProps> = ({ children }) =>
     dispatch({ type: 'CANCEL_BUBBLE_CREATION' })
   }, [])
 
+  const toggleGrid = useCallback(() => {
+    dispatch({ type: 'TOGGLE_GRID' })
+  }, [])
+
+  const zoomIn = useCallback(() => {
+    dispatch({ type: 'ZOOM_IN' })
+  }, [])
+
+  const zoomOut = useCallback(() => {
+    dispatch({ type: 'ZOOM_OUT' })
+  }, [])
+
+  const setZoomLevel = useCallback((level: number) => {
+    dispatch({ type: 'SET_ZOOM_LEVEL', payload: level })
+  }, [])
+
+  const resetZoom = useCallback(() => {
+    dispatch({ type: 'RESET_ZOOM' })
+  }, [])
+
   const saveProject = useCallback(async () => {
     if (!state.store) return
 
@@ -275,6 +325,11 @@ export const PolotnoProvider: React.FC<PolotnoProviderProps> = ({ children }) =>
     resetView,
     startBubbleCreation,
     cancelBubbleCreation,
+    toggleGrid,
+    zoomIn,
+    zoomOut,
+    setZoom: setZoomLevel,
+    resetZoom,
     saveProject,
     loadProject,
     exportAsImage,
@@ -296,6 +351,11 @@ export const PolotnoProvider: React.FC<PolotnoProviderProps> = ({ children }) =>
     resetView,
     startBubbleCreation,
     cancelBubbleCreation,
+    toggleGrid,
+    zoomIn,
+    zoomOut,
+    setZoomLevel,
+    resetZoom,
     saveProject,
     loadProject,
     exportAsImage,

@@ -2,12 +2,14 @@
 
 import { useEffect } from 'react'
 import { useAssemblyStore } from '../managers/StateManager'
+import { usePolotnoContext } from '../context/PolotnoContext'
 
 /**
  * Hook pour gérer les raccourcis clavier spécifiques au workflow Dashtoon
  */
 export function useDashtoonShortcuts() {
   const { setActiveTool, activeTool } = useAssemblyStore()
+  const { toggleGrid, zoomIn, zoomOut, resetZoom } = usePolotnoContext()
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -54,6 +56,35 @@ export function useDashtoonShortcuts() {
           }
           break
 
+        case 'g':
+          if (!event.ctrlKey && !event.metaKey) {
+            event.preventDefault()
+            toggleGrid()
+          }
+          break
+
+        case '+':
+        case '=':
+          if (!event.ctrlKey && !event.metaKey) {
+            event.preventDefault()
+            zoomIn()
+          }
+          break
+
+        case '-':
+          if (!event.ctrlKey && !event.metaKey) {
+            event.preventDefault()
+            zoomOut()
+          }
+          break
+
+        case '0':
+          if (!event.ctrlKey && !event.metaKey) {
+            event.preventDefault()
+            resetZoom()
+          }
+          break
+
         case 'h':
           if (!event.ctrlKey && !event.metaKey) {
             event.preventDefault()
@@ -73,7 +104,7 @@ export function useDashtoonShortcuts() {
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [setActiveTool])
+  }, [setActiveTool, toggleGrid, zoomIn, zoomOut, resetZoom])
 
   return { activeTool }
 }
@@ -192,7 +223,10 @@ export const ShortcutUtils = {
       { tool: 'Panel', shortcut: 'P', description: 'Créer des panels' },
       { tool: 'Bulle', shortcut: 'B', description: 'Ajouter des bulles de dialogue' },
       { tool: 'Texte', shortcut: 'T', description: 'Ajouter du texte' },
-      { tool: 'Zoom', shortcut: 'Z', description: 'Outil de zoom' },
+      { tool: 'Grille', shortcut: 'G', description: 'Afficher/masquer la grille' },
+      { tool: 'Zoom avant', shortcut: '+', description: 'Augmenter le zoom' },
+      { tool: 'Zoom arrière', shortcut: '-', description: 'Diminuer le zoom' },
+      { tool: 'Zoom 100%', shortcut: '0', description: 'Réinitialiser le zoom' },
       { tool: 'Déplacement', shortcut: 'H', description: 'Déplacer la vue' },
       { tool: 'Annuler', shortcut: 'Ctrl+Z', description: 'Annuler la dernière action' },
       { tool: 'Rétablir', shortcut: 'Ctrl+Y', description: 'Rétablir l\'action annulée' },

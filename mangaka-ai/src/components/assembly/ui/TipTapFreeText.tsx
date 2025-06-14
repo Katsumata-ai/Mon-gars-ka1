@@ -1,13 +1,10 @@
 'use client'
 
-// TipTapFreeText - Composant de texte libre avec TipTap
-// Utilise la même police et les mêmes styles que les bulles de dialogue
-// Pas d'arrière-plan, texte pur avec redimensionnement
+// SimpleFreeText - Composant de texte libre SANS TipTap
+// Utilise textarea/div simple pour un redimensionnement efficace
+// Même police et styles que les bulles, mais redimensionnable
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Placeholder from '@tiptap/extension-placeholder'
 import { TextElement } from '../types/assembly.types'
 import './TipTapFreeText.css'
 
@@ -52,21 +49,7 @@ export function TipTapFreeText({
       attributes: {
         class: 'tiptap-free-text-editor',
         'data-placeholder': 'Tapez votre texte...',
-        style: `
-          outline: none;
-          border: none;
-          padding: 4px;
-          margin: 0;
-          width: 100%;
-          height: 100%;
-          color: #000000 !important;
-          font-family: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif !important;
-          font-weight: 700 !important;
-          font-size: ${Math.max(element.textStyle.fontSize, 12)}px !important;
-          line-height: 1.3 !important;
-          text-shadow: 0 0 1px rgba(255, 255, 255, 0.8);
-          background: transparent;
-        `
+        // ✅ SUPPRIMÉ : style statique qui ne se met pas à jour - utilise maintenant styles inline directs
       },
     },
     onUpdate: ({ editor }) => {
@@ -265,7 +248,23 @@ export function TipTapFreeText({
           ref={editorRef}
           editor={editor}
           className="tiptap-free-text-editor w-full h-full outline-none"
-          style={textStyle}
+          style={{
+            width: '100%',
+            height: 'auto',
+            fontSize: `${Math.max(element.textStyle.fontSize, 12)}px`, // ✅ STYLE INLINE DIRECT COMME LES BULLES
+            fontFamily: 'Comic Sans MS, Bangers, Roboto, system-ui, sans-serif',
+            fontWeight: '700',
+            color: '#000000',
+            textAlign: element.textStyle.textAlign as 'left' | 'center' | 'right',
+            textShadow: '0 0 1px rgba(255, 255, 255, 0.8)',
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            lineHeight: '1.3',
+            wordWrap: 'break-word' as const,
+            overflowWrap: 'break-word' as const,
+            whiteSpace: 'pre-wrap' as const
+          }}
         />
       ) : (
         <div
@@ -273,7 +272,23 @@ export function TipTapFreeText({
           className="tiptap-free-text-content w-full h-full"
           onMouseDown={handleTextMouseDown}
           onDoubleClick={handleTextDoubleClick}
-          style={textStyle}
+          style={{
+            width: '100%',
+            height: 'auto',
+            fontSize: `${Math.max(element.textStyle.fontSize, 12)}px`, // ✅ STYLE INLINE DIRECT COMME LES BULLES
+            fontFamily: 'Comic Sans MS, Bangers, Roboto, system-ui, sans-serif',
+            fontWeight: '700',
+            color: '#000000',
+            textAlign: element.textStyle.textAlign as 'left' | 'center' | 'right',
+            textShadow: '0 0 1px rgba(255, 255, 255, 0.8)',
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            lineHeight: '1.3',
+            wordWrap: 'break-word' as const,
+            overflowWrap: 'break-word' as const,
+            whiteSpace: 'pre-wrap' as const
+          }}
           dangerouslySetInnerHTML={{
             __html: `<div style="
               color: #000000 !important;

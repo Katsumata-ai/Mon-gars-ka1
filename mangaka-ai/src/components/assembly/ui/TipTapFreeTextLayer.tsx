@@ -4,7 +4,7 @@
 // Gère la création, l'édition et la manipulation des textes libres
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { TipTapFreeText } from './TipTapFreeText'
+import SimpleFreeText from './SimpleFreeText'
 import { TextElement } from '../types/assembly.types'
 import { FreeTextTool } from '../tools/FreeTextTool'
 import { useCanvasContext } from '../context/CanvasContext'
@@ -56,14 +56,15 @@ export function TipTapFreeTextLayer({
         setSelectedTextId(newText.id)
         setEditingTextId(newText.id)
 
-        // ✅ FOCUS AUTOMATIQUE SUR L'ÉDITEUR APRÈS CRÉATION
+        // ✅ FOCUS AUTOMATIQUE SUR L'ÉDITEUR APRÈS CRÉATION (SimpleFreeText)
         setTimeout(() => {
-          const textElement = document.querySelector(`[data-text-id="${newText.id}"] .tiptap-free-text-editor .ProseMirror`) as HTMLElement
-          if (textElement) {
-            textElement.focus()
+          const textarea = document.querySelector(`[data-text-id="${newText.id}"] textarea`) as HTMLTextAreaElement
+          if (textarea) {
+            textarea.focus()
+            textarea.select()
             console.log('🎯 TipTapFreeTextLayer: Focus appliqué sur l\'éditeur:', newText.id)
           }
-        }, 200) // Plus de temps pour le rendu
+        }, 100) // Moins de temps car SimpleFreeText est plus rapide
 
         console.log('✅ TipTapFreeTextLayer: Texte libre créé en mode édition:', newText)
       }
@@ -212,8 +213,8 @@ export function TipTapFreeTextLayer({
         const mode = getTextMode(text.id)
 
         return (
-          <TipTapFreeText
-            key={`${text.id}-${text.textStyle.fontSize}-${text.textStyle.maxWidth}`} // ✅ FORCER RE-RENDU QUAND PROPRIÉTÉS CHANGENT
+          <SimpleFreeText
+            key={text.id} // ✅ PLUS BESOIN DE FORCER RE-RENDU - SimpleFreeText gère le redimensionnement
             element={text}
             mode={mode}
             onUpdate={handleTextUpdate}
