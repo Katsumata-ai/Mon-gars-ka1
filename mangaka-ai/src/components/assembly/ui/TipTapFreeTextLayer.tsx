@@ -8,12 +8,17 @@ import SimpleFreeText from './SimpleFreeText'
 import { TextElement } from '../types/assembly.types'
 import { FreeTextTool } from '../tools/FreeTextTool'
 import { useCanvasContext } from '../context/CanvasContext'
+import { CanvasTransform } from '../core/CoordinateSystem'
 
 interface TipTapFreeTextLayerProps {
+  canvasTransform: CanvasTransform
+  zoomLevel: number
   className?: string
 }
 
 export function TipTapFreeTextLayer({
+  canvasTransform,
+  zoomLevel,
   className = ''
 }: TipTapFreeTextLayerProps) {
   const {
@@ -35,6 +40,18 @@ export function TipTapFreeTextLayer({
       element.type === 'text'
     )
   }, [elements])
+
+  // ✅ SYNCHRONISATION INSTANTANÉE AVEC LE ZOOM (comme les panels)
+  const canvasScale = zoomLevel / 100
+
+  // 🔍 Debug: Vérifier la synchronisation instantanée du zoom
+  useEffect(() => {
+    console.log('🔍 TipTapFreeTextLayer: Synchronisation instantanée', {
+      zoomLevel,
+      canvasScale,
+      textsCount: texts.length
+    })
+  }, [zoomLevel, canvasScale, texts.length])
 
   // ✅ ÉCOUTER LES ÉVÉNEMENTS DE CRÉATION DE TEXTE LIBRE
   useEffect(() => {
@@ -197,7 +214,7 @@ export function TipTapFreeTextLayer({
   }, [freeTextTool])
 
   return (
-    <div 
+    <div
       className={`tiptap-free-text-layer ${className}`}
       style={{
         position: 'absolute',
@@ -206,7 +223,12 @@ export function TipTapFreeTextLayer({
         width: '100%',
         height: '100%',
         pointerEvents: 'none', // Laisser passer les clics au canvas
-        zIndex: 2000 // Entre les panels et les bulles
+        zIndex: 2000, // Entre les panels et les bulles
+        // ✅ SYNCHRONISATION INSTANTANÉE : Utiliser canvasScale directement comme les panels
+        transform: `scale(${canvasScale})`,
+        transformOrigin: 'center',
+        // ✅ SUPPRESSION TRANSITION : Pour synchronisation instantanée
+        transition: 'none'
       }}
     >
       {texts.map(text => {

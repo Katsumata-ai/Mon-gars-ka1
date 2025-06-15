@@ -445,14 +445,17 @@ export default function CanvasArea({
     document.addEventListener('mouseup', handleMouseUp)
   }, [canvasTransform.x, canvasTransform.y])
 
-  // Synchronisation avec le contexte Polotno - Conversion zoomLevel vers scale CSS
-  const scale = zoomLevel / 100 // Convertir 25-400% vers 0.25-4.0
-
   // Mettre à jour canvasTransform quand zoomLevel change
   useEffect(() => {
-    setCanvasTransform(prev => ({ ...prev, scale }))
+    const scale = zoomLevel / 100 // Convertir 25-400% vers 0.25-4.0
+    console.log('🔍 CanvasArea: zoomLevel changé:', zoomLevel, '→ scale:', scale)
+    setCanvasTransform(prev => {
+      const newTransform = { ...prev, scale }
+      console.log('🔍 CanvasArea: canvasTransform mis à jour:', newTransform)
+      return newTransform
+    })
     setZoom(zoomLevel) // Synchroniser avec l'ancien système
-  }, [zoomLevel, setZoom, scale])
+  }, [zoomLevel, setZoom])
 
   // Gestionnaire de clic optimisé selon l'outil actif
   const handleCanvasClick = useCallback((x: number, y: number) => {
@@ -479,7 +482,7 @@ export default function CanvasArea({
   return (
     <div
       ref={containerRef}
-      className={`h-full relative overflow-hidden bg-dark-600 ${className}`}
+      className={`h-full relative overflow-hidden bg-black ${className}`}
       onMouseDown={handleMouseDown}
       onDrop={handleDrop}
       onDragOver={handleDragOver}

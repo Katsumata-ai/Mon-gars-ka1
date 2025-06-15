@@ -13,6 +13,7 @@ import './TipTapBubble.css'
 
 interface TipTapBubbleLayerProps {
   canvasTransform: CanvasTransform
+  zoomLevel: number
   canvasSize: { width: number; height: number }
   viewport: ViewportInfo
   className?: string
@@ -24,6 +25,7 @@ interface TipTapBubbleLayerProps {
  */
 export default function TipTapBubbleLayer({
   canvasTransform,
+  zoomLevel,
   canvasSize,
   viewport,
   className = ''
@@ -276,21 +278,26 @@ export default function TipTapBubbleLayer({
     overflow: 'hidden'
   }), [])
 
-  // ✅ SYNCHRONISATION AVEC LE VIEWPORT
+  // ✅ SYNCHRONISATION INSTANTANÉE AVEC LE ZOOM (comme les panels)
+  const canvasScale = zoomLevel / 100
+
   useEffect(() => {
     if (!layerRef.current) return
 
     const layer = layerRef.current
-    // ✅ CORRECTION : Ne pas appliquer de transformation CSS supplémentaire
-    // Les bulles sont déjà positionnées en coordonnées absolues
-    layer.style.transform = 'none'
-    layer.style.transformOrigin = '0 0'
+    // ✅ SYNCHRONISATION INSTANTANÉE : Utiliser canvasScale directement comme les panels
+    layer.style.transform = `scale(${canvasScale})`
+    layer.style.transformOrigin = 'center'
+    // ✅ SUPPRESSION TRANSITION : Pour synchronisation instantanée
+    layer.style.transition = 'none'
 
-    console.log('🔄 TipTapBubbleLayer: Synchronisation viewport', {
-      transform: canvasTransform,
-      bubblesCount: bubbles.length
+    console.log('🔄 TipTapBubbleLayer: Synchronisation instantanée', {
+      zoomLevel,
+      canvasScale,
+      bubblesCount: bubbles.length,
+      appliedTransform: `scale(${canvasScale})`
     })
-  }, [canvasTransform, bubbles.length])
+  }, [zoomLevel, canvasScale, bubbles.length])
 
   return (
     <div

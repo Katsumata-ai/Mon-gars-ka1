@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { CssDotPattern } from '../ui/DotPattern'
 
 interface DashtoonLayoutProps {
   leftToolbar: React.ReactNode
@@ -28,9 +29,20 @@ export default function DashtoonLayout({
         {leftToolbar}
       </div>
 
-      {/* Zone centrale - Canvas avec fond distinctif */}
-      <div className="flex-1 bg-dark-600 overflow-hidden">
-        {centerCanvas}
+      {/* Zone centrale - Canvas avec fond noir et motif décoratif */}
+      <div className="flex-1 bg-black overflow-hidden relative">
+        {/* ✨ MOTIF DE POINTS DÉCORATIFS GLOBAL */}
+        <CssDotPattern
+          size={1.5}
+          spacing={24}
+          opacity={0.12}
+          color="#ffffff"
+          className="z-0"
+        />
+
+        <div className="relative z-10 h-full">
+          {centerCanvas}
+        </div>
       </div>
 
       {/* Menu droit - Dual-fonction Pages/Images */}

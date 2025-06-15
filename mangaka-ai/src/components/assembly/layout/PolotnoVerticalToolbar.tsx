@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React from 'react'
 import {
   MousePointer2,
   Square,
@@ -15,7 +15,7 @@ import {
   Grid,
   ZoomIn,
   ZoomOut,
-  RotateCcw
+  Hand
 } from 'lucide-react'
 import { PolotnoTool } from '../types/polotno.types'
 import { usePolotnoContext } from '../context/PolotnoContext'
@@ -57,26 +57,14 @@ export default function PolotnoVerticalToolbar({
   className = ''
 }: PolotnoVerticalToolbarProps) {
 
-  const { gridVisible, toggleGrid, zoomLevel, zoomIn, zoomOut, resetZoom } = usePolotnoContext()
-  const [showZoomSubmenu, setShowZoomSubmenu] = useState(false)
-  const submenuRef = useRef<HTMLDivElement>(null)
+  const { gridVisible, toggleGrid, zoomLevel, zoomIn, zoomOut } = usePolotnoContext()
 
-  // Fermer le sous-menu quand on clique ailleurs
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (submenuRef.current && !submenuRef.current.contains(event.target as Node)) {
-        setShowZoomSubmenu(false)
-      }
-    }
-
-    if (showZoomSubmenu) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [showZoomSubmenu])
+  // Debug: Vérifier que les fonctions sont disponibles
+  console.log('🔍 PolotnoVerticalToolbar: Fonctions zoom disponibles:', {
+    zoomIn: typeof zoomIn,
+    zoomOut: typeof zoomOut,
+    zoomLevel
+  })
   
   const tools: ToolbarButton[] = [
     {
@@ -104,16 +92,16 @@ export default function PolotnoVerticalToolbar({
       shortcut: 'T'
     },
     {
+      id: 'hand',
+      icon: Hand,
+      label: 'Outil Main (Pan/Zoom)',
+      shortcut: 'H'
+    },
+    {
       id: 'grid',
       icon: Grid,
       label: 'Grille',
       shortcut: 'G'
-    },
-    {
-      id: 'zoom',
-      icon: ZoomIn,
-      label: `Zoom (${zoomLevel}%)`,
-      shortcut: '+/-'
     }
   ]
 
@@ -146,12 +134,12 @@ export default function PolotnoVerticalToolbar({
     } else if (toolId === 'rectangle') {
       // Activer l'outil panel rectangle
       onToolChange('panel')
+    } else if (toolId === 'hand') {
+      // Activer l'outil main
+      onToolChange('hand')
     } else if (toolId === 'grid') {
       // Basculer l'affichage de la grille
       toggleGrid()
-    } else if (toolId === 'zoom') {
-      // Basculer l'affichage du sous-menu zoom
-      setShowZoomSubmenu(!showZoomSubmenu)
     } else {
       // Activer l'outil directement
       onToolChange(toolId as PolotnoTool)
@@ -187,10 +175,10 @@ export default function PolotnoVerticalToolbar({
               isActive = activeTool === 'panel'
             } else if (tool.id === 'bubble') {
               isActive = activeTool === 'bubble'
+            } else if (tool.id === 'hand') {
+              isActive = activeTool === 'hand'
             } else if (tool.id === 'grid') {
               isActive = gridVisible
-            } else if (tool.id === 'zoom') {
-              isActive = showZoomSubmenu
             } else {
               isActive = activeTool === tool.id
             }
@@ -231,56 +219,69 @@ export default function PolotnoVerticalToolbar({
         </div>
       </div>
 
-      {/* Sous-menu Zoom */}
-      {showZoomSubmenu && (
-        <div ref={submenuRef} className="absolute left-16 top-0 z-50 bg-dark-800 rounded-lg p-3 shadow-lg border border-dark-600 min-w-[200px]">
-          <div className="space-y-2">
-            <div className="text-sm text-gray-300 font-medium mb-3">Contrôles de zoom</div>
+      {/* Contrôles de Zoom */}
+      <div className="border-t border-dark-700 py-4">
+        <div className="space-y-2">
+          <div className="text-xs text-gray-400 text-center mb-2">Zoom</div>
 
+          {/* Bouton Zoom In */}
+          <div className="relative group">
             <button
               onClick={() => {
+                console.log('🔍 Zoom In clicked')
                 zoomIn()
-                setShowZoomSubmenu(false)
               }}
-              className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-dark-700 rounded transition-colors"
+              className="w-12 h-12 mx-2 rounded-lg flex items-center justify-center
+                         text-gray-400 hover:text-white hover:bg-dark-600
+                         transition-all duration-200"
+              title="Zoom avant (+)"
             >
-              <ZoomIn size={16} />
-              <span>Zoom avant</span>
-              <span className="ml-auto text-xs text-gray-400">+</span>
+              <ZoomIn size={20} />
             </button>
 
-            <button
-              onClick={() => {
-                zoomOut()
-                setShowZoomSubmenu(false)
-              }}
-              className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-dark-700 rounded transition-colors"
-            >
-              <ZoomOut size={16} />
-              <span>Zoom arrière</span>
-              <span className="ml-auto text-xs text-gray-400">-</span>
-            </button>
-
-            <div className="border-t border-dark-600 my-2"></div>
-
-            <div className="text-center py-1">
-              <span className="text-sm text-gray-300">{zoomLevel}%</span>
+            {/* Tooltip */}
+            <div className="
+              absolute left-16 top-1/2 -translate-y-1/2 z-50
+              bg-dark-900 text-white text-sm px-2 py-1 rounded
+              opacity-0 group-hover:opacity-100 transition-opacity
+              pointer-events-none whitespace-nowrap
+            ">
+              Zoom avant (+)
             </div>
+          </div>
 
+          {/* Affichage du niveau de zoom */}
+          <div className="text-center py-1">
+            <span className="text-xs text-gray-300">{zoomLevel}%</span>
+          </div>
+
+          {/* Bouton Zoom Out */}
+          <div className="relative group">
             <button
               onClick={() => {
-                resetZoom()
-                setShowZoomSubmenu(false)
+                console.log('🔍 Zoom Out clicked')
+                zoomOut()
               }}
-              className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:text-white hover:bg-dark-700 rounded transition-colors"
+              className="w-12 h-12 mx-2 rounded-lg flex items-center justify-center
+                         text-gray-400 hover:text-white hover:bg-dark-600
+                         transition-all duration-200"
+              title="Zoom arrière (-)"
             >
-              <RotateCcw size={16} />
-              <span>Réinitialiser</span>
-              <span className="ml-auto text-xs text-gray-400">0</span>
+              <ZoomOut size={20} />
             </button>
+
+            {/* Tooltip */}
+            <div className="
+              absolute left-16 top-1/2 -translate-y-1/2 z-50
+              bg-dark-900 text-white text-sm px-2 py-1 rounded
+              opacity-0 group-hover:opacity-100 transition-opacity
+              pointer-events-none whitespace-nowrap
+            ">
+              Zoom arrière (-)
+            </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Actions (Sauvegarde, Export) */}
       <div className="border-t border-dark-700 py-4">

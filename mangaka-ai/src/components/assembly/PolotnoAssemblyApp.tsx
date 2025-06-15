@@ -9,6 +9,7 @@ import RightPanel from './layout/RightPanel'
 import TipTapBubbleTypeModal from './ui/TipTapBubbleTypeModal'
 import TipTapBubbleLayer from './ui/TipTapBubbleLayer'
 import TipTapFreeTextLayer from './ui/TipTapFreeTextLayer'
+import { CssDotPattern } from './ui/DotPattern'
 import { PolotnoProvider, usePolotnoContext } from './context/PolotnoContext'
 import { CanvasProvider } from './context/CanvasContext'
 import { BubbleType, PolotnoAssemblyAppProps } from './types/polotno.types'
@@ -32,7 +33,8 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
     startBubbleCreation,
     cancelBubbleCreation,
     saveProject,
-    exportAsImage
+    exportAsImage,
+    zoomLevel
   } = usePolotnoContext()
 
   // États locaux pour les modals
@@ -137,29 +139,51 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
           />
         }
         centerCanvas={
-          <div className="h-full bg-dark-600 flex items-center justify-center p-8 relative">
-            <div className="bg-white shadow-2xl rounded-lg overflow-hidden relative">
-              <SimpleCanvasEditor
-                width={1200}
-                height={1600}
-                onElementClick={handleElementClick}
-                onCanvasClick={handleCanvasClick}
-                onBubbleDoubleClick={handleBubbleDoubleClick}
-                onBubbleRightClick={handleBubbleRightClick}
-                onCanvasTransformChange={setCanvasTransform}
-                className="block"
+          <div className="h-full bg-black flex items-center justify-center p-8 relative">
+            {/* ✨ MOTIF DE POINTS DÉCORATIFS SUBTILS */}
+            <CssDotPattern
+              size={1.5}
+              spacing={24}
+              opacity={0.15}
+              color="#ffffff"
+              className="z-0"
+            />
+
+            <div className="bg-black shadow-2xl rounded-lg overflow-hidden relative z-10">
+              {/* ✨ MOTIF DE POINTS DANS LE CONTENEUR CANVAS */}
+              <CssDotPattern
+                size={1.5}
+                spacing={24}
+                opacity={0.18}
+                color="#ffffff"
+                className="z-0"
               />
+              <div className="relative z-10">
+                <SimpleCanvasEditor
+                  width={1200}
+                  height={1600}
+                  onElementClick={handleElementClick}
+                  onCanvasClick={handleCanvasClick}
+                  onBubbleDoubleClick={handleBubbleDoubleClick}
+                  onBubbleRightClick={handleBubbleRightClick}
+                  onCanvasTransformChange={setCanvasTransform}
+                  className="block"
+                />
+              </div>
 
               {/* ✅ NOUVEAU SYSTÈME TIPTAP BUBBLES */}
               <TipTapBubbleLayer
                 canvasTransform={canvasTransform}
+                zoomLevel={zoomLevel}
                 canvasSize={{ width: 1200, height: 1600 }}
-                viewport={{ x: 0, y: 0, width: 1200, height: 1600, scale: 1 }}
+                viewport={{ width: 1200, height: 1600, centerX: 600, centerY: 800 }}
                 className="absolute inset-0"
               />
 
               {/* ✅ NOUVEAU SYSTÈME TIPTAP TEXTE LIBRE */}
               <TipTapFreeTextLayer
+                canvasTransform={canvasTransform}
+                zoomLevel={zoomLevel}
                 className="absolute inset-0"
               />
             </div>

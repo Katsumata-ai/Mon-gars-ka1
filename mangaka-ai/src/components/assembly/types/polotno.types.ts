@@ -2,7 +2,7 @@
 // Note: Types Polotno chargés dynamiquement pour éviter les erreurs SSR
 
 // Types d'outils Polotno adaptés pour Dashtoon
-export type PolotnoTool = 'select' | 'text' | 'rectangle' | 'circle' | 'image' | 'panel' | 'bubble' | 'grid' | 'zoom'
+export type PolotnoTool = 'select' | 'text' | 'rectangle' | 'circle' | 'image' | 'panel' | 'bubble' | 'grid' | 'hand'
 
 // Types de bulles de dialogue pour Polotno
 export type BubbleType = 'speech' | 'thought' | 'shout' | 'whisper' | 'explosion'

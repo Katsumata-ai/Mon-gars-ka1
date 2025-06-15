@@ -134,11 +134,42 @@ export default function SimpleCanvasEditor({
     bubbleTypeToCreate,
     cancelBubbleCreation,
     setActiveTool,
-    gridVisible
+    gridVisible,
+    zoomLevel,
+    zoomIn,
+    zoomOut,
+    setZoom
   } = usePolotnoContext()
+
+  // 🔍 Debug: Vérifier que zoomLevel est reçu
+  console.log('🔍 SimpleCanvasEditor: zoomLevel reçu du contexte:', zoomLevel)
+
+  // 🔍 Calculer le scale CSS à partir du zoomLevel
+  const canvasScale = zoomLevel / 100
+
+  // 🔍 Réagir aux changements de zoom
+  useEffect(() => {
+    console.log('🔍 SimpleCanvasEditor: zoomLevel changé:', zoomLevel, '→ scale:', canvasScale)
+  }, [zoomLevel, canvasScale])
 
   // ✅ NOUVEAU : Accès au contexte Canvas pour les textes libres
   const { elements: canvasElements, updateElement } = useCanvasContext()
+
+  // ✨ ÉTAT POUR L'OUTIL MAIN (PAN/ZOOM)
+  const [panState, setPanState] = useState({
+    isPanning: false,
+    startX: 0,
+    startY: 0,
+    startTransformX: 0,
+    startTransformY: 0
+  })
+
+  // ✨ ÉTAT DE TRANSFORMATION DU CANVAS (pour le pan)
+  const [canvasTransform, setCanvasTransform] = useState({
+    x: 0,
+    y: 0,
+    scale: 1
+  })
 
   // Fonction pour créer un panel avec des dimensions optimales
   const createOptimalPanel = useCallback((x: number, y: number): CanvasElement => {
@@ -265,19 +296,30 @@ export default function SimpleCanvasEditor({
     return { x, y }
   }, [])
 
-  // ✅ NOUVELLE FONCTION : Coordonnées DOM pures pour les bulles TipTap
+  // ✅ NOUVELLE FONCTION : Coordonnées DOM ajustées pour le zoom
   const getDOMCoordinates = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
 
     const rect = canvas.getBoundingClientRect()
 
-    // Coordonnées DOM pures (sans scaling) - exactement où l'utilisateur a cliqué
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
+    // Coordonnées DOM brutes
+    const rawX = event.clientX - rect.left
+    const rawY = event.clientY - rect.top
+
+    // ✅ CORRECTION CRITIQUE : Ajuster pour le zoom CSS
+    // Les layers DOM ont transform: scale(canvasScale), donc on doit diviser par le scale
+    const x = rawX / canvasScale
+    const y = rawY / canvasScale
+
+    console.log('🔧 getDOMCoordinates: Ajustement zoom', {
+      raw: { x: rawX, y: rawY },
+      canvasScale,
+      adjusted: { x, y }
+    })
 
     return { x, y }
-  }, [])
+  }, [canvasScale])
 
   // ✅ NOUVEAU : Calculer et notifier la transformation du canvas
   useEffect(() => {
@@ -291,12 +333,13 @@ export default function SimpleCanvasEditor({
       const transform = {
         x: rect.left - parentRect.left,
         y: rect.top - parentRect.top,
-        scale: 1 // Pour l'instant, pas de zoom
+        scale: canvasScale // ✅ CORRECTION CRITIQUE : Utiliser le vrai scale du zoom !
       }
 
+      console.log('🔧 SimpleCanvasEditor: Transformation canvas mise à jour:', transform)
       onCanvasTransformChange(transform)
     }
-  }, [onCanvasTransformChange])
+  }, [onCanvasTransformChange, canvasScale])
 
   // Fonction pour calculer les handles de redimensionnement (panels seulement)
   const calculateResizeHandles = useCallback((element: CanvasElement): ResizeHandle[] => {
@@ -669,7 +712,7 @@ export default function SimpleCanvasEditor({
     ctx.clearRect(0, 0, width, height)
     
     // Dessiner le fond
-    ctx.fillStyle = '#f8f9fa'
+    ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, width, height)
 
     // Dessiner une grille visible (conditionnel)
@@ -1308,7 +1351,9 @@ export default function SimpleCanvasEditor({
       const domCoords = getDOMCoordinates(event)
       console.log('🎯 Création texte libre TipTap:', {
         canvasCoords: { x, y },
-        domCoords
+        domCoords,
+        zoomLevel,
+        canvasScale
       })
 
       // Créer l'événement personnalisé pour le système TipTap
@@ -1328,7 +1373,9 @@ export default function SimpleCanvasEditor({
       console.log('🎯 Création bulle TipTap:', {
         canvasCoords: { x, y },
         domCoords,
-        type: bubbleTypeToCreate
+        type: bubbleTypeToCreate,
+        zoomLevel,
+        canvasScale
       })
 
       // Créer l'événement personnalisé pour le système TipTap-first
@@ -1747,7 +1794,13 @@ export default function SimpleCanvasEditor({
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             className="border border-gray-300"
-            style={{ maxWidth: '100%', maxHeight: '100%' }}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              transform: `scale(${canvasScale})`,
+              transformOrigin: 'center',
+              transition: 'transform 0.2s ease'
+            }}
           />
           
           {/* Overlay pour le mode création de bulle */}

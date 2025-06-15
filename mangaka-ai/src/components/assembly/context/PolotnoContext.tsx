@@ -92,12 +92,16 @@ function polotnoReducer(state: PolotnoContextState, action: PolotnoAction): Polo
     case 'ZOOM_IN':
       const currentIndexIn = ZOOM_LEVELS.indexOf(state.zoomLevel)
       const nextIndexIn = Math.min(currentIndexIn + 1, ZOOM_LEVELS.length - 1)
-      return { ...state, zoomLevel: ZOOM_LEVELS[nextIndexIn], zoom: ZOOM_LEVELS[nextIndexIn] }
+      const newZoomIn = ZOOM_LEVELS[nextIndexIn]
+      console.log('🔍 Reducer ZOOM_IN:', state.zoomLevel, '→', newZoomIn)
+      return { ...state, zoomLevel: newZoomIn, zoom: newZoomIn }
 
     case 'ZOOM_OUT':
       const currentIndexOut = ZOOM_LEVELS.indexOf(state.zoomLevel)
       const nextIndexOut = Math.max(currentIndexOut - 1, 0)
-      return { ...state, zoomLevel: ZOOM_LEVELS[nextIndexOut], zoom: ZOOM_LEVELS[nextIndexOut] }
+      const newZoomOut = ZOOM_LEVELS[nextIndexOut]
+      console.log('🔍 Reducer ZOOM_OUT:', state.zoomLevel, '→', newZoomOut)
+      return { ...state, zoomLevel: newZoomOut, zoom: newZoomOut }
 
     case 'SET_ZOOM_LEVEL':
       const validLevel = ZOOM_LEVELS.includes(action.payload) ? action.payload : 100
@@ -237,18 +241,22 @@ export const PolotnoProvider: React.FC<PolotnoProviderProps> = ({ children }) =>
   }, [])
 
   const zoomIn = useCallback(() => {
+    console.log('🔍 PolotnoContext: zoomIn appelé')
     dispatch({ type: 'ZOOM_IN' })
   }, [])
 
   const zoomOut = useCallback(() => {
+    console.log('🔍 PolotnoContext: zoomOut appelé')
     dispatch({ type: 'ZOOM_OUT' })
   }, [])
 
   const setZoomLevel = useCallback((level: number) => {
+    console.log('🔍 PolotnoContext: setZoomLevel appelé avec', level)
     dispatch({ type: 'SET_ZOOM_LEVEL', payload: level })
   }, [])
 
   const resetZoom = useCallback(() => {
+    console.log('🔍 PolotnoContext: resetZoom appelé')
     dispatch({ type: 'RESET_ZOOM' })
   }, [])
 
