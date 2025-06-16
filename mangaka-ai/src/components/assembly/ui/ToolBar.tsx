@@ -64,11 +64,11 @@ export default function ToolBar({ onSave, onExport, onTogglePages, className }: 
   }
 
   const handleZoomIn = () => {
-    setZoom(Math.min(400, zoom + 25))
+    setZoom(Math.min(400, zoom + 10))
   }
 
   const handleZoomOut = () => {
-    setZoom(Math.max(25, zoom - 25))
+    setZoom(Math.max(25, zoom - 10))
   }
 
   const handleZoomReset = () => {
@@ -325,11 +325,11 @@ export function useToolBarShortcuts() {
           case '=':
           case '+':
             event.preventDefault()
-            setZoom(Math.min(400, zoom + 25))
+            setZoom(Math.min(400, zoom + 10))
             break
           case '-':
             event.preventDefault()
-            setZoom(Math.max(25, zoom - 25))
+            setZoom(Math.max(25, zoom - 10))
             break
           case '0':
             event.preventDefault()

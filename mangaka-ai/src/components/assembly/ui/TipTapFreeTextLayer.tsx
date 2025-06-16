@@ -44,14 +44,17 @@ export function TipTapFreeTextLayer({
   // ✅ SYNCHRONISATION INSTANTANÉE AVEC LE ZOOM (comme les panels)
   const canvasScale = zoomLevel / 100
 
-  // 🔍 Debug: Vérifier la synchronisation instantanée du zoom
+  // 🔍 Debug: Vérifier la synchronisation complète (pan + zoom)
   useEffect(() => {
-    console.log('🔍 TipTapFreeTextLayer: Synchronisation instantanée', {
+    console.log('🔍 TipTapFreeTextLayer: Synchronisation complète (pan + zoom)', {
       zoomLevel,
       canvasScale,
-      textsCount: texts.length
+      panX: canvasTransform.x,
+      panY: canvasTransform.y,
+      textsCount: texts.length,
+      appliedTransform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasScale})`
     })
-  }, [zoomLevel, canvasScale, texts.length])
+  }, [zoomLevel, canvasScale, canvasTransform.x, canvasTransform.y, texts.length])
 
   // ✅ ÉCOUTER LES ÉVÉNEMENTS DE CRÉATION DE TEXTE LIBRE
   useEffect(() => {
@@ -115,6 +118,13 @@ export function TipTapFreeTextLayer({
       setEditingTextId(null)
     }
 
+    // ✅ NOUVEAU : Écouter les désélections forcées depuis l'outil main
+    const handleForceDeselectAll = (event: CustomEvent) => {
+      console.log('🖐️ TipTapFreeTextLayer: Désélection forcée reçue:', event.detail)
+      setSelectedTextId(null)
+      setEditingTextId(null)
+    }
+
     // Écouter les changements de mode depuis SimpleCanvasEditor
     const handleTextModeChange = (event: CustomEvent) => {
       const { textId, newMode } = event.detail
@@ -130,11 +140,13 @@ export function TipTapFreeTextLayer({
 
     window.addEventListener('elementSelected', handleElementSelection as EventListener)
     window.addEventListener('globalDeselect', handleGlobalDeselect as EventListener)
+    window.addEventListener('forceDeselectAll', handleForceDeselectAll as EventListener)
     window.addEventListener('textModeChange', handleTextModeChange as EventListener)
 
     return () => {
       window.removeEventListener('elementSelected', handleElementSelection as EventListener)
       window.removeEventListener('globalDeselect', handleGlobalDeselect as EventListener)
+      window.removeEventListener('forceDeselectAll', handleForceDeselectAll as EventListener)
       window.removeEventListener('textModeChange', handleTextModeChange as EventListener)
     }
   }, [])
@@ -215,7 +227,7 @@ export function TipTapFreeTextLayer({
 
   return (
     <div
-      className={`tiptap-free-text-layer ${className}`}
+      className={`tiptap-free-text-layer no-scrollbar ${className}`}
       style={{
         position: 'absolute',
         top: 0,
@@ -223,9 +235,11 @@ export function TipTapFreeTextLayer({
         width: '100%',
         height: '100%',
         pointerEvents: 'none', // Laisser passer les clics au canvas
-        zIndex: 2000, // Entre les panels et les bulles
-        // ✅ SYNCHRONISATION INSTANTANÉE : Utiliser canvasScale directement comme les panels
-        transform: `scale(${canvasScale})`,
+        zIndex: 20, // ✅ Z-index réduit pour rester sous les sidebars (z-50)
+        overflow: 'hidden', // ✅ ÉLIMINER SCROLLBARS
+        // ✅ CORRECTION CRITIQUE : Appliquer la transformation complète comme le canvas
+        // Inclure le pan (translate) ET le zoom (scale) pour synchronisation parfaite
+        transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasScale})`,
         transformOrigin: 'center',
         // ✅ SUPPRESSION TRANSITION : Pour synchronisation instantanée
         transition: 'none'

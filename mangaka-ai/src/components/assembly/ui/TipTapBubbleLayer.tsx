@@ -7,8 +7,10 @@ import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { CanvasTransform, ViewportInfo } from '../core/CoordinateSystem'
 import { LayerManager } from '../core/LayerManager'
 import { useCanvasContext } from '../context/CanvasContext'
+import { usePolotnoContext } from '../context/PolotnoContext'
 import TipTapBubble, { BubbleMode } from './TipTapBubble'
 import { DialogueElement } from '../types/assembly.types'
+import { transformManager } from '../core/UnifiedTransformManager'
 import './TipTapBubble.css'
 
 interface TipTapBubbleLayerProps {
@@ -34,9 +36,11 @@ export default function TipTapBubbleLayer({
     elements,
     addElement,
     updateElement,
-    activeTool,
     setActiveTool
   } = useCanvasContext()
+
+  // ✅ NOUVEAU : Obtenir l'outil actif depuis Polotno pour vérifier l'outil main
+  const { activeTool } = usePolotnoContext()
 
   const layerRef = useRef<HTMLDivElement>(null)
   const layerManager = LayerManager.getInstance()
@@ -148,6 +152,13 @@ export default function TipTapBubbleLayer({
       setEditingBubbleId(null)
     }
 
+    // ✅ NOUVEAU : Écouter les désélections forcées depuis l'outil main
+    const handleForceDeselectAll = (event: CustomEvent) => {
+      console.log('🖐️ TipTapBubbleLayer: Désélection forcée reçue:', event.detail)
+      setSelectedBubbleId(null)
+      setEditingBubbleId(null)
+    }
+
     // Écouter les changements de mode depuis SimpleCanvasEditor
     const handleBubbleModeChange = (event: CustomEvent) => {
       const { bubbleId, newMode } = event.detail
@@ -172,12 +183,14 @@ export default function TipTapBubbleLayer({
 
     window.addEventListener('elementSelected', handleElementSelection as EventListener)
     window.addEventListener('globalDeselect', handleGlobalDeselect as EventListener)
+    window.addEventListener('forceDeselectAll', handleForceDeselectAll as EventListener)
     window.addEventListener('bubbleModeChange', handleBubbleModeChange as EventListener)
     window.addEventListener('updateTipTapBubbleTransform', handleBubbleTransformUpdate as EventListener)
 
     return () => {
       window.removeEventListener('elementSelected', handleElementSelection as EventListener)
       window.removeEventListener('globalDeselect', handleGlobalDeselect as EventListener)
+      window.removeEventListener('forceDeselectAll', handleForceDeselectAll as EventListener)
       window.removeEventListener('bubbleModeChange', handleBubbleModeChange as EventListener)
       window.removeEventListener('updateTipTapBubbleTransform', handleBubbleTransformUpdate as EventListener)
     }
@@ -185,9 +198,18 @@ export default function TipTapBubbleLayer({
 
   // ✅ GESTION DES MODES UX - INTÉGRATION AVEC LE SYSTÈME UNIFIÉ
   const getBubbleMode = useCallback((bubbleId: string): BubbleMode => {
-    if (editingBubbleId === bubbleId) return 'editing'
-    if (selectedBubbleId === bubbleId) return 'manipulating' // ✅ NOUVEAU : Mode manipulation
-    return 'reading'
+    const mode = editingBubbleId === bubbleId ? 'editing'
+                : selectedBubbleId === bubbleId ? 'manipulating'
+                : 'reading'
+
+    console.log('🔍 TipTapBubbleLayer: getBubbleMode pour', bubbleId, '→', mode, {
+      editingBubbleId,
+      selectedBubbleId,
+      isEditing: editingBubbleId === bubbleId,
+      isSelected: selectedBubbleId === bubbleId
+    })
+
+    return mode
   }, [editingBubbleId, selectedBubbleId])
 
   // ✅ NOUVEAU : Gestionnaire de changement de mode
@@ -209,12 +231,32 @@ export default function TipTapBubbleLayer({
 
   // ✅ GESTION DU DOUBLE-CLIC POUR ÉDITION
   const handleBubbleDoubleClick = useCallback((bubbleId: string) => {
-    console.log('🎨 Double-clic sur bulle:', bubbleId)
+    console.log('🔍 TipTapBubbleLayer: handleBubbleDoubleClick appelé!', {
+      bubbleId,
+      currentEditingBubbleId: editingBubbleId,
+      currentSelectedBubbleId: selectedBubbleId
+    })
+
+    console.log('🎨 TipTapBubbleLayer: Passage en mode édition pour bulle:', bubbleId)
     setEditingBubbleId(bubbleId)
-  }, [])
+
+    // Vérifier que l'état a bien changé
+    setTimeout(() => {
+      console.log('🔍 TipTapBubbleLayer: État après setEditingBubbleId:', {
+        editingBubbleId: bubbleId,
+        expectedMode: 'editing'
+      })
+    }, 0)
+  }, [editingBubbleId, selectedBubbleId])
 
   // ✅ GESTION DES CLICS POUR DÉSÉLECTION (SYNCHRONISÉ AVEC SIMPLECANVASEDITOR)
   const handleLayerClick = useCallback((e: React.MouseEvent) => {
+    // ✅ NOUVEAU : Empêcher toute interaction si l'outil main est actif
+    if (activeTool === 'hand') {
+      console.log('🖐️ TipTapBubbleLayer: Outil main actif - aucune interaction bulle')
+      return // Pas d'interaction avec les bulles
+    }
+
     // Seulement si le clic est directement sur le layer (pas sur une bulle)
     if (e.target === e.currentTarget) {
       console.log('🎯 TipTapBubbleLayer: Clic sur layer, désélection globale')
@@ -229,7 +271,7 @@ export default function TipTapBubbleLayer({
     }
     // Si on ne stop pas la propagation, le clic va remonter à SimpleCanvasEditor
     // qui va gérer la désélection globale
-  }, [])
+  }, [activeTool])
 
   // ✅ SOLUTION ALTERNATIVE : Calculer les coordonnées directement par rapport à la couche
   const getLayerRelativeCoordinates = useCallback((canvasEvent: MouseEvent) => {
@@ -274,40 +316,63 @@ export default function TipTapBubbleLayer({
     width: '100%',
     height: '100%',
     pointerEvents: 'none' as const, // ✅ CORRECTION CRITIQUE : Ne pas intercepter les événements
-    zIndex: 1000, // Z-index fixe pour la couche des bulles TipTap
-    overflow: 'hidden'
+    zIndex: 30, // ✅ Z-index réduit pour rester sous les sidebars (z-50)
+    overflow: 'hidden' // ✅ ÉLIMINER SCROLLBARS
   }), [])
 
-  // ✅ SYNCHRONISATION INSTANTANÉE AVEC LE ZOOM (comme les panels)
+  // ✅ NOUVEAU : SYNCHRONISATION PARFAITE VIA GESTIONNAIRE UNIFIÉ
   const canvasScale = zoomLevel / 100
 
+  // Enregistrement de la couche HTML dans le gestionnaire unifié
   useEffect(() => {
     if (!layerRef.current) return
 
+    const layerId = 'tiptap-bubble-layer'
     const layer = layerRef.current
-    // ✅ SYNCHRONISATION INSTANTANÉE : Utiliser canvasScale directement comme les panels
-    layer.style.transform = `scale(${canvasScale})`
-    layer.style.transformOrigin = 'center'
-    // ✅ SUPPRESSION TRANSITION : Pour synchronisation instantanée
-    layer.style.transition = 'none'
 
-    console.log('🔄 TipTapBubbleLayer: Synchronisation instantanée', {
-      zoomLevel,
-      canvasScale,
-      bubblesCount: bubbles.length,
-      appliedTransform: `scale(${canvasScale})`
+    // Enregistrer la couche dans le gestionnaire unifié
+    transformManager.registerHTMLTarget(layerId, layer)
+
+    console.log('✅ TipTapBubbleLayer: Enregistré dans le gestionnaire unifié', {
+      layerId,
+      element: layer
     })
-  }, [zoomLevel, canvasScale, bubbles.length])
+
+    // Nettoyage au démontage
+    return () => {
+      transformManager.unregisterTarget(layerId)
+      console.log('🗑️ TipTapBubbleLayer: Désenregistré du gestionnaire unifié')
+    }
+  }, [])
+
+  // Mise à jour du gestionnaire unifié quand les transformations changent
+  useEffect(() => {
+    const transform = {
+      x: canvasTransform.x,
+      y: canvasTransform.y,
+      scale: canvasScale
+    }
+
+    transformManager.updateTransform(transform, 'TipTapBubbleLayer')
+
+    console.log('🔄 TipTapBubbleLayer: Transformation envoyée au gestionnaire unifié', {
+      transform,
+      zoomLevel,
+      bubblesCount: bubbles.length
+    })
+  }, [canvasTransform.x, canvasTransform.y, canvasScale, bubbles.length])
 
   return (
     <div
       ref={layerRef}
-      className={`tiptap-bubble-layer ${className}`}
+      className={`tiptap-bubble-layer no-scrollbar ${className}`}
       style={layerStyle}
       onClick={handleLayerClick}
     >
       {bubbles.map(bubble => {
         const mode = getBubbleMode(bubble.id)
+
+        console.log('🔍 TipTapBubbleLayer: Rendu bulle', bubble.id, 'en mode', mode)
 
         return (
           <TipTapBubble

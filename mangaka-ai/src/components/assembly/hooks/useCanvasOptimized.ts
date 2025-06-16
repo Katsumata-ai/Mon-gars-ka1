@@ -6,11 +6,14 @@ import { AssemblyElement, LayerType } from '../types/assembly.types'
 // Hook pour les éléments sélectionnés (optimisé)
 export const useSelectedElements = () => {
   const { elements, selectedElementIds } = useCanvasContext()
-  
-  return useMemo(() => 
-    elements.filter(el => selectedElementIds.includes(el.id)),
-    [elements, selectedElementIds]
-  )
+
+  return useMemo(() => {
+    // Vérifier que selectedElementIds existe et est un tableau
+    if (!selectedElementIds || !Array.isArray(selectedElementIds)) {
+      return []
+    }
+    return elements.filter(el => selectedElementIds.includes(el.id))
+  }, [elements, selectedElementIds])
 }
 
 // Hook pour les éléments par couche (optimisé)
@@ -37,10 +40,10 @@ export const useCanRedo = () => {
 // Hook pour les statistiques de performance
 export const useCanvasStats = () => {
   const { elements, selectedElementIds, history } = useCanvasContext()
-  
+
   return useMemo(() => ({
     totalElements: elements.length,
-    selectedCount: selectedElementIds.length,
+    selectedCount: selectedElementIds ? selectedElementIds.length : 0,
     historySize: history.past.length + history.future.length,
     elementsByType: elements.reduce((acc, el) => {
       acc[el.type] = (acc[el.type] || 0) + 1
@@ -264,10 +267,12 @@ export const useCanvas = () => {
   const context = useCanvasContext()
 
   // Calculer les éléments sélectionnés directement
-  const selectedElements = useMemo(() =>
-    context.elements.filter(el => context.selectedElementIds.includes(el.id)),
-    [context.elements, context.selectedElementIds]
-  )
+  const selectedElements = useMemo(() => {
+    if (!context.selectedElementIds || !Array.isArray(context.selectedElementIds)) {
+      return []
+    }
+    return context.elements.filter(el => context.selectedElementIds.includes(el.id))
+  }, [context.elements, context.selectedElementIds])
 
   // Actions d'éléments simplifiées
   const elementActions = useMemo(() => ({

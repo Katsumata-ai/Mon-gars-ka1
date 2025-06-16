@@ -277,7 +277,7 @@ const initialLayers: CanvasState['layers'] = {
   ui: { visible: true, locked: false, opacity: 1 }
 }
 
-// État initial optimisé
+// État initial optimisé avec zoom par défaut à 25%
 const initialState: CanvasState = {
   pixiApp: null,
   currentPageId: null,
@@ -287,7 +287,7 @@ const initialState: CanvasState = {
   activeTool: 'select',
   showGrid: true,
   gridSize: 20,
-  zoom: 100,
+  zoom: 25, // ✅ NOUVEAU : Zoom par défaut à 25%
   layers: initialLayers,
   history: {
     past: [],

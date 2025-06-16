@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import { CssDotPattern } from '../ui/DotPattern'
 
 interface DashtoonLayoutProps {
   leftToolbar: React.ReactNode
@@ -23,30 +22,19 @@ export default function DashtoonLayout({
   className = ''
 }: DashtoonLayoutProps) {
   return (
-    <div className={`h-full flex bg-dark-900 overflow-hidden ${className}`}>
-      {/* Barre d'outils gauche - Fine et verticale */}
-      <div className="w-16 bg-dark-800 border-r border-dark-700 flex-shrink-0">
+    <div className={`h-screen overflow-hidden relative ${className}`}>
+      {/* Zone centrale - Canvas PLEIN ÉCRAN */}
+      <div className="absolute inset-0 overflow-hidden">
+        {centerCanvas}
+      </div>
+
+      {/* Barre d'outils gauche - POSITIONNEMENT DIRECT sans overlay */}
+      <div className="absolute left-0 top-0 bottom-0 w-16 bg-dark-800/90 backdrop-blur-sm border-r border-dark-700/50 z-50">
         {leftToolbar}
       </div>
 
-      {/* Zone centrale - Canvas avec fond noir et motif décoratif */}
-      <div className="flex-1 bg-black overflow-hidden relative">
-        {/* ✨ MOTIF DE POINTS DÉCORATIFS GLOBAL */}
-        <CssDotPattern
-          size={1.5}
-          spacing={24}
-          opacity={0.12}
-          color="#ffffff"
-          className="z-0"
-        />
-
-        <div className="relative z-10 h-full">
-          {centerCanvas}
-        </div>
-      </div>
-
-      {/* Menu droit - Dual-fonction Pages/Images */}
-      <div className="w-80 bg-dark-800 border-l border-dark-700 flex-shrink-0">
+      {/* Menu droit - POSITIONNEMENT DIRECT sans overlay */}
+      <div className="absolute right-0 top-0 bottom-0 w-80 bg-dark-800/90 backdrop-blur-sm border-l border-dark-700/50 z-50">
         {rightPanel}
       </div>
     </div>

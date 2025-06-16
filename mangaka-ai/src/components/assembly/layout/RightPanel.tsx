@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { FileText, Image, Plus, Trash2, Layers, Eye, EyeOff, Link, Unlink } from 'lucide-react'
+import { FileText, Image, Plus, Trash2, Layers, Eye, EyeOff, Link, Unlink, Settings } from 'lucide-react'
 import { useCanvasContext } from '../context/CanvasContext'
+import SettingsPanel from '../ui/SettingsPanel'
 
 interface RightPanelProps {
   projectId: string
@@ -13,13 +14,14 @@ interface RightPanelProps {
   className?: string
 }
 
-type PanelMode = 'pages' | 'images' | 'panels'
+type PanelMode = 'pages' | 'images' | 'settings'
 
 /**
- * Menu droit dual-fonction reproduisant l'interface Dashtoon
- * - Toggle entre mode Pages et Images
+ * Menu droit tri-fonction reproduisant l'interface Dashtoon
+ * - Toggle entre mode Pages, Images et Paramètres
  * - Mode Pages : Liste des pages avec navigation
  * - Mode Images : Galerie d'images par catégories
+ * - Mode Paramètres : Paramètres de l'élément sélectionné avec suppression
  */
 export default function RightPanel({
   projectId,
@@ -109,7 +111,7 @@ export default function RightPanel({
 
   return (
     <div className={`h-full flex flex-col bg-dark-800 ${className}`}>
-      {/* Toggle principal Pages/Images/Panels */}
+      {/* Toggle principal Pages/Images/Paramètres */}
       <div className="border-b border-dark-700 p-4">
         <div className="flex bg-dark-700 rounded-lg p-1">
           <button
@@ -143,18 +145,18 @@ export default function RightPanel({
           </button>
 
           <button
-            onClick={() => setActiveMode('panels')}
+            onClick={() => setActiveMode('settings')}
             className={`
               flex-1 flex items-center justify-center py-1 px-2 rounded-md
               text-xs font-medium transition-all duration-200
-              ${activeMode === 'panels'
+              ${activeMode === 'settings'
                 ? 'bg-red-500 text-white shadow-sm'
                 : 'text-gray-400 hover:text-white hover:bg-dark-600'
               }
             `}
           >
-            <Layers size={14} className="mr-1" />
-            Panels
+            <Settings size={14} className="mr-1" />
+            Paramètres
           </button>
         </div>
       </div>
@@ -175,7 +177,7 @@ export default function RightPanel({
             loading={loading}
           />
         ) : (
-          <PanelsMode />
+          <SettingsPanel />
         )}
       </div>
     </div>
@@ -370,159 +372,4 @@ function ImagesMode({
   )
 }
 
-// Composant pour le mode Panels
-function PanelsMode() {
-  const { elements, panelContentService } = useCanvasContext()
-  const [associations, setAssociations] = useState<any[]>([])
 
-  // Écouter les changements d'associations
-  useEffect(() => {
-    const updateAssociations = () => {
-      if (panelContentService && panelContentService.getAllAssociations) {
-        setAssociations(panelContentService.getAllAssociations())
-      }
-    }
-
-    if (panelContentService && panelContentService.addListener) {
-      panelContentService.addListener(updateAssociations)
-    }
-    updateAssociations() // Mise à jour initiale
-  }, [panelContentService])
-
-  // Statistiques
-  const stats = {
-    panels: elements.filter(el => el.type === 'panel').length,
-    images: elements.filter(el => el.type === 'image').length,
-    associations: associations.length
-  }
-
-  console.log('📊 Stats PanelsMode:', stats)
-
-  if (stats.panels === 0 && stats.images === 0) {
-    return (
-      <div className="h-full flex items-center justify-center p-4">
-        <div className="text-center">
-          <Layers size={32} className="text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm mb-2">Aucun panel ou image</p>
-          <p className="text-gray-600 text-xs">
-            Glissez des images depuis l'onglet "Images" puis créez des panels par-dessus
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="h-full overflow-y-auto p-4 space-y-4">
-      {/* Statistiques */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="bg-dark-700 p-3 rounded text-center">
-          <div className="text-lg font-bold text-blue-400">{stats.panels}</div>
-          <div className="text-xs text-gray-400">Panels</div>
-        </div>
-        <div className="bg-dark-700 p-3 rounded text-center">
-          <div className="text-lg font-bold text-green-400">{stats.images}</div>
-          <div className="text-xs text-gray-400">Images</div>
-        </div>
-        <div className="bg-dark-700 p-3 rounded text-center">
-          <div className="text-lg font-bold text-purple-400">{stats.associations}</div>
-          <div className="text-xs text-gray-400">Associations</div>
-        </div>
-      </div>
-
-      {/* Instructions */}
-      <div className="bg-dark-700 rounded-lg p-4">
-        <h4 className="text-white font-medium mb-2">💡 Comment utiliser :</h4>
-        <div className="text-gray-300 text-sm space-y-1">
-          <div>1. <strong>Glissez des images</strong> depuis l'onglet "Images"</div>
-          <div>2. <strong>Créez des panels</strong> avec l'outil Panel par-dessus</div>
-          <div>3. <strong>Associations automatiques</strong> si chevauchement &gt;10%</div>
-          <div>4. <strong>Gérez manuellement</strong> avec les boutons</div>
-        </div>
-      </div>
-
-      {/* Associations actives */}
-      {associations.length > 0 && (
-        <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
-          <h4 className="text-green-400 font-medium mb-3 flex items-center gap-2">
-            <Link size={16} />
-            🎉 {associations.length} Association(s) Active(s) !
-          </h4>
-
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {associations.map((assoc, index) => (
-              <div key={index} className="bg-dark-800 rounded p-3">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <span className="text-white font-mono text-sm">
-                      Panel {assoc.panelId.slice(-8)}
-                    </span>
-                    <div className="text-green-400 text-xs">
-                      {assoc.imageIds.length} image(s) • {assoc.associationType}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (panelContentService && panelContentService.removeAssociation) {
-                        panelContentService.removeAssociation(assoc.panelId)
-                      }
-                    }}
-                    className="text-red-400 hover:text-red-300 p-1"
-                    title="Supprimer cette association"
-                  >
-                    <Unlink size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Actions rapides */}
-      {stats.panels > 0 && stats.images > 0 && (
-        <div className="bg-dark-700 rounded-lg p-4">
-          <h4 className="text-white font-medium mb-3">Actions rapides :</h4>
-          <div className="space-y-2">
-            <button
-              onClick={() => {
-                // Re-détecter toutes les associations
-                const panels = elements.filter(el => el.type === 'panel')
-                panels.forEach(panel => {
-                  if (panelContentService && panelContentService.detectImagesUnderPanel) {
-                    const intersections = panelContentService.detectImagesUnderPanel(panel.id, elements)
-                    const significantImages = intersections
-                      .filter((intersection: any) => intersection.isSignificant)
-                      .map((intersection: any) => intersection.imageId)
-
-                    if (significantImages.length > 0 && panelContentService.createAutomaticAssociation) {
-                      panelContentService.createAutomaticAssociation(panel.id, significantImages)
-                    }
-                  }
-                })
-              }}
-              className="w-full px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            >
-              🔍 Re-détecter toutes les associations
-            </button>
-
-            {associations.length > 0 && (
-              <button
-                onClick={() => {
-                  associations.forEach(assoc => {
-                    if (panelContentService && panelContentService.removeAssociation) {
-                      panelContentService.removeAssociation(assoc.panelId)
-                    }
-                  })
-                }}
-                className="w-full px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-              >
-                🗑️ Supprimer toutes les associations
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}

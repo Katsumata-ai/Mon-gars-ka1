@@ -28,10 +28,15 @@ export default function SimpleFreeText({
   const textRef = useRef<HTMLDivElement>(null)
   const [textValue, setTextValue] = useState(element.text || '')
 
+  // ✅ NOUVEAU : États pour le drag (système simplifié comme les panels)
+  const [isDragging, setIsDragging] = useState(false)
+
   // ✅ SYNCHRONISATION DU CONTENU
   useEffect(() => {
     setTextValue(element.text || '')
   }, [element.text])
+
+
 
   // ✅ FOCUS AUTOMATIQUE EN MODE ÉDITION - PLUS AGRESSIF
   useEffect(() => {
@@ -63,13 +68,31 @@ export default function SimpleFreeText({
     }
   }, [mode, element.id, onModeChange])
 
-  // ✅ GESTIONNAIRE DE CLIC SIMPLE (SÉLECTION)
-  const handleTextMouseDown = useCallback((event: React.MouseEvent) => {
-    if (mode !== 'reading') return
 
+
+  // ✅ GESTIONNAIRES DE DRAG PERSONNALISÉ (système simplifié)
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean
+    startX: number
+    startY: number
+    startElementX: number
+    startElementY: number
+  }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    startElementX: 0,
+    startElementY: 0
+  })
+
+  // Gestionnaire mousedown - commence le drag seulement si on bouge
+  const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    if (mode === 'editing') return
+
+    event.preventDefault()
     event.stopPropagation()
-    
-    // Émettre l'événement de sélection pour SimpleCanvasEditor
+
+    // Sélectionner d'abord
     const selectionEvent = new CustomEvent('textClicked', {
       detail: {
         textId: element.id,
@@ -79,16 +102,109 @@ export default function SimpleFreeText({
       }
     })
     window.dispatchEvent(selectionEvent)
-  }, [mode, element.id])
+
+    // Préparer le drag mais ne pas l'activer encore
+    setDragState({
+      isDragging: false,
+      startX: event.clientX,
+      startY: event.clientY,
+      startElementX: element.transform.x,
+      startElementY: element.transform.y
+    })
+
+    console.log('🔍 SimpleFreeText: MouseDown préparé pour', element.id)
+  }, [mode, element.id, element.transform.x, element.transform.y])
 
   // ✅ GESTIONNAIRE DE DOUBLE-CLIC (ÉDITION)
   const handleTextDoubleClick = useCallback((event: React.MouseEvent) => {
-    if (mode !== 'reading') return
+    console.log('🔍 SimpleFreeText: Double-click détecté!', {
+      textId: element.id,
+      currentMode: mode,
+      canEdit: mode === 'reading' || mode === 'manipulating'
+    })
+
+    // ✅ PERMETTRE LE DOUBLE-CLIC EN MODE READING OU MANIPULATING
+    if (mode !== 'reading' && mode !== 'manipulating') {
+      console.log('❌ SimpleFreeText: Double-click ignoré - mode incorrect:', mode)
+      return
+    }
 
     event.stopPropagation()
+    console.log('✅ SimpleFreeText: Double-click traité, passage en mode édition pour:', element.id)
+
     onModeChange?.(element.id, 'editing')
     onDoubleClick?.(element.id)
   }, [mode, element.id, onDoubleClick, onModeChange])
+
+  // ✅ GESTION DU DRAG GLOBAL SIMPLIFIÉ
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      // Commencer le drag seulement si on a bougé de plus de 5 pixels
+      if (!dragState.isDragging) {
+        const deltaX = Math.abs(event.clientX - dragState.startX)
+        const deltaY = Math.abs(event.clientY - dragState.startY)
+
+        if (deltaX > 5 || deltaY > 5) {
+          setDragState(prev => ({ ...prev, isDragging: true }))
+          setIsDragging(true)
+          onModeChange?.(element.id, 'manipulating')
+          console.log('🎯 SimpleFreeText: Drag start:', element.id)
+        }
+        return
+      }
+
+      // Continuer le drag
+      const deltaX = event.clientX - dragState.startX
+      const deltaY = event.clientY - dragState.startY
+
+      const newX = dragState.startElementX + deltaX
+      const newY = dragState.startElementY + deltaY
+
+      onUpdate(element.id, {
+        transform: {
+          ...element.transform,
+          x: newX,
+          y: newY
+        }
+      })
+
+      // ✅ NOUVEAU : Notifier le système de sélection pour synchroniser le cadre
+      const positionUpdateEvent = new CustomEvent('textPositionUpdate', {
+        detail: {
+          textId: element.id,
+          x: newX,
+          y: newY
+        }
+      })
+      window.dispatchEvent(positionUpdateEvent)
+    }
+
+    const handleMouseUp = () => {
+      if (dragState.isDragging) {
+        setIsDragging(false)
+        console.log('🎯 SimpleFreeText: Drag terminé:', element.id)
+      }
+
+      setDragState({
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        startElementX: 0,
+        startElementY: 0
+      })
+    }
+
+    // Écouter les événements globaux seulement si on a commencé un mousedown
+    if (dragState.startX !== 0 || dragState.startY !== 0) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [dragState, element.id, element.transform, onUpdate, onModeChange, setIsDragging])
 
   // ✅ STYLES DYNAMIQUES - CONTENEUR AVEC DIMENSIONS FIXES
   const containerStyle = {
@@ -101,13 +217,18 @@ export default function SimpleFreeText({
     minHeight: '20px',
     zIndex: 2000,
     pointerEvents: 'auto' as const,
-    cursor: mode === 'editing' ? 'text' : 'grab',
+    cursor: mode === 'editing' ? 'text' : isDragging ? 'grabbing' : 'grab',
     background: 'transparent',
     border: mode === 'editing' ? '2px solid #3b82f6' : 'none',
     borderRadius: mode === 'editing' ? '4px' : '0',
     boxShadow: mode === 'editing' ? '0 0 0 2px rgba(59, 130, 246, 0.2)' : 'none',
     padding: mode === 'editing' ? '10px' : '0', // ✅ PLUS DE PADDING POUR ÉVITER LA SCROLLBAR
-    overflow: 'hidden'
+    overflow: 'hidden',
+    // ✅ EMPÊCHER LA SÉLECTION DE TEXTE PENDANT LE DRAG
+    userSelect: mode === 'editing' ? 'text' as const : 'none' as const,
+    WebkitUserSelect: mode === 'editing' ? 'text' as const : 'none' as const,
+    MozUserSelect: mode === 'editing' ? 'text' as const : 'none' as const,
+    msUserSelect: mode === 'editing' ? 'text' as const : 'none' as const
   }
 
   // ✅ STYLES DE TEXTE DYNAMIQUES - SE METTENT À JOUR AUTOMATIQUEMENT
@@ -129,7 +250,12 @@ export default function SimpleFreeText({
     overflowWrap: 'break-word' as const,
     whiteSpace: 'pre-wrap' as const,
     padding: '0',
-    margin: '0'
+    margin: '0',
+    // ✅ EMPÊCHER LA SÉLECTION DE TEXTE EN MODE LECTURE/MANIPULATION
+    userSelect: mode === 'editing' ? 'text' as const : 'none' as const,
+    WebkitUserSelect: mode === 'editing' ? 'text' as const : 'none' as const,
+    MozUserSelect: mode === 'editing' ? 'text' as const : 'none' as const,
+    msUserSelect: mode === 'editing' ? 'text' as const : 'none' as const
   }
 
   return (
@@ -154,7 +280,7 @@ export default function SimpleFreeText({
         <div
           ref={textRef}
           className="simple-free-text-content"
-          onMouseDown={handleTextMouseDown}
+          onMouseDown={handleMouseDown}
           onDoubleClick={handleTextDoubleClick}
           style={textStyle}
         >

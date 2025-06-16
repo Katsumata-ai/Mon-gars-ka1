@@ -129,6 +129,22 @@ export default function BubbleSelectionOverlay({
     }
   }, [isDragging, isResizing, selectedBubbleId, activeHandle, dragStart, resizeStart, onDrag, onDragEnd, onResize, onResizeEnd])
 
+  // ✅ NOUVEAU : Écouter les désélections forcées depuis l'outil main
+  useEffect(() => {
+    const handleForceDeselectAll = () => {
+      console.log('🖐️ BubbleSelectionOverlay: Désélection forcée - arrêt manipulation')
+      setIsDragging(false)
+      setIsResizing(false)
+      setActiveHandle(null)
+    }
+
+    window.addEventListener('forceDeselectAll', handleForceDeselectAll)
+
+    return () => {
+      window.removeEventListener('forceDeselectAll', handleForceDeselectAll)
+    }
+  }, [])
+
   // ✅ HANDLES DE REDIMENSIONNEMENT (8 positions)
   const getResizeHandles = useCallback(() => {
     if (!bubbleBounds) return []

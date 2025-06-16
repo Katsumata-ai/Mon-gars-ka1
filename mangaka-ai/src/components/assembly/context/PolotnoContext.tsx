@@ -12,8 +12,8 @@ import {
   DEFAULT_CANVAS_CONFIG
 } from '../types/polotno.types'
 
-// Niveaux de zoom autorisés (en pourcentage)
-const ZOOM_LEVELS = [25, 50, 75, 100, 125, 150, 200, 300, 400]
+// Niveaux de zoom autorisés (en pourcentage) - Incréments de 10%
+const ZOOM_LEVELS = [25, 35, 45, 55, 65, 75, 85, 95, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300, 310, 320, 330, 340, 350, 360, 370, 380, 390, 400]
 
 // Actions pour le reducer
 type PolotnoAction =
@@ -33,18 +33,18 @@ type PolotnoAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_LAST_SAVED'; payload: Date }
 
-// État initial
+// État initial avec zoom à 25% et canvas centré
 const initialState: PolotnoContextState = {
   store: null,
   activeTool: 'select',
   selectedElementIds: [],
   canvasWidth: DEFAULT_CANVAS_CONFIG.width,
   canvasHeight: DEFAULT_CANVAS_CONFIG.height,
-  zoom: 100,
+  zoom: 25, // ✅ NOUVEAU : Zoom par défaut à 25%
   bubbleCreationMode: false,
   bubbleTypeToCreate: null,
   gridVisible: false,
-  zoomLevel: 100,
+  zoomLevel: 25, // ✅ NOUVEAU : Zoom par défaut à 25%
   isDirty: false,
   isLoading: false,
   lastSaved: null

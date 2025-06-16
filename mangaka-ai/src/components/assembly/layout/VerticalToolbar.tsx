@@ -105,7 +105,7 @@ export default function VerticalToolbar({
   }
 
   return (
-    <div className={`h-full flex flex-col bg-dark-800 ${className}`}>
+    <div className={`h-full flex flex-col ${className}`}>
       {/* Outils principaux */}
       <div className="flex-1 py-4">
         <div className="space-y-2">

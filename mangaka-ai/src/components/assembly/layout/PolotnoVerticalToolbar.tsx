@@ -135,8 +135,25 @@ export default function PolotnoVerticalToolbar({
       // Activer l'outil panel rectangle
       onToolChange('panel')
     } else if (toolId === 'hand') {
+      // ✅ NOUVEAU : Désélection automatique lors de l'activation de l'outil main
+      console.log('🖐️ Activation outil main - Désélection automatique de tous les éléments')
+
+      // Émettre l'événement de désélection globale AVANT d'activer l'outil
+      const globalDeselectEvent = new CustomEvent('globalDeselect', {
+        detail: { source: 'hand-tool-activation' }
+      })
+      window.dispatchEvent(globalDeselectEvent)
+
+      // Émettre aussi l'événement spécifique pour forcer la désélection
+      const forceDeselectEvent = new CustomEvent('forceDeselectAll', {
+        detail: { source: 'hand-tool-activation' }
+      })
+      window.dispatchEvent(forceDeselectEvent)
+
       // Activer l'outil main
       onToolChange('hand')
+
+      console.log('✅ Outil main activé avec désélection complète')
     } else if (toolId === 'grid') {
       // Basculer l'affichage de la grille
       toggleGrid()
@@ -147,7 +164,7 @@ export default function PolotnoVerticalToolbar({
   }
 
   return (
-    <div className={`h-full flex flex-col bg-dark-800 ${className}`}>
+    <div className={`h-full w-16 flex flex-col overflow-hidden ${className}`}>
       {/* Indicateur de statut */}
       <div className="px-2 py-2 border-b border-dark-700">
         <div className="flex items-center justify-center">
@@ -203,7 +220,7 @@ export default function PolotnoVerticalToolbar({
                 
                 {/* Tooltip */}
                 <div className="
-                  absolute left-16 top-1/2 -translate-y-1/2 z-50
+                  absolute left-16 top-1/2 -translate-y-1/2 z-[100]
                   bg-dark-900 text-white text-sm px-2 py-1 rounded
                   opacity-0 group-hover:opacity-100 transition-opacity
                   pointer-events-none whitespace-nowrap
@@ -241,7 +258,7 @@ export default function PolotnoVerticalToolbar({
 
             {/* Tooltip */}
             <div className="
-              absolute left-16 top-1/2 -translate-y-1/2 z-50
+              absolute left-16 top-1/2 -translate-y-1/2 z-[100]
               bg-dark-900 text-white text-sm px-2 py-1 rounded
               opacity-0 group-hover:opacity-100 transition-opacity
               pointer-events-none whitespace-nowrap
@@ -272,7 +289,7 @@ export default function PolotnoVerticalToolbar({
 
             {/* Tooltip */}
             <div className="
-              absolute left-16 top-1/2 -translate-y-1/2 z-50
+              absolute left-16 top-1/2 -translate-y-1/2 z-[100]
               bg-dark-900 text-white text-sm px-2 py-1 rounded
               opacity-0 group-hover:opacity-100 transition-opacity
               pointer-events-none whitespace-nowrap
@@ -319,7 +336,7 @@ export default function PolotnoVerticalToolbar({
 
                 {/* Tooltip */}
                 <div className="
-                  absolute left-16 top-1/2 -translate-y-1/2 z-50
+                  absolute left-16 top-1/2 -translate-y-1/2 z-[100]
                   bg-dark-900 text-white text-sm px-2 py-1 rounded
                   opacity-0 group-hover:opacity-100 transition-opacity
                   pointer-events-none whitespace-nowrap

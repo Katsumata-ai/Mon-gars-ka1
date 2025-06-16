@@ -7,6 +7,7 @@ import { usePolotnoContext } from '../context/PolotnoContext'
 import { useCanvasContext } from '../context/CanvasContext'
 import { BubbleType } from '../types/polotno.types'
 import { TextElement } from '../types/assembly.types'
+import { transformManager } from './UnifiedTransformManager'
 
 interface SimpleCanvasEditorProps {
   width?: number
@@ -150,6 +151,12 @@ export default function SimpleCanvasEditor({
   // 🔍 Réagir aux changements de zoom
   useEffect(() => {
     console.log('🔍 SimpleCanvasEditor: zoomLevel changé:', zoomLevel, '→ scale:', canvasScale)
+
+    // ✨ SYNCHRONISER LE SCALE AVEC LE ZOOM
+    setCanvasTransform(prev => ({
+      ...prev,
+      scale: canvasScale
+    }))
   }, [zoomLevel, canvasScale])
 
   // ✅ NOUVEAU : Accès au contexte Canvas pour les textes libres
@@ -296,50 +303,54 @@ export default function SimpleCanvasEditor({
     return { x, y }
   }, [])
 
-  // ✅ NOUVELLE FONCTION : Coordonnées DOM ajustées pour le zoom
+  // ✅ FONCTION CORRIGÉE : Convertir coordonnées canvas vers coordonnées DOM pour les éléments HTML
   const getDOMCoordinates = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
 
+    // D'abord obtenir les coordonnées canvas
+    const { x: canvasX, y: canvasY } = getCanvasCoordinates(event)
+
+    // Ensuite convertir les coordonnées canvas en coordonnées DOM
+    // Pour les éléments HTML positionnés au-dessus du canvas
     const rect = canvas.getBoundingClientRect()
 
-    // Coordonnées DOM brutes
-    const rawX = event.clientX - rect.left
-    const rawY = event.clientY - rect.top
+    // ✅ CONVERSION CORRECTE : Canvas → DOM
+    // 1. Multiplier par le scale pour appliquer le zoom
+    // 2. Ajouter le pan pour appliquer le déplacement
+    // 3. Ajouter l'offset du canvas dans la page
+    const domX = canvasX * canvasScale + canvasTransform.x + rect.left
+    const domY = canvasY * canvasScale + canvasTransform.y + rect.top
 
-    // ✅ CORRECTION CRITIQUE : Ajuster pour le zoom CSS
-    // Les layers DOM ont transform: scale(canvasScale), donc on doit diviser par le scale
-    const x = rawX / canvasScale
-    const y = rawY / canvasScale
-
-    console.log('🔧 getDOMCoordinates: Ajustement zoom', {
-      raw: { x: rawX, y: rawY },
-      canvasScale,
-      adjusted: { x, y }
+    console.log('🔧 getDOMCoordinates: Conversion Canvas → DOM', {
+      canvas: { x: canvasX, y: canvasY },
+      scale: canvasScale,
+      pan: { x: canvasTransform.x, y: canvasTransform.y },
+      canvasRect: { left: rect.left, top: rect.top },
+      dom: { x: domX, y: domY }
     })
 
-    return { x, y }
-  }, [canvasScale])
+    return { x: domX, y: domY }
+  }, [getCanvasCoordinates, canvasScale, canvasTransform.x, canvasTransform.y])
 
-  // ✅ NOUVEAU : Calculer et notifier la transformation du canvas
+  // ✅ NOUVEAU : Calculer et notifier la transformation du canvas (pan + zoom)
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || !onCanvasTransformChange) return
+    const transform = {
+      x: canvasTransform.x,
+      y: canvasTransform.y,
+      scale: canvasScale
+    }
 
-    const rect = canvas.getBoundingClientRect()
-    const parentRect = canvas.parentElement?.getBoundingClientRect()
+    // Notifier le gestionnaire unifié pour synchronisation parfaite
+    transformManager.updateTransform(transform, 'SimpleCanvasEditor')
 
-    if (parentRect) {
-      const transform = {
-        x: rect.left - parentRect.left,
-        y: rect.top - parentRect.top,
-        scale: canvasScale // ✅ CORRECTION CRITIQUE : Utiliser le vrai scale du zoom !
-      }
-
-      console.log('🔧 SimpleCanvasEditor: Transformation canvas mise à jour:', transform)
+    // Notifier aussi le callback externe si présent
+    if (onCanvasTransformChange) {
       onCanvasTransformChange(transform)
     }
-  }, [onCanvasTransformChange, canvasScale])
+
+    console.log('🔧 SimpleCanvasEditor: Transformation envoyée au gestionnaire unifié:', transform)
+  }, [onCanvasTransformChange, canvasTransform.x, canvasTransform.y, canvasScale])
 
   // Fonction pour calculer les handles de redimensionnement (panels seulement)
   const calculateResizeHandles = useCallback((element: CanvasElement): ResizeHandle[] => {
@@ -1276,6 +1287,22 @@ export default function SimpleCanvasEditor({
     }
   }, [])
 
+  // ✨ GESTIONNAIRE DE ZOOM AVEC MOLETTE
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
+    if (activeTool !== 'hand') return
+
+    event.preventDefault()
+
+    const delta = event.deltaY > 0 ? -1 : 1
+    const zoomFactor = 1.1
+
+    if (delta > 0) {
+      zoomIn()
+    } else {
+      zoomOut()
+    }
+  }, [activeTool, zoomIn, zoomOut])
+
   // Gestionnaire de mousedown
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
@@ -1283,6 +1310,19 @@ export default function SimpleCanvasEditor({
 
     const { x, y } = getCanvasCoordinates(event)
     console.log('🖱️ SimpleCanvasEditor mouseDown:', { x, y, tipTapBubblesCount: tipTapBubbles.size })
+
+    // ✨ GESTION DE L'OUTIL MAIN (PAN) - AUCUNE SÉLECTION POSSIBLE
+    if (activeTool === 'hand') {
+      console.log('🖐️ Outil main actif - Pan seulement, aucune sélection')
+      setPanState({
+        isPanning: true,
+        startX: event.clientX,
+        startY: event.clientY,
+        startTransformX: canvasTransform.x,
+        startTransformY: canvasTransform.y
+      })
+      return // Sortir immédiatement, pas de sélection
+    }
 
     // Vérifier si on clique sur un handle de redimensionnement
     const handle = findHandleAtPosition(x, y)
@@ -1333,7 +1373,9 @@ export default function SimpleCanvasEditor({
     setTextMode('reading')
 
     // ✅ ÉMETTRE ÉVÉNEMENT DE DÉSÉLECTION GLOBALE
-    const globalDeselectEvent = new CustomEvent('globalDeselect')
+    const globalDeselectEvent = new CustomEvent('globalDeselect', {
+      detail: { source: 'canvas-click' }
+    })
     window.dispatchEvent(globalDeselectEvent)
 
     if (activeTool === 'panel') {
@@ -1348,19 +1390,17 @@ export default function SimpleCanvasEditor({
       })
     } else if (activeTool === 'text') {
       // ✅ CRÉER UN TEXTE LIBRE AVEC TIPTAP
-      const domCoords = getDOMCoordinates(event)
       console.log('🎯 Création texte libre TipTap:', {
         canvasCoords: { x, y },
-        domCoords,
         zoomLevel,
         canvasScale
       })
 
-      // Créer l'événement personnalisé pour le système TipTap
+      // Créer l'événement personnalisé avec les coordonnées canvas
       const textCreationEvent = new CustomEvent('createTipTapFreeText', {
         detail: {
-          x: domCoords.x,
-          y: domCoords.y
+          x: x, // Coordonnées canvas directes
+          y: y  // Coordonnées canvas directes
         }
       })
 
@@ -1368,21 +1408,20 @@ export default function SimpleCanvasEditor({
       window.dispatchEvent(textCreationEvent)
       setActiveTool('select')
     } else if (bubbleCreationMode && bubbleTypeToCreate) {
-      // ✅ RESTAURÉ : Utiliser le système TipTap-first existant
-      const domCoords = getDOMCoordinates(event)
+      // ✅ CORRIGÉ : Utiliser les coordonnées canvas directement
       console.log('🎯 Création bulle TipTap:', {
         canvasCoords: { x, y },
-        domCoords,
         type: bubbleTypeToCreate,
         zoomLevel,
         canvasScale
       })
 
-      // Créer l'événement personnalisé pour le système TipTap-first
+      // Créer l'événement personnalisé avec les coordonnées canvas
+      // TipTapBubbleLayer gère la transformation CSS, donc pas besoin de conversion DOM
       const bubbleCreationEvent = new CustomEvent('createTipTapBubble', {
         detail: {
-          x: domCoords.x,
-          y: domCoords.y,
+          x: x, // Coordonnées canvas directes
+          y: y, // Coordonnées canvas directes
           bubbleType: bubbleTypeToCreate
         }
       })
@@ -1408,7 +1447,10 @@ export default function SimpleCanvasEditor({
     onCanvasClick,
     creationState,
     createOptimalPanel,
-    setActiveTool
+    setActiveTool,
+    panState,
+    canvasTransform,
+    setPanState
   ])
 
   // Gestionnaire de mousemove
@@ -1418,9 +1460,24 @@ export default function SimpleCanvasEditor({
 
     const { x, y } = getCanvasCoordinates(event)
 
+    // ✨ GESTION DU PAN AVEC L'OUTIL MAIN
+    if (panState.isPanning && activeTool === 'hand') {
+      const deltaX = event.clientX - panState.startX
+      const deltaY = event.clientY - panState.startY
+
+      setCanvasTransform({
+        ...canvasTransform,
+        x: panState.startTransformX + deltaX,
+        y: panState.startTransformY + deltaY
+      })
+      return
+    }
+
     // Mise à jour du curseur
     const handle = findHandleAtPosition(x, y)
-    if (handle) {
+    if (activeTool === 'hand') {
+      canvas.style.cursor = panState.isPanning ? 'grabbing' : 'grab'
+    } else if (handle) {
       const cursors = {
         'top-left': 'nw-resize',
         'top-right': 'ne-resize',
@@ -1525,13 +1582,28 @@ export default function SimpleCanvasEditor({
     activeTool,
     manipulationState,
     elements,
-    creationState
+    creationState,
+    panState,
+    canvasTransform,
+    setCanvasTransform
   ])
 
   // Gestionnaire de mouseup
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
+
+    // ✨ ARRÊTER LE PAN
+    if (panState.isPanning) {
+      setPanState({
+        isPanning: false,
+        startX: 0,
+        startY: 0,
+        startTransformX: 0,
+        startTransformY: 0
+      })
+      return
+    }
 
     const { x, y } = getCanvasCoordinates(event)
 
@@ -1612,7 +1684,7 @@ export default function SimpleCanvasEditor({
       startElementWidth: 0,
       startElementHeight: 0
     })
-  }, [getCanvasCoordinates, creationState, setActiveTool, createOptimalPanel, detectPanelCollision, setCollisionError])
+  }, [getCanvasCoordinates, creationState, setActiveTool, createOptimalPanel, detectPanelCollision, setCollisionError, panState, setPanState])
 
   // Gestionnaire de double-clic
   const handleDoubleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1746,6 +1818,49 @@ export default function SimpleCanvasEditor({
     setIsDragOverPanel(null)
   }, [findPanelAtPosition, addImageToPanel])
 
+  // ✅ NOUVEAU : Écouter les événements de désélection forcée depuis l'outil main
+  useEffect(() => {
+    const handleForceDeselectAll = (event: CustomEvent) => {
+      console.log('🖐️ SimpleCanvasEditor: Désélection forcée reçue:', event.detail)
+
+      // Désélectionner tous les éléments canvas
+      setSelectedElementId(null)
+      setResizeHandles([])
+
+      // Réinitialiser les états de manipulation
+      setManipulationState({
+        isDragging: false,
+        isResizing: false,
+        draggedElementId: null,
+        resizeHandle: null,
+        startMouseX: 0,
+        startMouseY: 0,
+        startElementX: 0,
+        startElementY: 0,
+        startElementWidth: 0,
+        startElementHeight: 0
+      })
+
+      // Réinitialiser les états de création
+      setCreationState({
+        isCreating: false,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+        elementType: null
+      })
+
+      console.log('✅ SimpleCanvasEditor: Désélection forcée appliquée')
+    }
+
+    window.addEventListener('forceDeselectAll', handleForceDeselectAll as EventListener)
+
+    return () => {
+      window.removeEventListener('forceDeselectAll', handleForceDeselectAll as EventListener)
+    }
+  }, [])
+
   // Gestionnaire de touches clavier
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Delete' && selectedElementId) {
@@ -1778,9 +1893,9 @@ export default function SimpleCanvasEditor({
   // ✅ NETTOYAGE TERMINÉ : Plus besoin d'éditeurs externes
 
   return (
-    <div className={`w-full h-full ${className}`}>
-      <div className="w-full h-full flex flex-col">
-        <div className="flex-1 overflow-auto relative">
+    <div className={`w-full h-full canvas-interface no-scrollbar ${className}`}>
+      <div className="w-full h-full flex flex-col no-scrollbar">
+        <div className="flex-1 overflow-hidden relative no-scrollbar">
           <canvas
             ref={canvasRef}
             width={width}
@@ -1790,6 +1905,7 @@ export default function SimpleCanvasEditor({
             onMouseUp={handleMouseUp}
             onDoubleClick={handleDoubleClick}
             onContextMenu={handleContextMenu}
+            onWheel={handleWheel}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -1797,9 +1913,9 @@ export default function SimpleCanvasEditor({
             style={{
               maxWidth: '100%',
               maxHeight: '100%',
-              transform: `scale(${canvasScale})`,
+              transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasScale})`,
               transformOrigin: 'center',
-              transition: 'transform 0.2s ease'
+              transition: panState.isPanning ? 'none' : 'transform 0.2s ease'
             }}
           />
           

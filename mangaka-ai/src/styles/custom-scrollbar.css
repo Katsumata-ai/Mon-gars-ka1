@@ -98,3 +98,33 @@
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ✅ ÉLIMINATION COMPLÈTE DES SCROLLBARS POUR LE CANVAS */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  overflow: hidden;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Classe pour les conteneurs canvas sans scrollbars */
+.canvas-container {
+  overflow: hidden !important;
+}
+
+.canvas-container::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Éliminer toutes les scrollbars dans l'interface canvas */
+.canvas-interface * {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.canvas-interface *::-webkit-scrollbar {
+  display: none;
+}

@@ -1,4 +1,0 @@
-npm install -g @roo/cli && roo mcp connect --servers all
-tasks:
-  - name: MCP Setup
-    command: bash scripts/mcp_setup.sh

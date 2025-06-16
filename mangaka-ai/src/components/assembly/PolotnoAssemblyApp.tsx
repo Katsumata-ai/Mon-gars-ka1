@@ -139,17 +139,17 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
           />
         }
         centerCanvas={
-          <div className="h-full bg-black flex items-center justify-center p-8 relative">
+          <div className="h-full w-full bg-transparent flex items-center justify-center relative canvas-interface no-scrollbar">
             {/* ✨ MOTIF DE POINTS DÉCORATIFS SUBTILS */}
             <CssDotPattern
               size={1.5}
               spacing={24}
               opacity={0.15}
               color="#ffffff"
-              className="z-0"
+              className="absolute inset-0 z-0"
             />
 
-            <div className="bg-black shadow-2xl rounded-lg overflow-hidden relative z-10">
+            <div className="bg-black shadow-2xl rounded-lg overflow-hidden relative z-10 canvas-container">
               {/* ✨ MOTIF DE POINTS DANS LE CONTENEUR CANVAS */}
               <CssDotPattern
                 size={1.5}

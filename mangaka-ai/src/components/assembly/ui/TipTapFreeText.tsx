@@ -6,6 +6,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { TextElement } from '../types/assembly.types'
+import { usePolotnoContext } from '../context/PolotnoContext'
 import './TipTapFreeText.css'
 
 interface TipTapFreeTextProps {
@@ -27,6 +28,9 @@ export function TipTapFreeText({
 }: TipTapFreeTextProps) {
   const textRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+
+  // ✅ NOUVEAU : Obtenir l'outil actif pour empêcher les interactions avec l'outil main
+  const { activeTool } = usePolotnoContext()
 
   // ✅ CONFIGURATION TIPTAP IDENTIQUE AUX BULLES - RECRÉÉ QUAND FONTSIZE CHANGE
   const editor = useEditor({
@@ -150,6 +154,12 @@ export function TipTapFreeText({
 
   // ✅ GESTION DU CLIC POUR SÉLECTION (sans drag - géré par TextSelectionOverlay)
   const handleTextMouseDown = useCallback((event: React.MouseEvent) => {
+    // ✅ NOUVEAU : Empêcher toute interaction si l'outil main est actif
+    if (activeTool === 'hand') {
+      console.log('🖐️ TipTapFreeText: Outil main actif - aucune interaction texte')
+      return // Pas d'interaction avec les textes
+    }
+
     if (mode === 'editing') return // Pas de clic en mode édition
 
     event.preventDefault()
@@ -176,9 +186,15 @@ export function TipTapFreeText({
     window.dispatchEvent(selectionEvent)
 
     console.log('🎯 TipTapFreeText: Texte sélectionné:', element.id)
-  }, [mode, element.id])
+  }, [mode, element.id, activeTool])
 
   const handleTextDoubleClick = useCallback((event: React.MouseEvent) => {
+    // ✅ NOUVEAU : Empêcher toute interaction si l'outil main est actif
+    if (activeTool === 'hand') {
+      console.log('🖐️ TipTapFreeText: Outil main actif - aucun double-clic texte')
+      return // Pas d'interaction avec les textes
+    }
+
     if (mode !== 'reading') return
 
     event.stopPropagation()
@@ -187,7 +203,7 @@ export function TipTapFreeText({
     // Passer en mode édition
     onModeChange?.(element.id, 'editing')
     onDoubleClick?.(element.id)
-  }, [mode, element.id, onDoubleClick, onModeChange])
+  }, [mode, element.id, onDoubleClick, onModeChange, activeTool])
 
   // ✅ SUPPRIMÉ : Drag global - géré par TextSelectionOverlay comme les bulles
   // Le drag est maintenant géré par le système de sélection unifié

@@ -395,7 +395,7 @@ export default function CanvasAssemblyPanel({
 
             <div className="flex items-center space-x-1 bg-dark-700 rounded-lg px-2">
               <button
-                onClick={() => setZoom(Math.max(25, zoom - 25))}
+                onClick={() => setZoom(Math.max(25, zoom - 10))}
                 className="w-7 h-7 rounded flex items-center justify-center text-dark-400 hover:bg-dark-600 hover:text-white transition-colors"
                 title="Zoom -"
               >
@@ -407,7 +407,7 @@ export default function CanvasAssemblyPanel({
               </span>
 
               <button
-                onClick={() => setZoom(Math.min(200, zoom + 25))}
+                onClick={() => setZoom(Math.min(200, zoom + 10))}
                 className="w-7 h-7 rounded flex items-center justify-center text-dark-400 hover:bg-dark-600 hover:text-white transition-colors"
                 title="Zoom +"
               >

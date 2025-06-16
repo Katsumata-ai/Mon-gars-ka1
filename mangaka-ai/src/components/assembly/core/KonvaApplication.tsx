@@ -39,6 +39,42 @@ export default function KonvaApplication({
   const stageRef = useRef<Konva.Stage>(null)
   const layerRef = useRef<Konva.Layer>(null)
   const selectionLayerRef = useRef<Konva.Layer>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // 🎯 DIMENSIONS DYNAMIQUES : S'adapter à la taille du conteneur
+  const [stageDimensions, setStageDimensions] = useState({ width: 1200, height: 800 })
+
+  // 🎯 OBSERVER LA TAILLE DU CONTENEUR
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        // Utiliser des dimensions généreuses pour permettre la navigation libre
+        const newWidth = Math.max(rect.width, window.innerWidth * 2)
+        const newHeight = Math.max(rect.height, window.innerHeight * 2)
+
+        setStageDimensions({ width: newWidth, height: newHeight })
+        console.log('🎯 KonvaApplication: Dimensions mises à jour:', { width: newWidth, height: newHeight })
+      }
+    }
+
+    // Mise à jour initiale
+    updateDimensions()
+
+    // Observer les changements de taille
+    const resizeObserver = new ResizeObserver(updateDimensions)
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current)
+    }
+
+    // Observer les changements de fenêtre
+    window.addEventListener('resize', updateDimensions)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', updateDimensions)
+    }
+  }, [])
   
   // ✅ PRÉSERVATION COMPLÈTE : Même contexte que PixiJS
   const {
@@ -330,11 +366,15 @@ export default function KonvaApplication({
   }, [panelTool, selectTool, bubbleTool])
 
   return (
-    <div className={`konva-application ${className}`}>
+    <div
+      ref={containerRef}
+      className={`konva-application ${className}`}
+      style={{ width: '100%', height: '100%', overflow: 'hidden' }}
+    >
       <Stage
         ref={stageRef}
-        width={width}
-        height={height}
+        width={stageDimensions.width}
+        height={stageDimensions.height}
         scaleX={canvasTransform.scale}
         scaleY={canvasTransform.scale}
         x={canvasTransform.x}

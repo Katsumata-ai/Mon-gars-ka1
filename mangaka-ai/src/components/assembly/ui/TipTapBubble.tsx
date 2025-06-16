@@ -8,6 +8,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { DialogueElement } from '../types/assembly.types'
+import { usePolotnoContext } from '../context/PolotnoContext'
 // ✅ NOUVEAU : Système graphique unifié (bulle + queue intégrées)
 import UnifiedBubbleShape from './UnifiedBubbleShape'
 
@@ -37,6 +38,26 @@ export default function TipTapBubble({
 }: TipTapBubbleProps) {
   const bubbleRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<any>(null)
+
+  // ✅ NOUVEAU : Obtenir l'outil actif pour empêcher les interactions avec l'outil main
+  const { activeTool } = usePolotnoContext()
+
+  // ✅ ÉTAT POUR LE DRAG AVEC DÉLAI
+  const [dragTimeout, setDragTimeout] = useState<NodeJS.Timeout | null>(null)
+
+  // ✅ LOG DES CHANGEMENTS DE MODE
+  useEffect(() => {
+    console.log('🔍 TipTapBubble: Changement de mode pour', element.id, '→', mode)
+  }, [mode, element.id])
+
+  // ✅ NETTOYAGE DU TIMEOUT AU DÉMONTAGE
+  useEffect(() => {
+    return () => {
+      if (dragTimeout) {
+        clearTimeout(dragTimeout)
+      }
+    }
+  }, [dragTimeout])
 
   // ✅ SUPPRIMÉ : contentSize - Plus de redimensionnement automatique
 
@@ -147,14 +168,30 @@ export default function TipTapBubble({
 
   // ✅ FOCUS AUTOMATIQUE EN MODE ÉDITION
   useEffect(() => {
+    console.log('🔍 TipTapBubble: Vérification focus automatique pour', element.id, {
+      mode,
+      editorExists: !!editor,
+      shouldFocus: mode === 'editing' && editor
+    })
+
     if (mode === 'editing' && editor) {
       // Focus sur l'éditeur quand on passe en mode édition
+      console.log('📝 TipTapBubble: Tentative de focus automatique pour:', element.id)
       setTimeout(() => {
         editor.commands.focus()
-        console.log('🎯 TipTap focused for editing:', element.id)
+        console.log('✅ TipTapBubble: Focus automatique appliqué pour:', element.id)
+
+        // Vérifier que le focus a bien été appliqué
+        setTimeout(() => {
+          console.log('🔍 TipTapBubble: Vérification post-focus:', {
+            bubbleId: element.id,
+            isFocused: editor.isFocused,
+            isEditable: editor.isEditable
+          })
+        }, 50)
       }, 100)
     }
-  }, [mode, editor])
+  }, [mode, editor, element.id])
 
   // ✅ GESTION DES RACCOURCIS CLAVIER
   useEffect(() => {
@@ -249,9 +286,21 @@ export default function TipTapBubble({
 
   // ✅ SUPPRIMÉ : Mesure automatique du contenu - Plus de redimensionnement automatique
 
-  // ✅ NOUVEAU : Drag immédiat comme les panels
+  // ✅ NOUVEAU : Drag comme les panels (seulement au mouvement)
   const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0, elementX: 0, elementY: 0 })
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean
+    startX: number
+    startY: number
+    startElementX: number
+    startElementY: number
+  }>({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    startElementX: 0,
+    startElementY: 0
+  })
 
   // ✅ ENHANCED QUEUE SYSTEM
   const handleQueueUpdate = useCallback((queueConfig: any) => {
@@ -264,10 +313,18 @@ export default function TipTapBubble({
   }, [element.id, element.dialogueStyle, onUpdate])
 
   const handleBubbleMouseDown = useCallback((event: React.MouseEvent) => {
+    // ✅ NOUVEAU : Empêcher toute interaction si l'outil main est actif
+    if (activeTool === 'hand') {
+      console.log('🖐️ TipTapBubble: Outil main actif - aucune interaction bulle')
+      return // Pas d'interaction avec les bulles
+    }
+
     if (mode === 'editing') return // Pas de drag en mode édition
 
     event.preventDefault()
     event.stopPropagation()
+
+    console.log('🔍 TipTapBubble: MouseDown détecté pour', element.id, 'mode actuel:', mode)
 
     // ✅ SÉLECTIONNER LA BULLE D'ABORD pour synchroniser le cadre
     const bubbleClickEvent = new CustomEvent('bubbleClicked', {
@@ -289,41 +346,73 @@ export default function TipTapBubble({
     })
     window.dispatchEvent(selectionEvent)
 
-    // ✅ ATTENDRE UN FRAME POUR QUE LA SÉLECTION SOIT PRISE EN COMPTE
-    requestAnimationFrame(() => {
-      setIsDragging(true)
-      setDragStart({
-        x: event.clientX,
-        y: event.clientY,
-        elementX: element.transform.x,
-        elementY: element.transform.y
-      })
-
-      console.log('🎯 TipTapBubble: Drag immédiat start:', element.id)
-
-      // ✅ NOUVEAU : Passer en mode manipulation
-      onModeChange?.(element.id, 'manipulating')
+    // ✅ NOUVEAU : Préparer le drag mais ne pas l'activer (comme les panels/textes)
+    setDragState({
+      isDragging: false,
+      startX: event.clientX,
+      startY: event.clientY,
+      startElementX: element.transform.x,
+      startElementY: element.transform.y
     })
-  }, [mode, element.id, element.transform.x, element.transform.y, onModeChange])
+
+    console.log('🔍 TipTapBubble: MouseDown préparé pour', element.id)
+  }, [mode, element.id, element.transform.x, element.transform.y, activeTool])
 
   const handleBubbleDoubleClick = useCallback((event: React.MouseEvent) => {
-    if (mode !== 'reading') return
+    // ✅ NOUVEAU : Empêcher toute interaction si l'outil main est actif
+    if (activeTool === 'hand') {
+      console.log('🖐️ TipTapBubble: Outil main actif - aucun double-clic bulle')
+      return // Pas d'interaction avec les bulles
+    }
+
+    console.log('🔍 TipTapBubble: Double-click détecté!', {
+      bubbleId: element.id,
+      currentMode: mode,
+      canEdit: mode === 'reading' || mode === 'manipulating',
+      onDoubleClickExists: !!onDoubleClick,
+      event: event.type
+    })
+
+    // ✅ PERMETTRE LE DOUBLE-CLIC EN MODE READING OU MANIPULATING
+    if (mode !== 'reading' && mode !== 'manipulating') {
+      console.log('❌ TipTapBubble: Double-click ignoré - mode incorrect:', mode, '(doit être "reading" ou "manipulating")')
+      return
+    }
 
     event.stopPropagation()
-    console.log('🎯 TipTapBubble: Double-click pour édition:', element.id)
-    onDoubleClick?.(element.id)
-  }, [mode, element.id, onDoubleClick])
+    console.log('✅ TipTapBubble: Double-click traité, appel onDoubleClick pour:', element.id)
 
-  // ✅ GESTION DU DRAG GLOBAL
+    if (onDoubleClick) {
+      onDoubleClick(element.id)
+      console.log('✅ TipTapBubble: onDoubleClick appelé avec succès')
+    } else {
+      console.error('❌ TipTapBubble: onDoubleClick est undefined!')
+    }
+  }, [mode, element.id, onDoubleClick, activeTool])
+
+  // ✅ GESTION DU DRAG GLOBAL SIMPLIFIÉ (comme les textes)
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
-      if (!isDragging) return
+      // Commencer le drag seulement si on a bougé de plus de 5 pixels
+      if (!dragState.isDragging) {
+        const deltaX = Math.abs(event.clientX - dragState.startX)
+        const deltaY = Math.abs(event.clientY - dragState.startY)
 
-      const deltaX = event.clientX - dragStart.x
-      const deltaY = event.clientY - dragStart.y
+        if (deltaX > 5 || deltaY > 5) {
+          setDragState(prev => ({ ...prev, isDragging: true }))
+          setIsDragging(true)
+          onModeChange?.(element.id, 'manipulating')
+          console.log('🎯 TipTapBubble: Drag start:', element.id)
+        }
+        return
+      }
 
-      const newX = dragStart.elementX + deltaX
-      const newY = dragStart.elementY + deltaY
+      // Continuer le drag
+      const deltaX = event.clientX - dragState.startX
+      const deltaY = event.clientY - dragState.startY
+
+      const newX = dragState.startElementX + deltaX
+      const newY = dragState.startElementY + deltaY
 
       onUpdate(element.id, {
         transform: {
@@ -345,13 +434,22 @@ export default function TipTapBubble({
     }
 
     const handleMouseUp = () => {
-      if (isDragging) {
+      if (dragState.isDragging) {
         setIsDragging(false)
-        console.log('🎯 TipTapBubble: Drag immédiat end:', element.id)
+        console.log('🎯 TipTapBubble: Drag terminé:', element.id)
       }
+
+      setDragState({
+        isDragging: false,
+        startX: 0,
+        startY: 0,
+        startElementX: 0,
+        startElementY: 0
+      })
     }
 
-    if (isDragging) {
+    // Écouter les événements globaux seulement si on a commencé un mousedown
+    if (dragState.startX !== 0 || dragState.startY !== 0) {
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
 
@@ -360,7 +458,7 @@ export default function TipTapBubble({
         document.removeEventListener('mouseup', handleMouseUp)
       }
     }
-  }, [isDragging, dragStart, element.id, element.transform, onUpdate])
+  }, [dragState, element.id, element.transform, onUpdate, onModeChange])
 
   // ✅ FORCER LES STYLES CSS GLOBAUX + JAVASCRIPT POUR LA COULEUR
   useEffect(() => {

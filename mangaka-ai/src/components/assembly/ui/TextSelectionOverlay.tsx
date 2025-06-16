@@ -132,6 +132,22 @@ export default function TextSelectionOverlay({
     }
   }, [isDragging, isResizing, selectedTextId, activeHandle, dragStart, resizeStart, onDrag, onDragEnd, onResize, onResizeEnd])
 
+  // ✅ NOUVEAU : Écouter les désélections forcées depuis l'outil main
+  useEffect(() => {
+    const handleForceDeselectAll = () => {
+      console.log('🖐️ TextSelectionOverlay: Désélection forcée - arrêt manipulation')
+      setIsDragging(false)
+      setIsResizing(false)
+      setActiveHandle(null)
+    }
+
+    window.addEventListener('forceDeselectAll', handleForceDeselectAll)
+
+    return () => {
+      window.removeEventListener('forceDeselectAll', handleForceDeselectAll)
+    }
+  }, [])
+
   // ✅ GESTION DU DOUBLE-CLIC
   const handleTextMouseDown = useCallback((e: React.MouseEvent) => {
     if (!selectedTextId || !textBounds) return

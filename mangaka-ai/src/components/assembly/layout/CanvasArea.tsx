@@ -36,7 +36,7 @@ interface CanvasAreaProps {
  * - Fond distinctif des menus latéraux
  * - Canvas centré et manipulable
  * - Contrôles de zoom et navigation
- * - Scroll libre dans toutes les directions
+ * - Navigation libre dans l'espace noir sans limites
  */
 export default function CanvasArea({
   width = 1200,
@@ -48,6 +48,48 @@ export default function CanvasArea({
   className = ''
 }: CanvasAreaProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Utiliser le contexte Polotno pour obtenir le zoomLevel
+  const { zoomLevel } = usePolotnoContext()
+
+  // ✅ NOUVEAU : Calculer la position centrée par défaut
+  const getInitialCenteredPosition = useCallback(() => {
+    if (typeof window === 'undefined') return { x: 0, y: 0 }
+
+    // Obtenir les dimensions du conteneur CanvasArea
+    const container = containerRef.current
+    if (!container) return { x: 0, y: 0 }
+
+    const containerRect = container.getBoundingClientRect()
+    const containerWidth = containerRect.width
+    const containerHeight = containerRect.height
+
+    // Calculer la position pour centrer le canvas dans le conteneur visible
+    // Avec le zoom à 35%, le canvas effectif sera plus petit
+    const currentZoom = zoomLevel / 100
+    const effectiveCanvasWidth = width * currentZoom
+    const effectiveCanvasHeight = height * currentZoom
+
+    // Centrer le canvas effectif dans le conteneur avec ajustements visuels
+    // Décaler vers la gauche et vers le haut pour un meilleur centrage visuel
+    const centerX = (containerWidth - effectiveCanvasWidth) / 2 - 50 // Décalage vers la gauche
+    const centerY = (containerHeight - effectiveCanvasHeight) / 2 - 30 // Décalage vers le haut
+
+    console.log('🎯 CanvasArea: Position centrée calculée:', {
+      containerWidth,
+      containerHeight,
+      canvasWidth: width,
+      canvasHeight: height,
+      currentZoom,
+      effectiveCanvasWidth,
+      effectiveCanvasHeight,
+      centerX,
+      centerY
+    })
+
+    return { x: centerX, y: centerY }
+  }, [width, height, zoomLevel])
+
   const [canvasTransform, setCanvasTransform] = useState({
     x: 0,
     y: 0,
@@ -59,10 +101,42 @@ export default function CanvasArea({
   const [isDragging, setIsDragging] = useState(false)
 
   // Utiliser le contexte canvas principal
-  const { elements, addElement, updateElement, removeElement, panelContentService, activeTool, setZoom, zoom, pixiApp } = useCanvasContext()
+  const { elements, addElement, updateElement, removeElement, panelContentService, setZoom, pixiApp } = useCanvasContext()
 
-  // Utiliser le contexte Polotno pour le zoom unifié
-  const { zoomLevel, zoomIn, zoomOut, resetZoom } = usePolotnoContext()
+  // Utiliser le contexte Polotno pour le zoom unifié et l'outil actif
+  const { zoomIn, zoomOut, resetZoom, activeTool } = usePolotnoContext()
+
+  // ✅ NOUVEAU : Recentrer le canvas lors du redimensionnement de la fenêtre
+  useEffect(() => {
+    const handleResize = () => {
+      const centeredPosition = getInitialCenteredPosition()
+      setCanvasTransform(prev => ({
+        ...prev,
+        x: centeredPosition.x,
+        y: centeredPosition.y
+      }))
+      console.log('🔄 CanvasArea: Canvas recentré après redimensionnement')
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [getInitialCenteredPosition])
+
+  // ✅ NOUVEAU : Centrer le canvas au premier chargement (après montage du conteneur)
+  useEffect(() => {
+    // Attendre que le conteneur soit monté et ait ses dimensions
+    const timer = setTimeout(() => {
+      const centeredPosition = getInitialCenteredPosition()
+      setCanvasTransform(prev => ({
+        ...prev,
+        x: centeredPosition.x,
+        y: centeredPosition.y
+      }))
+      console.log('🎯 CanvasArea: Canvas centré au chargement initial')
+    }, 100) // Petit délai pour s'assurer que le conteneur est rendu
+
+    return () => clearTimeout(timer)
+  }, [getInitialCenteredPosition])
 
   // Gérer le drop d'images sur le canvas - UNIQUEMENT DANS LES PANELS
   const handleDrop = useCallback((event: React.DragEvent) => {
@@ -83,8 +157,8 @@ export default function CanvasArea({
       const rawX = event.clientX - rect.left
       const rawY = event.clientY - rect.top
 
-      // Convertir en coordonnées canvas en tenant compte des transformations CSS
-      // Le canvas PixiJS est centré et transformé dans le conteneur
+      // 🎯 NAVIGATION LIBRE : Convertir en coordonnées canvas sans limites fixes
+      // Le canvas Konva utilise maintenant des dimensions dynamiques
       const canvasRect = {
         x: rect.width / 2 + canvasTransform.x - (width * canvasTransform.scale) / 2,
         y: rect.height / 2 + canvasTransform.y - (height * canvasTransform.scale) / 2,
@@ -92,7 +166,7 @@ export default function CanvasArea({
         height: height * canvasTransform.scale
       }
 
-      // Coordonnées relatives au canvas PixiJS
+      // Coordonnées relatives au canvas Konva
       const canvasX = (rawX - canvasRect.x) / canvasTransform.scale
       const canvasY = (rawY - canvasRect.y) / canvasTransform.scale
 
@@ -271,7 +345,7 @@ export default function CanvasArea({
 
     const rect = container.getBoundingClientRect()
 
-    // Même logique de conversion que dans handleDrop
+    // 🎯 NAVIGATION LIBRE : Même logique de conversion que dans handleDrop
     const rawX = clientX - rect.left
     const rawY = clientY - rect.top
 
@@ -420,30 +494,68 @@ export default function CanvasArea({
 
   // ZOOM AVEC MOLETTE SUPPRIMÉ - Utilisation uniquement des contrôles toolbar et boutons
 
-  // Gestionnaire de déplacement (pan)
+  // ✅ AMÉLIORATION : Gestionnaire de déplacement (pan) étendu pour l'outil main
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 1) return // Seulement bouton du milieu
-    
-    e.preventDefault()
-    const startX = e.clientX - canvasTransform.x
-    const startY = e.clientY - canvasTransform.y
+    // ✅ NOUVEAU : Gestion de l'outil main avec bouton gauche sur toute la zone workspace
+    if (activeTool === 'hand' && e.button === 0) {
+      console.log('🖐️ CanvasArea: Début pan avec outil main sur workspace')
 
-    const handleMouseMove = (e: MouseEvent) => {
-      setCanvasTransform(prev => ({
-        ...prev,
-        x: e.clientX - startX,
-        y: e.clientY - startY
-      }))
+      e.preventDefault()
+      e.stopPropagation()
+
+      const startX = e.clientX - canvasTransform.x
+      const startY = e.clientY - canvasTransform.y
+
+      const handleMouseMove = (e: MouseEvent) => {
+        // 🎯 NAVIGATION LIBRE : Pas de limites de déplacement
+        const newX = e.clientX - startX
+        const newY = e.clientY - startY
+
+        setCanvasTransform(prev => ({
+          ...prev,
+          x: newX,
+          y: newY
+        }))
+      }
+
+      const handleMouseUp = () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+        console.log('🖐️ CanvasArea: Fin pan avec outil main')
+      }
+
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      return
     }
 
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
+    // 🎯 NAVIGATION LIBRE : Gestionnaire de déplacement (pan) avec bouton du milieu (fallback)
+    if (e.button === 1) {
+      e.preventDefault()
+      const startX = e.clientX - canvasTransform.x
+      const startY = e.clientY - canvasTransform.y
 
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [canvasTransform.x, canvasTransform.y])
+      const handleMouseMove = (e: MouseEvent) => {
+        // 🎯 NAVIGATION LIBRE : Pas de limites de déplacement
+        const newX = e.clientX - startX
+        const newY = e.clientY - startY
+
+        setCanvasTransform(prev => ({
+          ...prev,
+          x: newX,
+          y: newY
+        }))
+      }
+
+      const handleMouseUp = () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+    }
+  }, [canvasTransform.x, canvasTransform.y, activeTool])
 
   // Mettre à jour canvasTransform quand zoomLevel change
   useEffect(() => {
@@ -460,12 +572,15 @@ export default function CanvasArea({
   // Gestionnaire de clic optimisé selon l'outil actif
   const handleCanvasClick = useCallback((x: number, y: number) => {
     switch (activeTool) {
-      case 'panel':
+      case 'rectangle': // Panel dans Polotno
         // L'outil panel gère le clic-glisser dans PixiApplication
         break
-      case 'dialogue':
+      case 'bubble':
         // Placer une bulle de dialogue
         // TODO: Implémenter le placement de bulle
+        break
+      case 'hand':
+        // Outil main - pas de clic canvas, seulement pan
         break
       default:
         // Outil de sélection ou autres
@@ -525,31 +640,19 @@ export default function CanvasArea({
         </div>
       </div>
 
-      {/* Zone de canvas - Centrée et transformable */}
-      <div className="h-full flex items-center justify-center p-8 relative">
-        <div
-          className="bg-white shadow-2xl rounded-lg overflow-hidden transition-transform duration-200 relative"
-          style={{
-            transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasTransform.scale})`,
-            transformOrigin: 'center'
-          }}
-        >
-          {/* ✅ MIGRATION KONVA : Remplacement PixiApplication par KonvaApplication */}
-          <KonvaApplication
-            width={width}
-            height={height}
-            onElementClick={handleElementClick}
-            onCanvasClick={handleCanvasClick}
-            onBubbleDoubleClick={onBubbleDoubleClick}
-            onBubbleRightClick={onBubbleRightClick}
-            canvasTransform={canvasTransform}
-            className="block"
-          />
-
-          {/* ✅ MIGRATION KONVA : BubbleLayer supprimé - bulles intégrées dans KonvaApplication */}
-        </div>
-
-        {/* 🎯 Feedback visuel maintenant géré dans PixiJS - Plus de problème de positionnement ! */}
+      {/* 🎯 NAVIGATION LIBRE : Zone de canvas étendue sans limites */}
+      <div className="absolute inset-0">
+        {/* ✅ KONVA DYNAMIQUE : Canvas avec dimensions adaptatives */}
+        <KonvaApplication
+          width={width}
+          height={height}
+          onElementClick={handleElementClick}
+          onCanvasClick={handleCanvasClick}
+          onBubbleDoubleClick={onBubbleDoubleClick}
+          onBubbleRightClick={onBubbleRightClick}
+          canvasTransform={canvasTransform}
+          className="w-full h-full"
+        />
       </div>
 
       {/* Indicateur de position (développement) */}
@@ -557,7 +660,7 @@ export default function CanvasArea({
         <div className="absolute top-4 left-4 bg-black/50 text-white text-xs p-2 rounded">
           <div>X: {Math.round(canvasTransform.x)}</div>
           <div>Y: {Math.round(canvasTransform.y)}</div>
-          <div>Scale: {scale.toFixed(2)}</div>
+          <div>Scale: {canvasTransform.scale.toFixed(2)}</div>
           <div>Zoom: {zoomLevel}%</div>
         </div>
       )}

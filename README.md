@@ -1,71 +1,91 @@
-# 🎨 MANGAKA AI
+# 🎨 MANGAKA AI - Manga Creation Platform
 
-Plateforme SaaS de création de manga avec IA - Transformez vos idées en histoires manga professionnelles.
+**Transform your ideas into professional manga stories with AI-powered tools.**
 
-## 🎯 Fonctionnalités
+## 🚀 Quick Start
 
-- ✅ **Générateur d'Images IA** - Créez personnages, décors et scènes
-- ✅ **Créateur de Scènes** - Combinez vos assets en scènes cohérentes  
-- ✅ **Éditeur de Pages** - Canvas avancé pour assembler vos pages manga
-- ✅ **Script Editor** - Organisez votre histoire en chapitres et scènes
-- ✅ **Gestion des Crédits** - Système freemium/pro intégré
-
-## 🛠️ Technologies
-
-- **Frontend**: Next.js 15, React 19, TypeScript
-- **Styling**: Tailwind CSS avec thème manga
-- **Backend**: Supabase (Auth + Database)
-- **Canvas**: Fabric.js pour l'éditeur de pages
-- **IA**: Simulation Xai Grok 2 API
-
-## 🔗 URLs Importantes
-
-- **Application**: http://localhost:3000
-- **Dashboard**: http://localhost:3000/dashboard
-- **Générateur**: http://localhost:3000/generate
-- **Créateur de Scènes**: http://localhost:3000/scene-creator
-- **Éditeur de Pages**: http://localhost:3000/page-editor
-- **Script Editor**: http://localhost:3000/script-editor
-
-## ⚠️ Résolution des Erreurs Communes
-
-### Erreur "package.json not found"
 ```bash
-# ❌ Incorrect (depuis la racine)
-npm run dev
-
-# ✅ Correct (depuis la racine)
-npm run dev  # Utilise le script workspace
-
-# ✅ Ou naviguer vers le projet
-cd mangaka-ai && npm run dev
-```
-
-### Erreur "node_modules not found"
-```bash
+# Navigate to the project
 cd mangaka-ai
+
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
 ```
 
-## 🎨 Design System
+**🌐 Application URL:** http://localhost:3001
 
-- **Couleurs**: Palette noir/rouge manga authentique
-- **Thème**: Dark mode avec accents primaires
-- **Responsive**: Adaptation mobile/desktop
-- **Animations**: Micro-interactions satisfaisantes
+## ✨ Features
 
-## 📱 Navigation
+- **🤖 AI Image Generation** - Create characters, backgrounds, and scenes
+- **🎭 Scene Creator** - Combine assets into cohesive scenes
+- **📄 Page Editor** - Advanced canvas for manga page assembly
+- **📝 Script Editor** - Organize your story with structured chapters
+- **💳 Credit System** - Integrated freemium/pro model
+- **🔐 Authentication** - Secure user management with Supabase
 
-1. **Landing Page** → Présentation du produit
-2. **Authentification** → Connexion/Inscription
-3. **Dashboard** → Vue d'ensemble des projets
-4. **Workflow Créatif**:
-   - Générer des images IA
-   - Créer des scènes combinées
-   - Assembler en pages manga
-   - Organiser avec le script editor
+## 🛠️ Tech Stack
+
+- **Frontend:** Next.js 15, React 19, TypeScript
+- **Backend:** Supabase (PostgreSQL, Auth, Storage)
+- **Styling:** Tailwind CSS
+- **Canvas:** Fabric.js, PixiJS
+- **State Management:** Zustand
+- **AI Integration:** Xai Grok 2 API
+
+## 📱 Key Pages
+
+- **Dashboard:** `/dashboard` - Project overview
+- **Character Generator:** `/dashboard` - Create manga characters
+- **Scene Creator:** `/dashboard` - Combine assets into scenes
+- **Page Editor:** `/project/[id]/edit` - Assemble manga pages
+- **Script Editor:** `/dashboard` - Structure your story
+
+## 🔧 Environment Setup
+
+Create a `.env.local` file:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+XAI_API_KEY=your_xai_api_key
+```
+
+## 📦 Build & Deploy
+
+```bash
+# Build for production
+npm run build
+
+# Start production server
+npm start
+
+# Run linting
+npm run lint
+```
+
+## 🎯 Project Structure
+
+```
+mangaka-ai/
+├── src/
+│   ├── app/              # Next.js App Router
+│   ├── components/       # React components
+│   ├── hooks/           # Custom hooks
+│   ├── lib/             # Utilities and configurations
+│   ├── stores/          # Zustand state management
+│   └── styles/          # Global styles
+├── public/              # Static assets
+├── database/            # Database migrations
+└── supabase/           # Supabase configuration
+```
+
+## 📄 License
+
+All rights reserved. Proprietary software.
 
 ---
 
-**Développé avec ❤️ par l'équipe MANGAKA AI**
+**🎨 Built with ❤️ by the MANGAKA AI team**
