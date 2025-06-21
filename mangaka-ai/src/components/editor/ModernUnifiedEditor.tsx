@@ -17,8 +17,7 @@ import {
   Image as ImageIcon,
   Type,
   Layers,
-  Eye,
-  EyeOff,
+
   Grid,
   BookOpen,
   Sparkles,
@@ -35,7 +34,7 @@ import { cn } from '@/lib/utils'
 // Import des nouveaux composants
 import MangaButton from '@/components/ui/MangaButton'
 import AssetSidebar from '@/components/editor/AssetSidebar'
-import PagesSidebar from '@/components/editor/PagesSidebar'
+
 import ScriptEditorPanel from '@/components/editor/ScriptEditorPanel'
 import CachedMangaCharacterStudio from '@/components/character/CachedMangaCharacterStudio'
 import CachedMangaDecorStudio from '@/components/decor/CachedMangaDecorStudio'
@@ -43,7 +42,6 @@ import SceneComposerPanel from '@/components/editor/SceneComposerPanel'
 import PolotnoAssemblyApp from '@/components/assembly/PolotnoAssemblyApp'
 
 // Import des composants mobile
-import MobileBottomNavigation from '@/components/mobile/MobileBottomNavigation'
 import MobileHamburgerMenu from '@/components/mobile/MobileHamburgerMenu'
 import MobileDrawer from '@/components/mobile/MobileDrawer'
 
@@ -53,6 +51,9 @@ import { useProjectStore } from '@/stores/projectStore'
 
 // Import du correcteur d'accessibilité
 import AccessibilityFixer from '@/components/ui/AccessibilityFixer'
+
+// Import du composant d'avertissement mobile
+import MobileWarning from '@/components/mobile/MobileWarning'
 
 interface ModernUnifiedEditorProps {
   projectId: string
@@ -379,10 +380,8 @@ function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEdi
   const [pages, setPages] = useState([1, 2, 3])
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [assetSidebarVisible, setAssetSidebarVisible] = useState(false)
-  const [pagesSidebarVisible, setPagesSidebarVisible] = useState(false)
 
   // États pour mobile
-  const [mobilePageDrawerOpen, setMobilePageDrawerOpen] = useState(false)
   const [mobileAssetDrawerOpen, setMobileAssetDrawerOpen] = useState(false)
 
   // Store de persistance global
@@ -497,27 +496,9 @@ function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEdi
     // Sur mobile, utiliser les drawers
     if (window.innerWidth < 768) {
       setMobileAssetDrawerOpen(!mobileAssetDrawerOpen)
-      setMobilePageDrawerOpen(false) // Fermer l'autre drawer
     } else {
       // Sur desktop, comportement normal
       setAssetSidebarVisible(!assetSidebarVisible)
-      if (!assetSidebarVisible && pagesSidebarVisible) {
-        setPagesSidebarVisible(false)
-      }
-    }
-  }
-
-  const togglePagesSidebar = () => {
-    // Sur mobile, utiliser les drawers
-    if (window.innerWidth < 768) {
-      setMobilePageDrawerOpen(!mobilePageDrawerOpen)
-      setMobileAssetDrawerOpen(false) // Fermer l'autre drawer
-    } else {
-      // Sur desktop, comportement normal
-      setPagesSidebarVisible(!pagesSidebarVisible)
-      if (!pagesSidebarVisible && assetSidebarVisible) {
-        setAssetSidebarVisible(false)
-      }
     }
   }
 
@@ -553,6 +534,9 @@ function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEdi
 
   return (
     <>
+      {/* Avertissement mobile - s'affiche uniquement sur mobile */}
+      <MobileWarning />
+
       {/* Correcteur automatique d'accessibilité */}
       <AccessibilityFixer />
 
@@ -632,9 +616,7 @@ function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEdi
               {/* Menu Hamburger Mobile */}
               <MobileHamburgerMenu
                 projectName={projectName}
-                onPagesToggle={togglePagesSidebar}
                 onAssetsToggle={toggleAssetSidebar}
-                pagesVisible={mobilePageDrawerOpen}
                 assetsVisible={mobileAssetDrawerOpen}
               />
 
@@ -648,28 +630,7 @@ function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEdi
 
             {/* Section droite - Boutons ergonomiques et compacts */}
             <div className="flex items-center gap-3" suppressHydrationWarning={true}>
-              {/* Bouton Page unifié avec indicateur et œil - Desktop uniquement */}
-              <div className="hidden md:block" suppressHydrationWarning={true}>
-                <MangaButton
-                  onClick={togglePagesSidebar}
-                  size="sm"
-                  variant={pagesSidebarVisible ? "primary" : "ghost"}
-                  icon={pagesSidebarVisible ? <Eye className="w-4 h-4 text-black" /> : <EyeOff className="w-4 h-4" />}
-                  title={pagesSidebarVisible ? 'Masquer le menu des pages' : 'Afficher le menu des pages'}
-                  className={pagesSidebarVisible ? "!bg-white !text-black !border-white hover:!bg-gray-100 !shadow-none focus:!ring-white focus:!ring-2 focus:!ring-offset-0" : ""}
-                >
-                  <span className="flex items-center space-x-2">
-                    <span className={pagesSidebarVisible ? "text-black" : ""}>Page</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
-                      pagesSidebarVisible
-                        ? "bg-gray-200 text-black"
-                        : "bg-gray-600/50"
-                    }`}>
-                      {currentPage}/{pages.length}
-                    </span>
-                  </span>
-                </MangaButton>
-              </div>
+
 
               {/* Bouton Save Global Rouge - Desktop uniquement */}
               <div className="hidden md:block" suppressHydrationWarning={true}>
@@ -697,28 +658,13 @@ function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEdi
         </div>
 
         {/* Zone de Contenu avec Sidebars */}
-        <div className="flex-1 flex overflow-hidden pb-16 md:pb-0" suppressHydrationWarning={true}>
+        <div className="flex-1 flex overflow-hidden" suppressHydrationWarning={true}>
           {/* Contenu Principal - Scrollable à l'intérieur */}
           <div className="flex-1 overflow-hidden" suppressHydrationWarning={true}>
             {renderTabContent()}
           </div>
 
           {/* Sidebars Droites - Desktop uniquement */}
-          {pagesSidebarVisible && (
-            <PagesSidebar
-              isVisible={pagesSidebarVisible}
-              currentPage={currentPage}
-              pages={pages}
-              onPageSelect={setCurrentPage}
-              onAddPage={addPage}
-              onDeletePage={deletePage}
-              onDuplicatePage={duplicatePage}
-              onReorderPages={reorderPages}
-              onClose={() => setPagesSidebarVisible(false)}
-              className="hidden md:flex"
-            />
-          )}
-
           {assetSidebarVisible && activeTab !== 'assembly' && (
             <AssetSidebar
               projectId={projectId}
@@ -729,33 +675,7 @@ function ModernUnifiedEditorContent({ projectId, projectName }: ModernUnifiedEdi
           )}
         </div>
 
-        {/* Navigation Mobile Bottom */}
-        <MobileBottomNavigation
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-
         {/* Drawers Mobile */}
-        <MobileDrawer
-          isOpen={mobilePageDrawerOpen}
-          onClose={() => setMobilePageDrawerOpen(false)}
-          title="Pages du Manga"
-          position="right"
-        >
-          <PagesSidebar
-            isVisible={true}
-            currentPage={currentPage}
-            pages={pages}
-            onPageSelect={setCurrentPage}
-            onAddPage={addPage}
-            onDeletePage={deletePage}
-            onDuplicatePage={duplicatePage}
-            onReorderPages={reorderPages}
-            onClose={() => setMobilePageDrawerOpen(false)}
-            className="border-0"
-          />
-        </MobileDrawer>
-
         {activeTab !== 'assembly' && (
           <MobileDrawer
             isOpen={mobileAssetDrawerOpen}

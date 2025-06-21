@@ -27,7 +27,6 @@ import { usePolotnoContext } from '../context/PolotnoContext'
 interface ToolBarProps {
   onSave?: () => void
   onExport?: () => void
-  onTogglePages?: () => void
   className?: string
 }
 
@@ -39,7 +38,7 @@ const TOOLS = [
   { id: 'text', name: 'Texte libre', icon: Type, shortcut: 'T' }
 ] as const
 
-export default function ToolBar({ onSave, onExport, onTogglePages, className }: ToolBarProps) {
+export default function ToolBar({ onSave, onExport, className }: ToolBarProps) {
   const {
     activeTool,
     setActiveTool,
@@ -221,18 +220,6 @@ export default function ToolBar({ onSave, onExport, onTogglePages, className }: 
       {/* Actions de droite */}
       <div className="flex items-center space-x-2">
         {/* Panneaux */}
-        <button
-          onClick={onTogglePages}
-          className={cn(
-            'w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-200',
-            'hover:scale-105 active:scale-95',
-            'text-dark-400 hover:bg-dark-700 hover:text-white'
-          )}
-          title="Pages (P)"
-        >
-          <FileText className="w-5 h-5" />
-        </button>
-
         <button
           onClick={toggleLayersPanel}
           className={cn(

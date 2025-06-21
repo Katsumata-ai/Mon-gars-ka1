@@ -116,18 +116,17 @@ export default function RightPanel({
   }, [projectId])
 
   return (
-    <div className={`h-full flex flex-col bg-dark-800 ${className}`}>
-      {/* Toggle principal Pages/Images/Paramètres */}
-      <div className="border-b border-dark-700 p-4">
-        <div className="flex bg-dark-700 rounded-lg p-1">
+    <div className={`h-full flex flex-col bg-gray-900 ${className}`}>
+      {/* Onglets simplifiés */}
+      <div className="border-b border-gray-700 p-3">
+        <div className="flex bg-gray-800 rounded-md p-1">
           <button
             onClick={() => setActiveMode('pages')}
             className={`
-              flex-1 flex items-center justify-center py-1 px-2 rounded-md
-              text-xs font-medium transition-all duration-200
+              flex-1 flex items-center justify-center py-2 px-3 rounded text-xs font-medium transition-colors
               ${activeMode === 'pages'
-                ? 'bg-red-500 text-white shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-dark-600'
+                ? 'bg-red-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
               }
             `}
           >
@@ -138,11 +137,10 @@ export default function RightPanel({
           <button
             onClick={() => setActiveMode('images')}
             className={`
-              flex-1 flex items-center justify-center py-1 px-2 rounded-md
-              text-xs font-medium transition-all duration-200
+              flex-1 flex items-center justify-center py-2 px-3 rounded text-xs font-medium transition-colors
               ${activeMode === 'images'
-                ? 'bg-red-500 text-white shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-dark-600'
+                ? 'bg-red-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
               }
             `}
           >
@@ -153,11 +151,10 @@ export default function RightPanel({
           <button
             onClick={() => setActiveMode('settings')}
             className={`
-              flex-1 flex items-center justify-center py-1 px-2 rounded-md
-              text-xs font-medium transition-all duration-200
+              flex-1 flex items-center justify-center py-2 px-3 rounded text-xs font-medium transition-colors
               ${activeMode === 'settings'
-                ? 'bg-red-500 text-white shadow-sm'
-                : 'text-gray-400 hover:text-white hover:bg-dark-600'
+                ? 'bg-red-600 text-white'
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
               }
             `}
           >
@@ -257,104 +254,85 @@ function PagesMode({
   }
   return (
     <div className="h-full flex flex-col">
-      {/* ✅ REFACTORED: Header élégant avec branding mangaka-ai */}
-      <div className="p-4 border-b border-red-500/20 bg-gradient-to-r from-red-500/8 to-orange-500/8">
+      {/* Header minimal et professionnel */}
+      <div className="p-4 border-b border-gray-700">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
-              <FileText className="w-3.5 h-3.5 text-white" />
-            </div>
+          <div className="flex items-center space-x-2">
+            <FileText className="w-4 h-4 text-red-500" />
             <div>
-              <h3 className="text-white font-bold text-sm">Pages du projet</h3>
-              <p className="text-xs text-dark-400">{pages.length} page{pages.length !== 1 ? 's' : ''}</p>
+              <h3 className="text-white font-medium text-sm">Pages du projet</h3>
+              <p className="text-xs text-gray-400">{pages.length} page{pages.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <button
             onClick={handleAddPage}
-            className="p-2 text-red-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300 group shadow-sm"
+            className="w-8 h-8 rounded-md bg-red-600 hover:bg-red-700 flex items-center justify-center text-white transition-colors"
             title="Ajouter une nouvelle page"
           >
-            <Plus size={16} className="group-hover:scale-110 transition-transform" />
+            <Plus size={14} />
           </button>
         </div>
       </div>
 
-      {/* ✅ REFACTORED: Interface en colonne unique élégante */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      {/* Liste des pages simplifiée */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {pages.map((page) => (
           <div
             key={page.id}
             className={`
-              group relative p-4 rounded-xl border cursor-pointer transition-all duration-300 backdrop-blur-sm
+              group relative p-4 rounded-lg border cursor-pointer transition-colors
               ${currentPageId === page.id
-                ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border-red-500/50 shadow-lg shadow-red-500/10 ring-1 ring-red-500/30'
-                : 'bg-dark-700/60 border-dark-600/40 hover:border-red-500/40 hover:bg-dark-600/80 hover:shadow-md'
+                ? 'bg-gray-800 border-red-500'
+                : 'bg-gray-900 border-gray-700 hover:border-gray-600 hover:bg-gray-800'
               }
             `}
             onClick={() => handlePageSelect(page.id)}
           >
             <div className="flex items-center space-x-4">
-              {/* ✅ REFACTORED: Miniature élégante */}
-              <div className="w-16 h-20 bg-gradient-to-br from-dark-600 to-dark-700 rounded-lg flex items-center justify-center overflow-hidden shadow-md flex-shrink-0">
+              {/* Miniature simplifiée */}
+              <div className="w-14 h-18 bg-gray-800 rounded border border-gray-700 flex items-center justify-center flex-shrink-0">
                 {page.thumbnail ? (
                   <img
                     src={page.thumbnail}
                     alt={page.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover rounded"
                   />
                 ) : (
-                  <FileText size={20} className="text-gray-500 group-hover:text-red-400 transition-colors duration-300" />
+                  <FileText size={18} className="text-gray-500" />
                 )}
               </div>
 
-              {/* ✅ REFACTORED: Informations de la page */}
+              {/* Informations de la page */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    {/* ✅ SINGLE INTELLIGENT PAGE INDICATOR: Lecture seule, synchronisé Supabase */}
-                    <div className={`
-                      px-3 py-1 rounded-full text-sm font-bold transition-all duration-300
-                      ${currentPageId === page.id
-                        ? 'bg-red-500 text-white shadow-md'
-                        : 'bg-dark-600 text-dark-300 group-hover:bg-red-500/20 group-hover:text-red-300'
-                      }
-                    `}>
-                      {page.pageNumber}
-                    </div>
-                    <h4 className="text-white font-semibold group-hover:text-red-100 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium text-white">
                       {page.title}
                     </h4>
                   </div>
 
-                  {/* ✅ REFACTORED: Indicateur de page active */}
+                  {/* Indicateur de page active */}
                   {currentPageId === page.id && (
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50"></div>
+                    <div className="w-2 h-2 bg-red-500 rounded-full"></div>
                   )}
-                </div>
-
-                <div className="text-sm text-dark-400 group-hover:text-dark-300 transition-colors">
-                  {page.elementsCount} élément{page.elementsCount !== 1 ? 's' : ''}
                 </div>
               </div>
             </div>
 
-            {/* ✅ REFACTORED: Actions élégantes */}
-            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
+            {/* Bouton de suppression */}
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   handleDeletePage(page.id)
                 }}
-                className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/30 transition-all duration-200 hover:scale-110 shadow-sm"
+                className="w-7 h-7 rounded-md bg-gray-700 hover:bg-red-600 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
                 title="Supprimer la page"
                 disabled={pages.length <= 1}
               >
                 <Trash2 size={14} />
               </button>
             </div>
-
-            {/* ✅ REFACTORED: Effet de survol élégant */}
-            <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 to-orange-500/0 group-hover:from-red-500/5 group-hover:to-orange-500/5 rounded-xl transition-all duration-300 pointer-events-none"></div>
           </div>
         ))}
       </div>

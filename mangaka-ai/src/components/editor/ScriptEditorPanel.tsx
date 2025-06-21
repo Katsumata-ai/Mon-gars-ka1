@@ -17,7 +17,6 @@ import {
 
 // Import des composants mobile
 import MobileScriptStats from './MobileScriptStats'
-import MobileScriptToggle from './MobileScriptToggle'
 
 // Import du nouvel éditeur natif
 import NativeScriptEditor from './NativeScriptEditor'
@@ -87,13 +86,19 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
   const stats = scriptData.stats
   const fileTree = scriptData.fileTree
 
+  // Debug: Log current store data (simplifié)
+  console.log('🏪 ScriptEditorPanel loaded - Content length:', scriptData.content?.length || 0, 'FileTree items:', scriptData.fileTree.length)
+
+
+
   // Synchroniser le contenu d'affichage avec le store au montage
   useEffect(() => {
-    if (scriptData.content !== displayContent) {
-      setDisplayContent(scriptData.content || '')
-      currentContentRef.current = scriptData.content || ''
+    const content = scriptData.content || ''
+    if (content !== displayContent) {
+      setDisplayContent(content)
+      currentContentRef.current = content
     }
-  }, [scriptData.content])
+  }, [scriptData.content, displayContent])
 
   // États pour le redimensionnement vertical uniquement
   const [editorHeight, setEditorHeight] = useState(390) // 15 lignes × 26px = 390px
@@ -202,7 +207,7 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
 
 
 
-  // Calcul optimisé des statistiques et génération de l'arbre de fichiers
+  // ✅ CORRECTION : Calcul simplifié des statistiques uniquement (sans fileTree)
   const calculateStats = useCallback((content: string): ScriptStats => {
     // Optimisation : éviter les calculs si le contenu est vide
     if (!content.trim()) {
@@ -222,112 +227,26 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
     let chapters = 0
     let dialogues = 0
 
-    // Génération optimisée de l'arbre de fichiers
-    const tree: FileTreeNode[] = []
-    let currentPage: FileTreeNode | null = null
-    let currentChapter: FileTreeNode | null = null
-    let currentPanel: FileTreeNode | null = null
-
     // Optimisation : utiliser une seule boucle avec regex pré-compilées
     const pageRegex = /^PAGE\s+\d+\s*:/
     const chapterRegex = /^CHAPITRE\s+\d+\s*:/
     const panelRegex = /^PANEL\s+\d+\s*:/
     const dialogueRegex = /^\[.*\]\s*:/
 
-    lines.forEach((line, index) => {
+    lines.forEach((line) => {
       const trimmed = line.trim()
       if (!trimmed) return // Ignorer les lignes vides
 
       if (pageRegex.test(trimmed)) {
         pages++
-        currentPage = {
-          id: `page-${pages}`,
-          type: 'page',
-          title: `Page ${pages}`,
-          content: trimmed,
-          children: [],
-          expanded: true,
-          lineNumber: index
-        }
-        tree.push(currentPage)
-        currentChapter = null
-        currentPanel = null
       } else if (chapterRegex.test(trimmed)) {
         chapters++
-        currentChapter = {
-          id: `chapter-${chapters}`,
-          type: 'chapter',
-          title: `Chapitre ${chapters}`,
-          content: trimmed,
-          children: [],
-          expanded: true,
-          lineNumber: index
-        }
-        if (currentPage) {
-          currentPage.children.push(currentChapter)
-        }
-        currentPanel = null
       } else if (panelRegex.test(trimmed)) {
         panels++
-        currentPanel = {
-          id: `panel-${panels}`,
-          type: 'panel',
-          title: `Panel ${panels}`,
-          content: trimmed,
-          children: [],
-          expanded: true,
-          lineNumber: index
-        }
-        if (currentChapter) {
-          currentChapter.children.push(currentPanel)
-        } else if (currentPage) {
-          currentPage.children.push(currentPanel)
-        }
       } else if (dialogueRegex.test(trimmed)) {
         dialogues++
-        const dialogueNode: FileTreeNode = {
-          id: `dialogue-${dialogues}`,
-          type: 'dialogue',
-          title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
-          content: trimmed,
-          children: [],
-          expanded: false,
-          lineNumber: index
-        }
-        if (currentPanel) {
-          currentPanel.children.push(dialogueNode)
-        }
-      } else if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
-        const descNode: FileTreeNode = {
-          id: `desc-${index}`,
-          type: 'description',
-          title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
-          content: trimmed,
-          children: [],
-          expanded: false,
-          lineNumber: index
-        }
-        if (currentPanel) {
-          currentPanel.children.push(descNode)
-        }
       }
     })
-
-    // Mettre à jour le store avec le nouveau fileTree (seulement si différent)
-    updateScriptData({ fileTree: tree })
-
-    // Optimisation : initialiser les nœuds expandus seulement si l'arbre a changé
-    const allNodeIds = new Set<string>()
-    tree.forEach(page => {
-      allNodeIds.add(page.id)
-      page.children?.forEach(chapter => {
-        allNodeIds.add(chapter.id)
-        chapter.children?.forEach(panel => {
-          allNodeIds.add(panel.id)
-        })
-      })
-    })
-    setExpandedNodes(allNodeIds)
 
     // Optimisation : calcul des mots plus efficace
     const words = content.match(/\S+/g)?.length || 0
@@ -341,20 +260,136 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
       characters: characterCount,
       dialogues
     }
-  }, [updateScriptData])
+  }, [])
+
+
 
   // Système de synchronisation intelligent pour l'affichage
   const updateDisplayContent = useCallback(
     debounce((content: string) => {
+      console.log('🔄 ScriptEditorPanel: Updating content and regenerating structure - Length:', content.length)
       // Mettre à jour le contenu d'affichage pour la coloration syntaxique
       setDisplayContent(content)
 
-      // Calculer les stats et mettre à jour le store
+      // ✅ CORRECTION : Calculer les stats et le fileTree, puis mettre à jour le store en une seule fois
       const newStats = calculateStats(content)
+
+      // ✅ CORRECTION : Générer le fileTree avec des IDs uniques globaux
+      const lines = content.split('\n')
+      const tree: FileTreeNode[] = []
+      let currentPage: FileTreeNode | null = null
+      let currentChapter: FileTreeNode | null = null
+      let currentPanel: FileTreeNode | null = null
+
+      // Compteurs globaux pour garantir l'unicité des IDs
+      let globalPageCount = 0
+      let globalChapterCount = 0
+      let globalPanelCount = 0
+      let globalDialogueCount = 0
+
+      const pageRegex = /^PAGE\s+\d+\s*:/
+      const chapterRegex = /^CHAPITRE\s+\d+\s*:/
+      const panelRegex = /^PANEL\s+\d+\s*:/
+      const dialogueRegex = /^\[.*\]\s*:/
+
+      lines.forEach((line, index) => {
+        const trimmed = line.trim()
+        if (!trimmed) return
+
+        if (pageRegex.test(trimmed)) {
+          globalPageCount++
+          currentPage = {
+            id: `page-${globalPageCount}`,
+            type: 'page',
+            title: `Page ${globalPageCount}`,
+            content: trimmed,
+            children: [],
+            expanded: true,
+            lineNumber: index + 1
+          }
+          tree.push(currentPage)
+          currentChapter = null
+          currentPanel = null
+        } else if (chapterRegex.test(trimmed)) {
+          globalChapterCount++
+          currentChapter = {
+            id: `chapter-${globalChapterCount}`,
+            type: 'chapter',
+            title: `Chapitre ${globalChapterCount}`,
+            content: trimmed,
+            children: [],
+            expanded: true,
+            lineNumber: index + 1
+          }
+          if (currentPage) {
+            currentPage.children.push(currentChapter)
+          }
+          currentPanel = null
+        } else if (panelRegex.test(trimmed)) {
+          globalPanelCount++
+          currentPanel = {
+            id: `panel-${globalPanelCount}`,
+            type: 'panel',
+            title: `Panel ${globalPanelCount}`,
+            content: trimmed,
+            children: [],
+            expanded: true,
+            lineNumber: index + 1
+          }
+          if (currentChapter) {
+            currentChapter.children.push(currentPanel)
+          } else if (currentPage) {
+            currentPage.children.push(currentPanel)
+          }
+        } else if (dialogueRegex.test(trimmed)) {
+          globalDialogueCount++
+          const dialogueNode: FileTreeNode = {
+            id: `dialogue-${globalDialogueCount}`,
+            type: 'dialogue',
+            title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
+            content: trimmed,
+            children: [],
+            expanded: false,
+            lineNumber: index + 1
+          }
+          if (currentPanel) {
+            currentPanel.children.push(dialogueNode)
+          }
+        } else if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+          const descNode: FileTreeNode = {
+            id: `desc-${index}`,
+            type: 'description',
+            title: trimmed.length > 30 ? trimmed.substring(0, 30) + '...' : trimmed,
+            content: trimmed,
+            children: [],
+            expanded: false,
+            lineNumber: index + 1
+          }
+          if (currentPanel) {
+            currentPanel.children.push(descNode)
+          }
+        }
+      })
+
+      // Mettre à jour le store avec toutes les données en une seule fois
       updateScriptData({
         content,
-        stats: newStats
+        stats: newStats,
+        fileTree: tree
       })
+
+      // Mettre à jour les nœuds expandus
+      const allNodeIds = new Set<string>()
+      tree.forEach(page => {
+        allNodeIds.add(page.id)
+        page.children?.forEach(chapter => {
+          allNodeIds.add(chapter.id)
+          chapter.children?.forEach(panel => {
+            allNodeIds.add(panel.id)
+          })
+        })
+      })
+      setExpandedNodes(allNodeIds)
     }, 150), // Délai court pour la coloration syntaxique
     [calculateStats, updateScriptData, debounce]
   )
@@ -552,8 +587,11 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
 
   // Fonction pour naviguer vers une ligne avec l'éditeur natif
   const scrollToLine = useCallback((lineNumber: number) => {
+    console.log('📍 ScriptEditorPanel: Navigating to line', lineNumber)
     if ((window as any).scriptEditor) {
       (window as any).scriptEditor.scrollToLine(lineNumber)
+    } else {
+      console.warn('⚠️ ScriptEditor API not available yet')
     }
   }, [])
 
@@ -801,7 +839,12 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
                   projectId={projectId}
                   onStatsUpdate={(stats) => {
                     // Update stats in React state when needed
-                    updateScriptData({ stats })
+                    console.log('📊 ScriptEditorPanel: Received stats update from NativeScriptEditor')
+                  }}
+                  onContentChange={(content) => {
+                    // ✅ CORRECTION : Recevoir les changements de contenu et mettre à jour la structure
+                    console.log('📝 ScriptEditorPanel: Received content change from NativeScriptEditor')
+                    handleContentChange(content)
                   }}
                 />
               </div>
@@ -875,7 +918,10 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
                       </button>
                       <div
                         className="flex items-center space-x-1 flex-1"
-                        onClick={() => scrollToLine(page.lineNumber ?? 0)}
+                        onClick={() => {
+                          console.log('🖱️ Clicked on page:', page.title, 'Line:', page.lineNumber)
+                          scrollToLine(page.lineNumber ?? 0)
+                        }}
                         suppressHydrationWarning={true}
                       >
                         <FileText className="w-3 h-3" />
@@ -967,158 +1013,7 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
 
         </div>
 
-        {/* Toggle mobile pour la sidebar */}
-        <MobileScriptToggle>
-          {/* Contenu de la sidebar pour mobile */}
-          <div className="flex flex-col h-full" suppressHydrationWarning={true}>
-            {/* Statistiques pour mobile dans la sidebar */}
-            <div className="p-3 border-b border-gray-700 flex-shrink-0" suppressHydrationWarning={true}>
-              <h3 className="text-sm font-semibold mb-3 text-white flex items-center">
-                <BarChart3 className="w-4 h-4 mr-2 text-blue-400" />
-                Statistiques
-              </h3>
-              <div className="grid grid-cols-2 gap-2 text-xs" suppressHydrationWarning={true}>
-                <div className="bg-purple-600/20 border border-purple-500/30 p-2 rounded text-center hover:bg-purple-600/30 transition-colors" suppressHydrationWarning={true}>
-                  <div className="text-purple-300 text-xs font-medium" suppressHydrationWarning={true}>Chapitres</div>
-                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.chapters}</div>
-                </div>
-                <div className="bg-red-600/20 border border-red-500/30 p-2 rounded text-center hover:bg-red-600/30 transition-colors" suppressHydrationWarning={true}>
-                  <div className="text-red-300 text-xs font-medium" suppressHydrationWarning={true}>Pages</div>
-                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.pages}</div>
-                </div>
-                <div className="bg-yellow-600/20 border border-yellow-500/30 p-2 rounded text-center hover:bg-yellow-600/30 transition-colors" suppressHydrationWarning={true}>
-                  <div className="text-yellow-300 text-xs font-medium" suppressHydrationWarning={true}>Panneaux</div>
-                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.panels}</div>
-                </div>
-                <div className="bg-blue-600/20 border border-blue-500/30 p-2 rounded text-center hover:bg-blue-600/30 transition-colors" suppressHydrationWarning={true}>
-                  <div className="text-blue-300 text-xs font-medium" suppressHydrationWarning={true}>Dialogues</div>
-                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.dialogues}</div>
-                </div>
-                <div className="bg-green-600/20 border border-green-500/30 p-2 rounded text-center hover:bg-green-600/30 transition-colors" suppressHydrationWarning={true}>
-                  <div className="text-green-300 text-xs font-medium" suppressHydrationWarning={true}>Mots</div>
-                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.words}</div>
-                </div>
-                <div className="bg-gray-600/20 border border-gray-500/30 p-2 rounded text-center hover:bg-gray-600/30 transition-colors" suppressHydrationWarning={true}>
-                  <div className="text-gray-300 text-xs font-medium" suppressHydrationWarning={true}>Caractères</div>
-                  <div className="text-sm font-bold text-white" suppressHydrationWarning={true}>{stats.characters}</div>
-                </div>
-              </div>
-            </div>
 
-            {/* Structure du script pour mobile */}
-            <div className="flex-1 flex flex-col min-h-0" suppressHydrationWarning={true}>
-              <div className="p-3 flex-shrink-0" suppressHydrationWarning={true}>
-                <h3 className="text-sm font-semibold text-white flex items-center">
-                  <BookOpen className="w-4 h-4 mr-2 text-green-400" />
-                  Structure du Script
-                </h3>
-              </div>
-              <div className="script-structure-scroll overflow-y-auto overflow-x-hidden flex-1" suppressHydrationWarning={true}>
-                <div className="p-2 space-y-2 text-sm pb-4" suppressHydrationWarning={true}>
-                  {fileTree.map((page) => {
-                    const pageExpanded = expandedNodes.has(page.id)
-                    return (
-                      <div key={page.id} className="space-y-1">
-                        <div className="flex items-center space-x-2 p-2 bg-red-900/20 text-red-400 rounded cursor-pointer hover:bg-red-900/40 touch-target">
-                          <button
-                            onClick={() => toggleNodeExpansion(page.id)}
-                            className="w-4 h-4 flex items-center justify-center hover:bg-red-800/30 rounded"
-                          >
-                            <span className={`transform transition-transform text-sm ${pageExpanded ? 'rotate-90' : ''}`}>
-                              ▶
-                            </span>
-                          </button>
-                          <div
-                            className="flex items-center space-x-2 flex-1"
-                            onClick={() => scrollToLine(page.lineNumber ?? 0)}
-                          >
-                            <FileText className="w-4 h-4" />
-                            <span className="font-medium text-sm truncate">{page.title}</span>
-                          </div>
-                        </div>
-
-                        {pageExpanded && page.children?.map((chapter) => {
-                          const chapterExpanded = expandedNodes.has(chapter.id)
-                          return (
-                            <div key={chapter.id} className="ml-4 space-y-1">
-                              <div className="flex items-center space-x-2 p-2 bg-purple-900/20 text-purple-400 rounded cursor-pointer hover:bg-purple-900/40 touch-target">
-                                <button
-                                  onClick={() => toggleNodeExpansion(chapter.id)}
-                                  className="w-4 h-4 flex items-center justify-center hover:bg-purple-800/30 rounded"
-                                >
-                                  <span className={`transform transition-transform text-sm ${chapterExpanded ? 'rotate-90' : ''}`}>
-                                    ▶
-                                  </span>
-                                </button>
-                                <div
-                                  className="flex items-center space-x-2 flex-1"
-                                  onClick={() => scrollToLine(chapter.lineNumber ?? 0)}
-                                >
-                                  <Book className="w-4 h-4" />
-                                  <span className="font-medium text-sm truncate">{chapter.title}</span>
-                                </div>
-                              </div>
-
-                              {chapterExpanded && chapter.children?.map((panel) => {
-                                const panelExpanded = expandedNodes.has(panel.id)
-                                return (
-                                  <div key={panel.id} className="ml-4 space-y-1">
-                                    <div className="flex items-center space-x-2 p-2 bg-yellow-900/20 text-yellow-400 rounded cursor-pointer hover:bg-yellow-900/40 touch-target">
-                                      <button
-                                        onClick={() => toggleNodeExpansion(panel.id)}
-                                        className="w-4 h-4 flex items-center justify-center hover:bg-yellow-800/30 rounded"
-                                      >
-                                        <span className={`transform transition-transform text-sm ${panelExpanded ? 'rotate-90' : ''}`}>
-                                          ▶
-                                        </span>
-                                      </button>
-                                      <div
-                                        className="flex items-center space-x-2 flex-1"
-                                        onClick={() => scrollToLine(panel.lineNumber ?? 0)}
-                                      >
-                                        <Image className="w-4 h-4" />
-                                        <span className="font-medium text-sm truncate">{panel.title}</span>
-                                      </div>
-                                    </div>
-
-                                    {panelExpanded && panel.children?.map((element) => (
-                                      <div key={element.id} className="ml-4">
-                                        <div
-                                          className={`flex items-center space-x-2 p-2 rounded cursor-pointer text-sm touch-target ${
-                                            element.type === 'dialogue'
-                                              ? 'bg-blue-900/20 text-blue-400 hover:bg-blue-900/40'
-                                              : 'bg-gray-800/20 text-gray-400 hover:bg-gray-800/40'
-                                          }`}
-                                          onClick={() => scrollToLine(element.lineNumber ?? 0)}
-                                        >
-                                          {element.type === 'dialogue' ? (
-                                            <MessageSquare className="w-4 h-4" />
-                                          ) : (
-                                            <Edit3 className="w-4 h-4" />
-                                          )}
-                                          <span className="truncate text-sm">{element.title}</span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })}
-                  {fileTree.length === 0 && (
-                    <div className="text-gray-500 text-sm italic p-3 text-center" suppressHydrationWarning={true}>
-                      Commencez à écrire pour voir la structure...
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </MobileScriptToggle>
       </div>
     </div>
   )

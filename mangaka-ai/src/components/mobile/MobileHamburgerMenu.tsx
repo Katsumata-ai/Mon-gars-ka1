@@ -18,9 +18,7 @@ interface MobileHamburgerMenuProps {
   projectName: string
   onSave?: () => void
   saving?: boolean
-  onPagesToggle?: () => void
   onAssetsToggle?: () => void
-  pagesVisible?: boolean
   assetsVisible?: boolean
   className?: string
 }
@@ -29,9 +27,7 @@ export default function MobileHamburgerMenu({
   projectName,
   onSave,
   saving = false,
-  onPagesToggle,
   onAssetsToggle,
-  pagesVisible = false,
   assetsVisible = false,
   className
 }: MobileHamburgerMenuProps) {
@@ -130,27 +126,15 @@ export default function MobileHamburgerMenu({
             Sauvegarder
           </MangaButton>
 
-          <div className="grid grid-cols-2 gap-3" suppressHydrationWarning={true}>
-            <MangaButton
-              onClick={() => handleMenuAction(onPagesToggle || (() => {}))}
-              size="md"
-              variant={pagesVisible ? "primary" : "secondary"}
-              fullWidth
-              icon={<FileText className="w-4 h-4" />}
-            >
-              Pages
-            </MangaButton>
-
-            <MangaButton
-              onClick={() => handleMenuAction(onAssetsToggle || (() => {}))}
-              size="md"
-              variant={assetsVisible ? "primary" : "secondary"}
-              fullWidth
-              icon={<Grid className="w-4 h-4" />}
-            >
-              Assets
-            </MangaButton>
-          </div>
+          <MangaButton
+            onClick={() => handleMenuAction(onAssetsToggle || (() => {}))}
+            size="md"
+            variant={assetsVisible ? "primary" : "secondary"}
+            fullWidth
+            icon={<Grid className="w-4 h-4" />}
+          >
+            Assets
+          </MangaButton>
         </div>
 
         {/* Menu secondaire */}

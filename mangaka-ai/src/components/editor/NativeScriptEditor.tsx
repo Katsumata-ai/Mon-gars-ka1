@@ -7,10 +7,11 @@ import { useProjectStore } from '@/stores/projectStore'
 interface NativeScriptEditorProps {
   projectId: string
   onStatsUpdate?: (stats: any) => void
+  onContentChange?: (content: string) => void // ✅ NOUVEAU : Callback pour notifier les changements de contenu
 }
 
-export default function NativeScriptEditor({ projectId, onStatsUpdate }: NativeScriptEditorProps) {
-  const { scriptData, updateScriptData } = useProjectStore()
+export default function NativeScriptEditor({ projectId, onStatsUpdate, onContentChange }: NativeScriptEditorProps) {
+  const { scriptData } = useProjectStore()
   
   // Refs for DOM elements
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -43,16 +44,22 @@ export default function NativeScriptEditor({ projectId, onStatsUpdate }: NativeS
     editor.onContentChangeCallback((content: string) => {
       // Update current content immediately for placeholder visibility
       setCurrentContent(content)
+
+      // ✅ CORRECTION : Notifier le parent des changements de contenu
+      if (onContentChange) {
+        onContentChange(content)
+      }
     })
 
     editor.onStatsUpdateCallback((content: string) => {
-      // Calculate stats in idle time and update React state
+      // ✅ CORRECTION : Ne plus mettre à jour le store directement, laisser le parent s'en charger
       requestIdleCallback(() => {
+        console.log('📊 NativeScriptEditor: Content changed, notifying parent')
         const stats = calculateStats(content)
-        updateScriptData({ content, stats })
         if (onStatsUpdate) {
           onStatsUpdate(stats)
         }
+        // Le parent (ScriptEditorPanel) se chargera de mettre à jour le store avec le fileTree
       }, { timeout: 500 })
     })
 
@@ -62,7 +69,7 @@ export default function NativeScriptEditor({ projectId, onStatsUpdate }: NativeS
     return () => {
       editor.destroy()
     }
-  }, [scriptData.content, isInitialized, updateScriptData, onStatsUpdate])
+  }, [scriptData.content, isInitialized, onStatsUpdate, onContentChange])
 
   // Sync content when store changes (external updates)
   useEffect(() => {

@@ -27,7 +27,7 @@ export default function ShortcutsHelp({ className = '' }: ShortcutsHelpProps) {
         `}
         title="Raccourcis clavier (F1)"
       >
-        <Keyboard size={20} />
+        <Keyboard size={12} />
       </button>
 
       {/* Modal d'aide */}
