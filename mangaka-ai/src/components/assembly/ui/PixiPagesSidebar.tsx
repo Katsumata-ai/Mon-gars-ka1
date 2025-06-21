@@ -208,7 +208,7 @@ export default function PixiPagesSidebar({
     }
   }, [pages.length, projectId, onAddPage])
 
-  // Gérer la suppression de page avec le nouveau StateManager
+  // Gérer la suppression de page avec renumérotation intelligente
   const handleDeletePage = useCallback(async (pageNumber: number) => {
     if (pages.length <= 1) {
       console.warn('⚠️ Impossible de supprimer la dernière page')
@@ -222,20 +222,15 @@ export default function PixiPagesSidebar({
         return
       }
 
+      console.log('🗑️ PixiPagesSidebar: Suppression page', pageNumber, 'ID:', pageToDelete.id)
+
       const { deletePage } = useAssemblyStore.getState()
       const deletedPageNumber = await deletePage(projectId, pageToDelete.id)
 
-      // Mettre à jour la liste locale avec renumérotation
-      setPages(prev => {
-        const filtered = prev.filter(page => page.number !== pageNumber)
-        // Renuméroter les pages restantes
-        return filtered.map((page, index) => ({
-          ...page,
-          number: index + 1
-        }))
-      })
+      // ✅ CORRECTION : Recharger les pages depuis le serveur au lieu de faire une renumérotation manuelle
+      await loadPages()
 
-      // Nettoyer le cache de miniatures
+      // Nettoyer le cache de miniatures pour la page supprimée
       setThumbnailCache(prev => {
         const newCache = { ...prev }
         delete newCache[pageToDelete.id]
@@ -244,12 +239,12 @@ export default function PixiPagesSidebar({
 
       onDeletePage(deletedPageNumber)
 
-      console.log('✅ Page supprimée avec succès:', deletedPageNumber)
+      console.log('✅ PixiPagesSidebar: Page supprimée avec succès:', deletedPageNumber)
     } catch (error) {
-      console.error('❌ Erreur suppression page:', error)
+      console.error('❌ Erreur suppression page PixiPagesSidebar:', error)
       // TODO: Afficher un toast d'erreur
     }
-  }, [pages, projectId, onDeletePage])
+  }, [pages, projectId, onDeletePage, loadPages])
 
   // Gérer la duplication de page avec le nouveau StateManager
   const handleDuplicatePage = useCallback(async (pageNumber: number) => {
@@ -327,61 +322,65 @@ export default function PixiPagesSidebar({
 
   return (
     <div className={cn(
-      'w-80 bg-dark-800 border-l border-dark-700 flex flex-col h-full',
+      'w-72 bg-gradient-to-b from-dark-800 to-dark-900 border-l border-red-500/20 flex flex-col h-full shadow-xl',
       className
     )}>
-      {/* Header avec statistiques */}
-      <div className="p-4 border-b border-dark-700">
+      {/* ✅ AMÉLIORATION : Header moderne avec gradient et branding */}
+      <div className="p-4 border-b border-red-500/20 bg-gradient-to-r from-red-500/5 to-orange-500/5">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white flex items-center">
-            <FileText className="w-5 h-5 mr-2 text-blue-400" />
+          <h3 className="text-lg font-bold text-white flex items-center">
+            <div className="w-6 h-6 mr-3 bg-gradient-to-br from-red-500 to-orange-500 rounded-md flex items-center justify-center">
+              <FileText className="w-4 h-4 text-white" />
+            </div>
             Pages
           </h3>
-          <div className="flex items-center space-x-2">
-            <MangaButton
-              size="sm"
-              variant="ghost"
-              icon={<Plus className="w-4 h-4" />}
+          <div className="flex items-center space-x-1">
+            <button
               onClick={handleAddPage}
+              className="p-2 text-red-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-200 group"
               title="Ajouter une page"
-            />
+            >
+              <Plus className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            </button>
             {onClose && (
-              <MangaButton
-                size="sm"
-                variant="ghost"
-                icon={<X className="w-4 h-4" />}
+              <button
                 onClick={onClose}
+                className="p-2 text-dark-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all duration-200"
                 title="Fermer le menu"
-                className="text-red-400 hover:text-red-300 hover:bg-red-500/20"
-              />
+              >
+                <X className="w-4 h-4" />
+              </button>
             )}
           </div>
         </div>
-        
-        {/* Statistiques */}
-        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-          <div className="text-center p-2 bg-dark-700 rounded">
-            <div className="text-white font-semibold">{pages.length}</div>
-            <div className="text-gray-400">Total</div>
+
+        {/* ✅ AMÉLIORATION : Statistiques compactes avec design moderne */}
+        <div className="mt-3 flex items-center justify-between text-xs">
+          <div className="flex items-center space-x-1 px-2 py-1 bg-dark-700/50 rounded-full">
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+            <span className="text-white font-medium">{pages.length}</span>
+            <span className="text-dark-400">pages</span>
           </div>
-          <div className="text-center p-2 bg-dark-700 rounded">
-            <div className="text-orange-400 font-semibold">
+          <div className="flex items-center space-x-1 px-2 py-1 bg-dark-700/50 rounded-full">
+            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+            <span className="text-orange-400 font-medium">
               {pages.filter(p => p.status === 'in_progress').length}
-            </div>
-            <div className="text-gray-400">En cours</div>
+            </span>
+            <span className="text-dark-400">en cours</span>
           </div>
-          <div className="text-center p-2 bg-dark-700 rounded">
-            <div className="text-green-400 font-semibold">
+          <div className="flex items-center space-x-1 px-2 py-1 bg-dark-700/50 rounded-full">
+            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+            <span className="text-green-400 font-medium">
               {pages.filter(p => p.status === 'completed').length}
-            </div>
-            <div className="text-gray-400">Terminées</div>
+            </span>
+            <span className="text-dark-400">fini</span>
           </div>
         </div>
       </div>
 
-      {/* Liste des pages avec miniatures */}
-      <div className="flex-1 overflow-y-auto p-3">
-        <div className="space-y-3">
+      {/* ✅ AMÉLIORATION : Liste des pages avec design moderne */}
+      <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
+        <div className="space-y-2">
           {pages.map((page) => {
             const pageId = page.id
             const thumbnail = thumbnailCache[pageId]
@@ -392,73 +391,84 @@ export default function PixiPagesSidebar({
               <div
                 key={pageId}
                 className={cn(
-                  'group relative bg-dark-700 rounded-lg p-3 cursor-pointer transition-all duration-200 border',
+                  'group relative rounded-xl p-3 cursor-pointer transition-all duration-300 border backdrop-blur-sm',
                   isActive
-                    ? 'ring-2 ring-blue-500 bg-blue-500/10 border-blue-500/30'
-                    : 'border-dark-600 hover:border-dark-500 hover:bg-dark-600/50'
+                    ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border-red-500/40 shadow-lg shadow-red-500/10'
+                    : 'bg-dark-700/60 border-dark-600/50 hover:border-red-500/30 hover:bg-dark-600/80 hover:shadow-md'
                 )}
                 onClick={() => handlePageSelect(page.number)}
                 onMouseEnter={() => setPreviewPage(page.number)}
                 onMouseLeave={() => setPreviewPage(null)}
               >
                 <div className="flex items-start space-x-3">
-                  {/* Miniature */}
-                  <div className="relative w-16 h-20 bg-dark-600 rounded border border-dark-500 overflow-hidden flex-shrink-0">
+                  {/* ✅ AMÉLIORATION : Miniature moderne avec effets */}
+                  <div className="relative w-14 h-18 bg-gradient-to-br from-dark-600 to-dark-700 rounded-lg border border-dark-500/50 overflow-hidden flex-shrink-0 shadow-md">
                     {isLoading ? (
                       <div className="w-full h-full flex items-center justify-center">
-                        <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        <div className="animate-spin w-3 h-3 border-2 border-red-500 border-t-transparent rounded-full"></div>
                       </div>
                     ) : thumbnail ? (
                       <img
                         src={thumbnail}
                         alt={`Page ${page.number}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-dark-400">
-                        <ImageIcon className="w-6 h-6" />
+                      <div className="w-full h-full flex items-center justify-center text-dark-400 group-hover:text-red-400 transition-colors">
+                        <ImageIcon className="w-5 h-5" />
                       </div>
                     )}
-                    
-                    {/* Indicateur de statut */}
-                    <div className="absolute top-1 right-1">
+
+                    {/* ✅ AMÉLIORATION : Indicateur de statut moderne */}
+                    <div className="absolute -top-1 -right-1">
                       {getStatusIcon(page.status)}
+                    </div>
+
+                    {/* ✅ NOUVEAU : Numéro de page en overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent">
+                      <div className="text-white text-xs font-bold p-1 text-center">
+                        {page.number}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Informations de la page */}
+                  {/* ✅ AMÉLIORATION : Informations de la page modernisées */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-white font-medium text-sm truncate">
+                      <h4 className="text-white font-semibold text-sm truncate group-hover:text-red-100 transition-colors">
                         {page.title}
                       </h4>
-                      <span className={cn(
-                        'text-xs px-2 py-1 rounded-full bg-dark-600',
-                        getStatusColor(page.status)
+                      <div className={cn(
+                        'text-xs px-2 py-1 rounded-full font-medium transition-all duration-200',
+                        isActive
+                          ? 'bg-red-500 text-white shadow-md'
+                          : 'bg-dark-600/80 text-dark-300 group-hover:bg-red-500/20 group-hover:text-red-300'
                       )}>
-                        {page.number}
-                      </span>
-                    </div>
-                    
-                    <div className="mt-1 text-xs text-dark-400">
-                      {page.elementsCount} élément{page.elementsCount !== 1 ? 's' : ''}
-                    </div>
-                    
-                    <div className="mt-1 text-xs text-dark-500">
-                      Modifiée {page.lastModified.toLocaleDateString()}
+                        #{page.number}
+                      </div>
                     </div>
 
-                    {/* Actions */}
+                    <div className="mt-1 flex items-center space-x-2 text-xs">
+                      <span className="text-dark-400 group-hover:text-dark-300 transition-colors">
+                        {page.elementsCount} élément{page.elementsCount !== 1 ? 's' : ''}
+                      </span>
+                      <div className="w-1 h-1 bg-dark-500 rounded-full"></div>
+                      <span className="text-dark-500 group-hover:text-dark-400 transition-colors">
+                        {page.lastModified.toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    {/* ✅ AMÉLIORATION : Actions modernisées */}
                     <div className={cn(
-                      'flex items-center space-x-1 mt-2 transition-opacity duration-200',
-                      'opacity-0 group-hover:opacity-100'
+                      'flex items-center space-x-1 mt-2 transition-all duration-300',
+                      'opacity-0 group-hover:opacity-100 transform translate-y-1 group-hover:translate-y-0'
                     )}>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           handleDuplicatePage(page.number)
                         }}
-                        className="p-1 hover:bg-dark-500 rounded text-dark-400 hover:text-white transition-colors"
+                        className="p-1.5 hover:bg-blue-500/20 rounded-lg text-dark-400 hover:text-blue-400 transition-all duration-200 hover:scale-110"
                         title="Dupliquer"
                       >
                         <Copy className="w-3 h-3" />
@@ -470,7 +480,7 @@ export default function PixiPagesSidebar({
                             e.stopPropagation()
                             handleDeletePage(page.number)
                           }}
-                          className="p-1 hover:bg-red-500/20 rounded text-dark-400 hover:text-red-400 transition-colors"
+                          className="p-1.5 hover:bg-red-500/20 rounded-lg text-dark-400 hover:text-red-400 transition-all duration-200 hover:scale-110"
                           title="Supprimer"
                         >
                           <Trash2 className="w-3 h-3" />
@@ -480,12 +490,15 @@ export default function PixiPagesSidebar({
                   </div>
                 </div>
 
-                {/* Indicateur de page active */}
+                {/* ✅ AMÉLIORATION : Indicateur de page active moderne */}
                 {isActive && (
                   <div className="absolute top-2 right-2">
-                    <Eye className="w-4 h-4 text-blue-400 animate-pulse" />
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50"></div>
                   </div>
                 )}
+
+                {/* ✅ NOUVEAU : Effet de survol */}
+                <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 to-orange-500/0 group-hover:from-red-500/5 group-hover:to-orange-500/5 rounded-xl transition-all duration-300 pointer-events-none"></div>
               </div>
             )
           })}

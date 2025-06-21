@@ -98,8 +98,18 @@ export function useAssemblyPersistence({
   useEffect(() => {
     if (!isAssemblyActive || !projectId) return
 
-    const autoSaveInterval = setInterval(() => {
-      saveCurrentState()
+    const autoSaveInterval = setInterval(async () => {
+      // ✅ CORRECTION CRITIQUE : Sauvegarder en base de données ET localStorage
+      saveCurrentState() // localStorage pour backup
+
+      // Sauvegarder en base de données via StateManager
+      try {
+        const { autoSaveToDatabase } = useAssemblyStore.getState()
+        await autoSaveToDatabase()
+        console.log('✅ Sauvegarde automatique en base réussie')
+      } catch (error) {
+        console.error('❌ Erreur sauvegarde automatique en base:', error)
+      }
     }, 30000) // Sauvegarde automatique toutes les 30 secondes
 
     return () => clearInterval(autoSaveInterval)

@@ -38,12 +38,13 @@ export default function RightPanel({
   // ✅ NOUVEAU : Utiliser les vraies données du StateManager
   const { pages: storePages, currentPageId } = useAssemblyStore()
 
-  // Convertir les pages du store en format pour l'interface
+  // ✅ CORRECTION : Convertir les pages avec une seule source de vérité (pageNumber de Supabase)
   const pages = Object.values(storePages).map(page => ({
     id: page.pageId,
-    title: page.metadata.name,
-    thumbnail: null, // TODO: Générer les miniatures
-    pageNumber: page.pageNumber
+    pageNumber: page.pageNumber, // ✅ SOURCE DE VÉRITÉ : Numéro de Supabase
+    title: `Page ${page.pageNumber}`, // ✅ SYNCHRONISATION : Titre basé sur le numéro réel
+    thumbnail: null,
+    elementsCount: page.content.stage.children.length || 0
   })).sort((a, b) => a.pageNumber - b.pageNumber)
 
   // État pour les vraies images depuis la base de données
@@ -190,7 +191,7 @@ export default function RightPanel({
   )
 }
 
-// Composant pour le mode Pages avec intégration StateManager
+// ✅ REFACTORED: Composant pour le mode Pages avec indicateur intelligent synchronisé Supabase
 function PagesMode({
   pages,
   currentPageId,
@@ -256,73 +257,106 @@ function PagesMode({
   }
   return (
     <div className="h-full flex flex-col">
-      {/* En-tête avec bouton d'ajout */}
-      <div className="p-4 border-b border-dark-700">
+      {/* ✅ REFACTORED: Header élégant avec branding mangaka-ai */}
+      <div className="p-4 border-b border-red-500/20 bg-gradient-to-r from-red-500/8 to-orange-500/8">
         <div className="flex items-center justify-between">
-          <h3 className="text-white font-medium">Pages du projet</h3>
+          <div className="flex items-center space-x-3">
+            <div className="w-6 h-6 bg-gradient-to-br from-red-500 to-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+              <FileText className="w-3.5 h-3.5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-sm">Pages du projet</h3>
+              <p className="text-xs text-dark-400">{pages.length} page{pages.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
           <button
             onClick={handleAddPage}
-            className="p-2 text-gray-400 hover:text-white hover:bg-dark-700 rounded transition-colors"
-            title="Ajouter une page"
+            className="p-2 text-red-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all duration-300 group shadow-sm"
+            title="Ajouter une nouvelle page"
           >
-            <Plus size={16} />
+            <Plus size={16} className="group-hover:scale-110 transition-transform" />
           </button>
         </div>
       </div>
 
-      {/* Liste des pages */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-2">
-          {pages.map((page) => (
-            <div
-              key={page.id}
-              className={`
-                group relative p-3 rounded-lg border cursor-pointer
-                transition-all duration-200 hover:bg-dark-700
-                ${currentPageId === page.id
-                  ? 'border-red-500 bg-red-500/10'
-                  : 'border-dark-600 hover:border-dark-500'
-                }
-              `}
-              onClick={() => handlePageSelect(page.id)}
-            >
-              {/* Miniature de la page */}
-              <div className="aspect-[3/4] bg-dark-600 rounded mb-2 flex items-center justify-center">
+      {/* ✅ REFACTORED: Interface en colonne unique élégante */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {pages.map((page) => (
+          <div
+            key={page.id}
+            className={`
+              group relative p-4 rounded-xl border cursor-pointer transition-all duration-300 backdrop-blur-sm
+              ${currentPageId === page.id
+                ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 border-red-500/50 shadow-lg shadow-red-500/10 ring-1 ring-red-500/30'
+                : 'bg-dark-700/60 border-dark-600/40 hover:border-red-500/40 hover:bg-dark-600/80 hover:shadow-md'
+              }
+            `}
+            onClick={() => handlePageSelect(page.id)}
+          >
+            <div className="flex items-center space-x-4">
+              {/* ✅ REFACTORED: Miniature élégante */}
+              <div className="w-16 h-20 bg-gradient-to-br from-dark-600 to-dark-700 rounded-lg flex items-center justify-center overflow-hidden shadow-md flex-shrink-0">
                 {page.thumbnail ? (
-                  <img 
-                    src={page.thumbnail} 
+                  <img
+                    src={page.thumbnail}
                     alt={page.title}
-                    className="w-full h-full object-cover rounded"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
-                  <FileText size={24} className="text-gray-500" />
+                  <FileText size={20} className="text-gray-500 group-hover:text-red-400 transition-colors duration-300" />
                 )}
               </div>
 
-              {/* Titre de la page */}
-              <div className="text-sm text-white font-medium text-center">
-                {page.title}
-              </div>
+              {/* ✅ REFACTORED: Informations de la page */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    {/* ✅ SINGLE INTELLIGENT PAGE INDICATOR: Lecture seule, synchronisé Supabase */}
+                    <div className={`
+                      px-3 py-1 rounded-full text-sm font-bold transition-all duration-300
+                      ${currentPageId === page.id
+                        ? 'bg-red-500 text-white shadow-md'
+                        : 'bg-dark-600 text-dark-300 group-hover:bg-red-500/20 group-hover:text-red-300'
+                      }
+                    `}>
+                      {page.pageNumber}
+                    </div>
+                    <h4 className="text-white font-semibold group-hover:text-red-100 transition-colors">
+                      {page.title}
+                    </h4>
+                  </div>
 
-              {/* Bouton de suppression */}
+                  {/* ✅ REFACTORED: Indicateur de page active */}
+                  {currentPageId === page.id && (
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse shadow-lg shadow-red-500/50"></div>
+                  )}
+                </div>
+
+                <div className="text-sm text-dark-400 group-hover:text-dark-300 transition-colors">
+                  {page.elementsCount} élément{page.elementsCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ REFACTORED: Actions élégantes */}
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
                   handleDeletePage(page.id)
                 }}
-                className="
-                  absolute top-2 right-2 p-1 rounded
-                  text-gray-500 hover:text-red-400 hover:bg-dark-800
-                  opacity-0 group-hover:opacity-100 transition-all
-                "
+                className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:text-red-300 hover:bg-red-500/30 transition-all duration-200 hover:scale-110 shadow-sm"
                 title="Supprimer la page"
                 disabled={pages.length <= 1}
               >
                 <Trash2 size={14} />
               </button>
             </div>
-          ))}
-        </div>
+
+            {/* ✅ REFACTORED: Effet de survol élégant */}
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500/0 to-orange-500/0 group-hover:from-red-500/5 group-hover:to-orange-500/5 rounded-xl transition-all duration-300 pointer-events-none"></div>
+          </div>
+        ))}
       </div>
     </div>
   )

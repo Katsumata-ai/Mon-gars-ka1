@@ -10,7 +10,7 @@ import TipTapBubbleTypeModal from './ui/TipTapBubbleTypeModal'
 import TipTapBubbleLayer from './ui/TipTapBubbleLayer'
 import TipTapFreeTextLayer from './ui/TipTapFreeTextLayer'
 import ExportModal from './ui/ExportModal'
-import ExportTestPanel from './ui/ExportTestPanel'
+
 import { CssDotPattern } from './ui/DotPattern'
 import { PolotnoProvider, usePolotnoContext } from './context/PolotnoContext'
 import { CanvasProvider } from './context/CanvasContext'
@@ -324,10 +324,7 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
         </div>
       )}
 
-      {/* Panneau de test d'export (développement uniquement) */}
-      {process.env.NODE_ENV === 'development' && (
-        <ExportTestPanel />
-      )}
+
     </>
   )
 }

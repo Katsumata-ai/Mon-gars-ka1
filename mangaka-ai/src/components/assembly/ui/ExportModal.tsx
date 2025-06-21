@@ -16,15 +16,22 @@ interface ExportModalProps {
 }
 
 export default function ExportModal({ projectId, isOpen, onClose }: ExportModalProps) {
-  // État du modal
+  // État du modal simplifié
   const [format, setFormat] = useState<'png' | 'pdf'>('pdf')
-  const [quality, setQuality] = useState(0.9)
-  const [resolution, setResolution] = useState(2)
   const [selectedPages, setSelectedPages] = useState<string[]>([])
   const [isExporting, setIsExporting] = useState(false)
   const [progress, setProgress] = useState<ExportProgress | null>(null)
   const [availablePages, setAvailablePages] = useState<PageData[]>([])
   const [isLoading, setIsLoading] = useState(false)
+
+  // ✅ SIMPLIFICATION : Valeurs par défaut automatiques optimales
+  const getOptimalSettings = (format: 'png' | 'pdf') => {
+    if (format === 'pdf') {
+      return { quality: 0.95, resolution: 2 } // Haute qualité pour PDF
+    } else {
+      return { quality: 0.9, resolution: 3 } // Très haute résolution pour PNG
+    }
+  }
 
   // Charger les pages disponibles quand le modal s'ouvre
   useEffect(() => {
@@ -64,12 +71,15 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
     setProgress(null)
 
     try {
+      // ✅ SIMPLIFICATION : Utiliser les paramètres optimaux automatiques
+      const optimalSettings = getOptimalSettings(format)
+
       const exportManager = new ExportManager()
       const blob = await exportManager.exportPages({
         projectId,
         format,
-        quality,
-        resolution,
+        quality: optimalSettings.quality,
+        resolution: optimalSettings.resolution,
         pageIds: selectedPages,
         onProgress: setProgress
       })
@@ -112,9 +122,11 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
   }
 
   const getEstimatedFileSize = (): string => {
+    // ✅ SIMPLIFICATION : Utiliser les paramètres optimaux pour l'estimation
+    const optimalSettings = getOptimalSettings(format)
     const baseSize = 1200 * 1600 * 3 // Estimation base en bytes
-    const totalSize = baseSize * selectedPages.length * resolution * quality
-    
+    const totalSize = baseSize * selectedPages.length * optimalSettings.resolution * optimalSettings.quality
+
     if (totalSize < 1024 * 1024) {
       return `~${Math.round(totalSize / 1024)} KB`
     } else {
@@ -125,59 +137,59 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-dark-800 rounded-lg border border-dark-600 w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center justify-between p-4 border-b border-dark-700 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <Download className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-bold text-gray-900">Exporter les pages</h2>
+            <Download className="w-6 h-6 text-red-500" />
+            <h2 className="text-xl font-bold text-white">Exporter les pages</h2>
           </div>
           <button
             onClick={onClose}
             disabled={isExporting}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            className="p-1 text-dark-400 hover:text-white hover:bg-dark-700 rounded transition-colors disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[calc(90vh-140px)] overflow-y-auto">
+        <div className="p-4 space-y-4 overflow-y-auto custom-scrollbar flex-1">
           {/* Format Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">Format d'export</label>
+            <label className="block text-sm font-medium text-white mb-3">Format d'export</label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setFormat('png')}
                 className={`p-4 border-2 rounded-lg flex items-center space-x-3 transition-all ${
-                  format === 'png' 
-                    ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                    : 'border-gray-200 hover:border-gray-300'
+                  format === 'png'
+                    ? 'border-red-500 bg-red-500/10 text-red-400'
+                    : 'border-dark-600 hover:border-dark-500 text-dark-300'
                 }`}
               >
                 <FileImage className="w-5 h-5" />
                 <div className="text-left">
                   <div className="font-medium">PNG</div>
-                  <div className="text-xs text-gray-500">Page unique, haute qualité</div>
+                  <div className="text-xs text-dark-400">Page unique, haute qualité</div>
                 </div>
-                {format === 'png' && <Check className="w-4 h-4 ml-auto" />}
+                {format === 'png' && <Check className="w-4 h-4 ml-auto text-red-500" />}
               </button>
-              
+
               <button
                 onClick={() => setFormat('pdf')}
                 className={`p-4 border-2 rounded-lg flex items-center space-x-3 transition-all ${
-                  format === 'pdf' 
-                    ? 'border-blue-500 bg-blue-50 text-blue-700' 
-                    : 'border-gray-200 hover:border-gray-300'
+                  format === 'pdf'
+                    ? 'border-red-500 bg-red-500/10 text-red-400'
+                    : 'border-dark-600 hover:border-dark-500 text-dark-300'
                 }`}
               >
                 <FileText className="w-5 h-5" />
                 <div className="text-left">
                   <div className="font-medium">PDF</div>
-                  <div className="text-xs text-gray-500">Multi-pages, portable</div>
+                  <div className="text-xs text-dark-400">Multi-pages, portable</div>
                 </div>
-                {format === 'pdf' && <Check className="w-4 h-4 ml-auto" />}
+                {format === 'pdf' && <Check className="w-4 h-4 ml-auto text-red-500" />}
               </button>
             </div>
           </div>
@@ -185,45 +197,45 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
           {/* Page Selection */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-white">
                 Pages à exporter ({selectedPages.length}/{availablePages.length})
               </label>
               <div className="flex space-x-2">
                 <button
                   onClick={selectAllPages}
-                  className="text-xs text-blue-600 hover:text-blue-700"
+                  className="text-xs text-red-400 hover:text-red-300 transition-colors"
                 >
                   Tout sélectionner
                 </button>
                 <button
                   onClick={deselectAllPages}
-                  className="text-xs text-gray-500 hover:text-gray-700"
+                  className="text-xs text-dark-400 hover:text-dark-300 transition-colors"
                 >
                   Tout désélectionner
                 </button>
               </div>
             </div>
-            
+
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                <span className="ml-2 text-gray-600">Chargement des pages...</span>
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500"></div>
+                <span className="ml-2 text-dark-300">Chargement des pages...</span>
               </div>
             ) : (
-              <div className="max-h-40 overflow-y-auto border rounded-lg p-3 space-y-2">
+              <div className="max-h-40 overflow-y-auto border border-dark-600 rounded-lg p-3 space-y-2 bg-dark-700">
                 {availablePages.map(page => (
-                  <label key={page.id} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                  <label key={page.id} className="flex items-center space-x-3 cursor-pointer hover:bg-dark-600 p-2 rounded transition-colors">
                     <input
                       type="checkbox"
                       checked={selectedPages.includes(page.id)}
                       onChange={() => togglePageSelection(page.id)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-red-500 border-dark-500 rounded focus:ring-red-500 bg-dark-600"
                     />
                     <div className="flex-1">
-                      <div className="font-medium text-sm">Page {page.number}</div>
-                      <div className="text-xs text-gray-500">{page.title}</div>
+                      <div className="font-medium text-sm text-white">Page {page.number}</div>
+                      <div className="text-xs text-dark-400">{page.title}</div>
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-dark-400">
                       {new Date(page.lastModified).toLocaleDateString()}
                     </div>
                   </label>
@@ -232,71 +244,38 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
             )}
           </div>
 
-          {/* Quality Settings */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Qualité: {Math.round(quality * 100)}%
-              </label>
-              <input
-                type="range"
-                min="0.1"
-                max="1"
-                step="0.1"
-                value={quality}
-                onChange={(e) => setQuality(parseFloat(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>Rapide</span>
-                <span>Haute qualité</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Résolution</label>
-              <select
-                value={resolution}
-                onChange={(e) => setResolution(parseInt(e.target.value))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value={1}>1x (Standard - 1200×1600)</option>
-                <option value={2}>2x (Haute qualité - 2400×3200)</option>
-                <option value={3}>3x (Impression - 3600×4800)</option>
-                <option value={4}>4x (Ultra HD - 4800×6400)</option>
-              </select>
-            </div>
-          </div>
+          {/* ✅ SIMPLIFICATION : Paramètres automatiques - Section supprimée */}
+          {/* Les paramètres de qualité et résolution sont maintenant automatiques selon le format */}
 
           {/* Export Info */}
-          <div className="bg-gray-50 rounded-lg p-4">
+          <div className="bg-dark-700 border border-dark-600 rounded-lg p-4">
             <div className="flex items-center space-x-2 mb-2">
-              <Settings className="w-4 h-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Informations d'export</span>
+              <Settings className="w-4 h-4 text-dark-400" />
+              <span className="text-sm font-medium text-white">Informations d'export</span>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-              <div>Format: <span className="font-medium">{format.toUpperCase()}</span></div>
-              <div>Pages: <span className="font-medium">{selectedPages.length}</span></div>
-              <div>Résolution: <span className="font-medium">{resolution}x</span></div>
-              <div>Taille estimée: <span className="font-medium">{getEstimatedFileSize()}</span></div>
+            <div className="grid grid-cols-2 gap-4 text-sm text-dark-300">
+              <div>Format: <span className="font-medium text-white">{format.toUpperCase()}</span></div>
+              <div>Pages: <span className="font-medium text-white">{selectedPages.length}</span></div>
+              <div>Qualité: <span className="font-medium text-white">Optimale automatique</span></div>
+              <div>Taille estimée: <span className="font-medium text-white">{getEstimatedFileSize()}</span></div>
             </div>
           </div>
 
           {/* Progress */}
           {isExporting && progress && (
-            <div className="bg-blue-50 rounded-lg p-4">
+            <div className="bg-dark-700 border border-dark-600 rounded-lg p-4">
               <div className="flex justify-between text-sm mb-2">
-                <span className="text-blue-700 font-medium">{progress.message}</span>
-                <span className="text-blue-600">{Math.round((progress.current / progress.total) * 100)}%</span>
+                <span className="text-white font-medium">{progress.message}</span>
+                <span className="text-red-400">{Math.round((progress.current / progress.total) * 100)}%</span>
               </div>
-              <div className="w-full bg-blue-200 rounded-full h-2">
+              <div className="w-full bg-dark-600 rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-red-500 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${(progress.current / progress.total) * 100}%` }}
                 />
               </div>
               {progress.pageId && (
-                <div className="text-xs text-blue-600 mt-1">
+                <div className="text-xs text-red-400 mt-1">
                   Page en cours: {availablePages.find(p => p.id === progress.pageId)?.number}
                 </div>
               )}
@@ -305,18 +284,18 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end space-x-3 p-6 border-t bg-gray-50">
+        <div className="flex justify-end space-x-3 p-4 border-t border-dark-700 bg-dark-800 flex-shrink-0">
           <button
             onClick={onClose}
             disabled={isExporting}
-            className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-dark-300 border border-dark-600 rounded-lg hover:bg-dark-700 hover:text-white transition-colors disabled:opacity-50"
           >
             Annuler
           </button>
           <button
             onClick={handleExport}
             disabled={isExporting || selectedPages.length === 0 || isLoading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
           >
             {isExporting ? (
               <>

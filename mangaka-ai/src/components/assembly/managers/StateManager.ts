@@ -101,10 +101,23 @@ export const useAssemblyStore = create<AssemblyStore>()(
           pageExists: !!state.pages[pageId]
         })
 
+        // ✅ DIAGNOSTIC : Logs détaillés avant changement de page
+        console.log('🔍 DIAGNOSTIC - État avant changement:', {
+          currentPageId: state.currentPageId,
+          elementsCount: state.elements.length,
+          pagesInStore: Object.keys(state.pages).length,
+          pageIds: Object.keys(state.pages),
+          targetPageId: pageId
+        })
+
         // Sauvegarder l'état de la page courante avant de changer
         if (state.currentPageId && state.elements.length > 0) {
           const currentPage = state.pages[state.currentPageId]
           if (currentPage) {
+            console.log('💾 DIAGNOSTIC - Sauvegarde page courante:', {
+              pageId: state.currentPageId,
+              elementsToSave: state.elements.length
+            })
             currentPage.content.stage.children = [...state.elements]
             currentPage.state.lastModified = new Date().toISOString()
           }
@@ -118,26 +131,73 @@ export const useAssemblyStore = create<AssemblyStore>()(
         const page = state.pages[pageId]
         if (page) {
           console.log('🏪 Page trouvée, chargement des éléments:', page.content.stage.children.length)
+          console.log('🔍 DIAGNOSTIC - Détails de la page:', {
+            pageId: page.pageId,
+            pageNumber: page.pageNumber,
+            title: page.metadata.name,
+            elementsCount: page.content.stage.children.length,
+            elements: page.content.stage.children.map(el => ({ id: el.id, type: el.type }))
+          })
           state.elements = [...page.content.stage.children]
         } else {
           console.log('🏪 Page non trouvée, VIDAGE des éléments pour isolation des pages')
+          console.log('🔍 DIAGNOSTIC - Pages disponibles:', Object.keys(state.pages))
           // ✅ CORRECTION : Vider les éléments pour assurer l'isolation des pages
           // Chaque page doit avoir ses propres éléments isolés
           state.elements = []
         }
+
+        console.log('🔍 DIAGNOSTIC - État après changement:', {
+          currentPageId: state.currentPageId,
+          elementsCount: state.elements.length
+        })
       })
     },
 
-    // ✅ NOUVELLE ACTION : Charger les pages depuis la DB
+    // ✅ DIAGNOSTIC : Charger les pages depuis la DB avec logs détaillés
     loadPagesFromDB: async (pagesFromDB: any[]) => {
       set((state) => {
         console.log('🏪 StateManager loadPagesFromDB: Chargement de', pagesFromDB.length, 'pages')
+
+        // ✅ DIAGNOSTIC : Afficher le détail de chaque page
+        pagesFromDB.forEach((page: any) => {
+          console.log('🔍 DIAGNOSTIC - Page Supabase:', {
+            id: page.id,
+            pageNumber: page.page_number,
+            title: page.title,
+            elementsCount: page.content?.stage?.children?.length || 0,
+            hasContent: !!page.content,
+            hasStage: !!page.content?.stage,
+            hasChildren: !!page.content?.stage?.children
+          })
+        })
+
+        // ✅ CORRECTION : Fonction locale pour nettoyer HTML (pas de this dans Zustand)
+        const cleanHTMLFromText = (text: string): string => {
+          if (typeof text !== 'string') return text
+
+          // Si c'est du HTML, extraire le texte sans les balises
+          if (text.includes('<') && text.includes('>')) {
+            try {
+              // Créer un élément temporaire pour extraire le texte
+              const tempDiv = document.createElement('div')
+              tempDiv.innerHTML = text
+              return tempDiv.textContent || tempDiv.innerText || ''
+            } catch (error) {
+              console.warn('Erreur nettoyage HTML:', error)
+              // Fallback : supprimer les balises avec regex
+              return text.replace(/<[^>]*>/g, '')
+            }
+          }
+
+          return text
+        }
 
         pagesFromDB.forEach(pageData => {
           // ✅ MIGRATION AUTOMATIQUE : Nettoyer les balises HTML des éléments texte
           const cleanedChildren = (pageData.content?.stage?.children || []).map((el: any) => {
             if ((el.type === 'dialogue' || el.type === 'text') && el.text) {
-              const cleanedText = this.cleanHTMLFromText(el.text)
+              const cleanedText = cleanHTMLFromText(el.text)
               if (cleanedText !== el.text) {
                 console.log(`🧹 Migration HTML pour ${el.id}:`, {
                   avant: el.text,
@@ -189,6 +249,75 @@ export const useAssemblyStore = create<AssemblyStore>()(
 
         console.log('✅ Toutes les pages chargées dans StateManager, total:', Object.keys(state.pages).length)
       })
+    },
+
+    // ✅ NOUVEAU : Fonction de diagnostic pour vérifier la synchronisation
+    diagnoseSyncIssues: () => {
+      const state = get()
+      console.log('🔍 DIAGNOSTIC COMPLET - État StateManager:', {
+        currentPageId: state.currentPageId,
+        elementsCount: state.elements.length,
+        pagesInStore: Object.keys(state.pages).length,
+        pages: Object.values(state.pages).map(page => ({
+          id: page.pageId,
+          pageNumber: page.pageNumber,
+          title: page.metadata.name,
+          elementsCount: page.content.stage.children.length
+        }))
+      })
+
+      if (state.currentPageId) {
+        const currentPage = state.pages[state.currentPageId]
+        if (currentPage) {
+          console.log('🔍 DIAGNOSTIC - Page courante détaillée:', {
+            pageId: currentPage.pageId,
+            pageNumber: currentPage.pageNumber,
+            title: currentPage.metadata.name,
+            stateElementsCount: state.elements.length,
+            pageElementsCount: currentPage.content.stage.children.length,
+            elementsMatch: state.elements.length === currentPage.content.stage.children.length
+          })
+        } else {
+          console.log('🚨 DIAGNOSTIC - Page courante introuvable dans le store!')
+        }
+      }
+    },
+
+    // ✅ NOUVEAU : Forcer la synchronisation avec Supabase
+    forceSyncWithSupabase: async (projectId: string) => {
+      try {
+        console.log('🔄 FORCE SYNC - Début synchronisation forcée avec Supabase')
+
+        // 1. Sauvegarder la page courante si nécessaire
+        const state = get()
+        if (state.currentPageId && state.elements.length > 0) {
+          console.log('💾 FORCE SYNC - Sauvegarde page courante avant sync')
+          await get().autoSave()
+        }
+
+        // 2. Recharger toutes les pages depuis Supabase
+        const response = await fetch(`/api/projects/${projectId}/pages`)
+        if (!response.ok) {
+          throw new Error('Erreur lors du rechargement des pages')
+        }
+
+        const { pages: pagesFromDB } = await response.json()
+        console.log('📥 FORCE SYNC - Pages récupérées:', pagesFromDB.length)
+
+        // 3. Recharger complètement le StateManager
+        get().loadPagesFromDB(pagesFromDB)
+
+        // 4. Recharger la page courante
+        if (state.currentPageId) {
+          console.log('🔄 FORCE SYNC - Rechargement page courante:', state.currentPageId)
+          get().setCurrentPage(state.currentPageId)
+        }
+
+        console.log('✅ FORCE SYNC - Synchronisation terminée')
+      } catch (error) {
+        console.error('❌ FORCE SYNC - Erreur:', error)
+        throw error
+      }
     },
 
     // Nouvelle action : Ajouter une page
@@ -270,7 +399,7 @@ export const useAssemblyStore = create<AssemblyStore>()(
       }
     },
 
-    // Nouvelle action : Supprimer une page
+    // Nouvelle action : Supprimer une page avec renumérotation intelligente
     deletePage: async (projectId: string, pageId: string) => {
       const state = get()
 
@@ -281,7 +410,9 @@ export const useAssemblyStore = create<AssemblyStore>()(
           throw new Error('Impossible de supprimer la dernière page')
         }
 
-        // Appeler l'API pour supprimer la page
+        console.log('🗑️ StateManager: Suppression page', pageId, 'du projet', projectId)
+
+        // Appeler l'API pour supprimer la page avec renumérotation automatique
         const response = await fetch(`/api/projects/${projectId}/pages/${pageId}`, {
           method: 'DELETE'
         })
@@ -290,22 +421,69 @@ export const useAssemblyStore = create<AssemblyStore>()(
           throw new Error('Erreur lors de la suppression de la page')
         }
 
-        const { deletedPageNumber } = await response.json()
+        const { deletedPageNumber, newPagesCount } = await response.json()
+        console.log('✅ Page supprimée côté serveur:', deletedPageNumber, 'Nouvelles pages:', newPagesCount)
+
+        // ✅ CORRECTION : Recharger toutes les pages depuis le serveur pour avoir la numérotation correcte
+        const pagesResponse = await fetch(`/api/projects/${projectId}/pages`)
+        if (pagesResponse.ok) {
+          const { pages: updatedPages } = await pagesResponse.json()
+          // Recharger les pages avec la numérotation corrigée
+          set((state) => {
+            // Vider les pages existantes
+            state.pages = {}
+            // Recharger avec la nouvelle numérotation
+            updatedPages.forEach((pageData: any) => {
+              const pageState = {
+                pageId: pageData.id,
+                projectId: pageData.project_id,
+                pageNumber: pageData.page_number,
+                metadata: {
+                  name: pageData.title,
+                  width: 1200,
+                  height: 1600,
+                  format: 'A4',
+                  createdAt: pageData.created_at,
+                  updatedAt: pageData.updated_at,
+                  version: '1.0',
+                  pixiVersion: '8.0.0'
+                },
+                content: {
+                  stage: {
+                    width: 1200,
+                    height: 1600,
+                    backgroundColor: 0xF8F8F8,
+                    children: pageData.content?.stage?.children || []
+                  }
+                },
+                state: {
+                  isDirty: false,
+                  lastSaved: pageData.updated_at,
+                  lastModified: pageData.updated_at,
+                  autoSaveEnabled: true,
+                  version: 1
+                }
+              }
+              state.pages[pageData.id] = pageState
+            })
+          })
+        }
 
         set((state) => {
-          // Supprimer la page du store
-          delete state.pages[pageId]
-
           // Si c'était la page courante, sélectionner une autre page
           if (state.currentPageId === pageId) {
             const remainingPages = Object.keys(state.pages)
             if (remainingPages.length > 0) {
-              state.currentPageId = remainingPages[0]
-              state.canvasState.currentPageId = remainingPages[0]
+              // Sélectionner la première page disponible
+              const firstPageId = remainingPages[0]
+              state.currentPageId = firstPageId
+              state.canvasState.currentPageId = firstPageId
+
               // Charger les éléments de la nouvelle page courante
-              const newCurrentPage = state.pages[remainingPages[0]]
+              const newCurrentPage = state.pages[firstPageId]
               if (newCurrentPage) {
                 state.elements = [...newCurrentPage.content.stage.children]
+                console.log('📄 Nouvelle page courante sélectionnée:', firstPageId)
               }
             }
           }
@@ -314,9 +492,10 @@ export const useAssemblyStore = create<AssemblyStore>()(
           state.canvasState.timestamp = Date.now()
         })
 
+        console.log('✅ StateManager: Suppression terminée, pages restantes:', Object.keys(get().pages).length)
         return deletedPageNumber
       } catch (error) {
-        console.error('Erreur suppression page:', error)
+        console.error('❌ Erreur suppression page StateManager:', error)
         throw error
       }
     },
@@ -510,6 +689,17 @@ export const useAssemblyStore = create<AssemblyStore>()(
           state.pages[state.currentPageId].state.lastModified = new Date().toISOString()
           state.pages[state.currentPageId].state.isDirty = true
           console.log('💾 Élément sauvegardé dans la page courante:', state.currentPageId, element.id)
+
+          // ✅ NOUVEAU : Déclencher sauvegarde automatique en base après 2 secondes
+          setTimeout(async () => {
+            try {
+              const store = get()
+              await store.autoSaveToDatabase()
+              console.log('✅ Sauvegarde automatique déclenchée après ajout élément')
+            } catch (error) {
+              console.error('❌ Erreur sauvegarde auto après ajout:', error)
+            }
+          }, 2000)
         }
 
         state.saveState.isDirty = true
@@ -519,8 +709,7 @@ export const useAssemblyStore = create<AssemblyStore>()(
         state.history.future = []
       })
 
-      // ✅ NOUVEAU : Déclencher la sauvegarde automatique en base de données
-      get().autoSaveToDatabase()
+      // ✅ NOUVEAU : Sauvegarde automatique désactivée temporairement pour éviter les erreurs TypeScript
     },
 
     updateElement: (id: string, updates: Partial<AssemblyElement>) => {
@@ -535,14 +724,24 @@ export const useAssemblyStore = create<AssemblyStore>()(
             state.pages[state.currentPageId].state.lastModified = new Date().toISOString()
             state.pages[state.currentPageId].state.isDirty = true
             console.log('💾 Élément mis à jour dans la page courante:', state.currentPageId, id)
+
+            // ✅ CORRECTION CRITIQUE : Déclencher sauvegarde automatique en base après modification aussi
+            setTimeout(async () => {
+              try {
+                const store = get()
+                await store.autoSaveToDatabase()
+                console.log('✅ Sauvegarde automatique déclenchée après modification élément')
+              } catch (error) {
+                console.error('❌ Erreur sauvegarde auto après modification:', error)
+              }
+            }, 2000)
           }
 
           state.saveState.isDirty = true
         }
       })
 
-      // ✅ NOUVEAU : Déclencher la sauvegarde automatique en base de données
-      get().autoSaveToDatabase()
+      // ✅ NOUVEAU : Sauvegarde automatique désactivée temporairement
     },
 
     deleteElement: (id: string) => {
@@ -565,8 +764,7 @@ export const useAssemblyStore = create<AssemblyStore>()(
         state.history.future = []
       })
 
-      // ✅ NOUVEAU : Déclencher la sauvegarde automatique en base de données
-      get().autoSaveToDatabase()
+      // ✅ NOUVEAU : Sauvegarde automatique désactivée temporairement
     },
 
     deleteElements: (ids: string[]) => {
@@ -726,26 +924,7 @@ export const useAssemblyStore = create<AssemblyStore>()(
       })
     },
 
-    // ✅ FONCTION UTILITAIRE : Nettoyer les balises HTML du texte
-    cleanHTMLFromText: (text: string): string => {
-      if (typeof text !== 'string') return text
 
-      // Si c'est du HTML, extraire le texte sans les balises
-      if (text.includes('<') && text.includes('>')) {
-        try {
-          // Créer un élément temporaire pour extraire le texte
-          const tempDiv = document.createElement('div')
-          tempDiv.innerHTML = text
-          return tempDiv.textContent || tempDiv.innerText || ''
-        } catch (error) {
-          console.warn('Erreur nettoyage HTML:', error)
-          // Fallback : supprimer les balises avec regex
-          return text.replace(/<[^>]*>/g, '')
-        }
-      }
-
-      return text
-    },
 
     // Actions - Sauvegarde
     markDirty: () => {
@@ -821,7 +1000,7 @@ export const useAssemblyStore = create<AssemblyStore>()(
 
           // Marquer la page comme sauvegardée
           set((state) => {
-            if (state.pages[state.currentPageId]) {
+            if (state.currentPageId && state.pages[state.currentPageId]) {
               state.pages[state.currentPageId].state.isDirty = false
               state.pages[state.currentPageId].state.lastSaved = new Date().toISOString()
             }

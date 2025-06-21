@@ -292,7 +292,7 @@ export default function SimpleCanvasEditor({
   // ✅ FONCTION DE CONVERSION : CanvasElement → AssemblyElement
   const convertToAssemblyElement = useCallback((canvasElement: CanvasElement): AssemblyElement => {
     if (canvasElement.type === 'panel') {
-      return {
+      const panelElement: PanelElement = {
         id: canvasElement.id,
         type: 'panel',
         layerType: 'panels',
@@ -325,7 +325,19 @@ export default function SimpleCanvasEditor({
           addedAt: new Date().toISOString(),
           lastModified: new Date().toISOString()
         }
-      } as PanelElement
+      }
+
+      // ✅ CRITIQUE : Préserver les données d'image si elles existent
+      if (canvasElement.imageData) {
+        (panelElement as any).imageData = canvasElement.imageData
+        console.log('✅ Données d\'image préservées dans convertToAssemblyElement:', canvasElement.id)
+      }
+      if (canvasElement.imageUrl) {
+        (panelElement as any).imageUrl = canvasElement.imageUrl
+        console.log('✅ URL d\'image préservée dans convertToAssemblyElement:', canvasElement.id)
+      }
+
+      return panelElement
     }
 
     // ✅ CORRECTION CHIRURGICALE : Support des éléments TipTap pour éviter l'erreur de synchronisation

@@ -6,6 +6,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { TextElement } from '../types/assembly.types'
+import { usePolotnoContext } from '../context/PolotnoContext'
 
 interface SimpleFreeTextProps {
   element: TextElement
@@ -27,6 +28,9 @@ export default function SimpleFreeText({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const textRef = useRef<HTMLDivElement>(null)
   const [textValue, setTextValue] = useState(element.text || '')
+
+  // ✅ NOUVEAU : Obtenir l'outil actif pour empêcher les interactions avec l'outil main
+  const { activeTool } = usePolotnoContext()
 
   // ✅ NOUVEAU : États pour le drag (système simplifié comme les panels)
   const [isDragging, setIsDragging] = useState(false)
@@ -87,6 +91,12 @@ export default function SimpleFreeText({
 
   // Gestionnaire mousedown - commence le drag seulement si on bouge
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    // ✅ NOUVEAU : Empêcher toute interaction si l'outil main est actif
+    if (activeTool === 'hand') {
+      console.log('🖐️ SimpleFreeText: Outil main actif - aucune interaction texte')
+      return // Pas d'interaction avec les textes
+    }
+
     if (mode === 'editing') return
 
     event.preventDefault()
@@ -113,10 +123,16 @@ export default function SimpleFreeText({
     })
 
     console.log('🔍 SimpleFreeText: MouseDown préparé pour', element.id)
-  }, [mode, element.id, element.transform.x, element.transform.y])
+  }, [mode, element.id, element.transform.x, element.transform.y, activeTool])
 
   // ✅ GESTIONNAIRE DE DOUBLE-CLIC (ÉDITION)
   const handleTextDoubleClick = useCallback((event: React.MouseEvent) => {
+    // ✅ NOUVEAU : Empêcher toute interaction si l'outil main est actif
+    if (activeTool === 'hand') {
+      console.log('🖐️ SimpleFreeText: Outil main actif - aucun double-clic texte')
+      return // Pas d'interaction avec les textes
+    }
+
     console.log('🔍 SimpleFreeText: Double-click détecté!', {
       textId: element.id,
       currentMode: mode,
@@ -134,7 +150,7 @@ export default function SimpleFreeText({
 
     onModeChange?.(element.id, 'editing')
     onDoubleClick?.(element.id)
-  }, [mode, element.id, onDoubleClick, onModeChange])
+  }, [mode, element.id, onDoubleClick, onModeChange, activeTool])
 
   // ✅ GESTION DU DRAG GLOBAL SIMPLIFIÉ
   useEffect(() => {
