@@ -6,8 +6,9 @@ import TextSelectionOverlay from '../ui/TextSelectionOverlay'
 import { usePolotnoContext } from '../context/PolotnoContext'
 import { useCanvasContext } from '../context/CanvasContext'
 import { BubbleType } from '../types/polotno.types'
-import { TextElement } from '../types/assembly.types'
+import { TextElement, AssemblyElement, PanelElement, DialogueElement } from '../types/assembly.types'
 import { transformManager } from './UnifiedTransformManager'
+import { useAssemblyStore } from '../managers/StateManager'
 
 interface SimpleCanvasEditorProps {
   width?: number
@@ -33,6 +34,20 @@ interface CanvasElement {
   imageUrl?: string
   imageElement?: HTMLImageElement
   hasImage?: boolean
+  // ✅ NOUVELLES PROPRIÉTÉS POUR LES IMAGES SÉPARÉES
+  imageData?: {
+    src: string
+    originalWidth: number
+    originalHeight: number
+    alt?: string
+  }
+  metadata?: {
+    parentPanelId?: string
+    isUnifiedWithPanel?: boolean
+    sourceType?: string
+    addedAt?: string
+    lastModified?: string
+  }
   // Propriétés avancées pour les bulles Canvas Editor
   isEditing?: boolean
   canvasEditor?: any // Instance Canvas Editor
@@ -159,8 +174,104 @@ export default function SimpleCanvasEditor({
     }))
   }, [zoomLevel, canvasScale])
 
-  // ✅ NOUVEAU : Accès au contexte Canvas pour les textes libres
-  const { elements: canvasElements, updateElement } = useCanvasContext()
+  // ✅ NOUVEAU : Accès au contexte Canvas pour synchronisation
+  const { elements: canvasElements, updateElement, addElement: addElementToCanvas } = useCanvasContext()
+
+  // ✅ CRITIQUE : Accès au StateManager pour l'isolation des pages
+  const { addElement: addElementToStateManager } = useAssemblyStore()
+
+  // ✅ SYNCHRONISATION BIDIRECTIONNELLE COMPLÈTE : CanvasContext ↔ SimpleCanvasEditor
+  useEffect(() => {
+    console.log('🔄 SimpleCanvasEditor: Synchronisation avec CanvasContext', {
+      canvasElementsCount: canvasElements.length,
+      localElementsCount: elements.length,
+      canvasElementIds: canvasElements.map(el => el.id),
+      localElementIds: elements.map(el => el.id)
+    })
+
+    // ✅ CONVERSION : AssemblyElement → CanvasElement pour l'affichage
+    const convertToCanvasElement = (assemblyElement: AssemblyElement): CanvasElement => {
+      if (assemblyElement.type === 'panel') {
+        const panelElement = assemblyElement as PanelElement
+        const canvasElement: CanvasElement = {
+          id: panelElement.id,
+          type: 'panel',
+          x: panelElement.transform.x,
+          y: panelElement.transform.y,
+          width: panelElement.transform.width,
+          height: panelElement.transform.height,
+          style: {
+            backgroundColor: `#${(panelElement.panelStyle.fillColor || 0x1a1a1a).toString(16).padStart(6, '0')}`,
+            borderColor: `#${(panelElement.panelStyle.borderColor || 0x000000).toString(16).padStart(6, '0')}`,
+            borderWidth: panelElement.panelStyle.borderWidth || 2,
+            borderRadius: panelElement.panelStyle.cornerRadius || 0
+          }
+        }
+
+        // ✅ CRITIQUE : Convertir imageData en propriétés pour le rendu
+        if (panelElement.imageData) {
+          console.log('🖼️ Panel avec imageData détecté:', panelElement.id, panelElement.imageData.src)
+          canvasElement.imageUrl = panelElement.imageData.src
+          canvasElement.hasImage = true
+
+          // ✅ CHARGER L'IMAGE IMMÉDIATEMENT pour le rendu
+          const img = new Image()
+          img.crossOrigin = 'anonymous'
+          img.onload = () => {
+            console.log('✅ Image rechargée pour le rendu:', panelElement.imageData!.src)
+            // Forcer un re-render en mettant à jour le state
+            setElements(prev => [...prev])
+          }
+          img.onerror = () => {
+            console.error('❌ Erreur de rechargement image:', panelElement.imageData!.src)
+          }
+          img.src = panelElement.imageData.src
+          canvasElement.imageElement = img
+        }
+
+        return canvasElement
+      }
+
+      // ✅ SUPPORT DES IMAGES : Conversion ImageElement → CanvasElement
+      if (assemblyElement.type === 'image') {
+        const imageElement = assemblyElement as any // ImageElement
+        return {
+          id: imageElement.id,
+          type: 'image',
+          x: imageElement.transform.x,
+          y: imageElement.transform.y,
+          width: imageElement.transform.width,
+          height: imageElement.transform.height,
+          imageUrl: imageElement.imageData.src, // ✅ URL de l'image pour le rendu
+          imageData: imageElement.imageData, // ✅ Données complètes de l'image
+          metadata: imageElement.metadata // ✅ Métadonnées (parentPanelId, etc.)
+        }
+      }
+
+      // Pour d'autres types, retourner un élément de base
+      return {
+        id: assemblyElement.id,
+        type: assemblyElement.type as any,
+        x: assemblyElement.transform?.x || 0,
+        y: assemblyElement.transform?.y || 0,
+        width: assemblyElement.transform?.width || 100,
+        height: assemblyElement.transform?.height || 100
+      }
+    }
+
+    // ✅ SYNCHRONISATION COMPLÈTE : Remplacer tous les éléments locaux par ceux du CanvasContext
+    const newElements = canvasElements.map(convertToCanvasElement)
+
+    setElements(newElements)
+    console.log('✅ SimpleCanvasEditor: Éléments synchronisés depuis CanvasContext:', newElements.length)
+
+    // Si l'élément sélectionné n'existe plus, désélectionner
+    const canvasElementIds = canvasElements.map(el => el.id)
+    if (selectedElementId && !canvasElementIds.includes(selectedElementId)) {
+      console.log('🗑️ SimpleCanvasEditor: Élément sélectionné supprimé, désélection:', selectedElementId)
+      setSelectedElementId(null)
+    }
+  }, [canvasElements]) // ✅ SUPPRIMÉ selectedElementId des dépendances pour éviter les boucles
 
   // ✨ ÉTAT POUR L'OUTIL MAIN (PAN/ZOOM)
   const [panState, setPanState] = useState({
@@ -177,6 +288,75 @@ export default function SimpleCanvasEditor({
     y: 0,
     scale: 1
   })
+
+  // ✅ FONCTION DE CONVERSION : CanvasElement → AssemblyElement
+  const convertToAssemblyElement = useCallback((canvasElement: CanvasElement): AssemblyElement => {
+    if (canvasElement.type === 'panel') {
+      return {
+        id: canvasElement.id,
+        type: 'panel',
+        layerType: 'panels',
+        transform: {
+          x: canvasElement.x,
+          y: canvasElement.y,
+          width: canvasElement.width,
+          height: canvasElement.height,
+          rotation: 0,
+          alpha: 1,
+          zIndex: 100
+        },
+        panelStyle: {
+          shape: 'rectangle',
+          borderColor: parseInt((canvasElement.style?.borderColor || '#000000').replace('#', ''), 16),
+          borderWidth: canvasElement.style?.borderWidth || 2,
+          borderStyle: 'solid',
+          fillColor: parseInt((canvasElement.style?.backgroundColor || '#1a1a1a').replace('#', ''), 16),
+          fillAlpha: 1.0,
+          cornerRadius: canvasElement.style?.borderRadius || 0
+        },
+        properties: {
+          name: `Panel`,
+          locked: false,
+          visible: true,
+          blendMode: 'normal'
+        },
+        metadata: {
+          sourceType: 'manual',
+          addedAt: new Date().toISOString(),
+          lastModified: new Date().toISOString()
+        }
+      } as PanelElement
+    }
+
+    // ✅ CORRECTION CHIRURGICALE : Support des éléments TipTap pour éviter l'erreur de synchronisation
+    if (canvasElement.type === 'text' || canvasElement.type === 'dialogue' || canvasElement.type === 'bubble') {
+      console.warn(`⚠️ Élément TipTap ignoré dans convertToAssemblyElement: ${canvasElement.type}`)
+      // Retourner un objet minimal pour éviter l'erreur (la vraie synchronisation se fait via TipTap)
+      return {
+        id: canvasElement.id,
+        type: canvasElement.type,
+        layerType: 'dialogue',
+        transform: {
+          x: canvasElement.x,
+          y: canvasElement.y,
+          width: canvasElement.width,
+          height: canvasElement.height,
+          rotation: 0,
+          alpha: 1,
+          zIndex: 150
+        },
+        properties: {
+          name: 'TipTap Element',
+          locked: false,
+          visible: true,
+          blendMode: 'normal'
+        }
+      } as any
+    }
+
+    // Pour d'autres types d'éléments non supportés
+    throw new Error(`Type d'élément non supporté: ${canvasElement.type}`)
+  }, [])
 
   // Fonction pour créer un panel avec des dimensions optimales
   const createOptimalPanel = useCallback((x: number, y: number): CanvasElement => {
@@ -303,35 +483,59 @@ export default function SimpleCanvasEditor({
     return { x, y }
   }, [])
 
+  // ✅ FONCTION CORRIGÉE : Coordonnées canvas pour les couches HTML avec conversion zoom
+  const getHTMLLayerCoordinates = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+
+    const rect = canvas.getBoundingClientRect()
+
+    // ✅ COORDONNÉES DOM BRUTES : Position relative au canvas DOM
+    const rawX = event.clientX - rect.left
+    const rawY = event.clientY - rect.top
+
+    // ✅ CONVERSION ZOOM SEULEMENT : Convertir écran → canvas pour le zoom
+    // Le pan est géré par CSS transform, mais le zoom nécessite une conversion
+    // Formule chirurgicale : diviser par scale seulement (pas de soustraction pan)
+    const canvasX = rawX / canvasScale
+    const canvasY = rawY / canvasScale
+
+    console.log('🎯 getHTMLLayerCoordinates: Conversion zoom écran → canvas', {
+      clientCoords: { x: event.clientX, y: event.clientY },
+      canvasRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+      rawCoords: { x: rawX, y: rawY },
+      zoomConversion: { scale: canvasScale, canvasX, canvasY },
+      note: 'Conversion zoom seulement - CSS transform gère le pan'
+    })
+
+    return { x: canvasX, y: canvasY }
+  }, [canvasScale])
+
   // ✅ FONCTION CORRIGÉE : Convertir coordonnées canvas vers coordonnées DOM pour les éléments HTML
   const getDOMCoordinates = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
 
-    // D'abord obtenir les coordonnées canvas
-    const { x: canvasX, y: canvasY } = getCanvasCoordinates(event)
-
-    // Ensuite convertir les coordonnées canvas en coordonnées DOM
-    // Pour les éléments HTML positionnés au-dessus du canvas
+    // Pour les bulles TipTap, on veut les coordonnées relatives au conteneur canvas
+    // pas les coordonnées absolues dans la page
     const rect = canvas.getBoundingClientRect()
 
-    // ✅ CONVERSION CORRECTE : Canvas → DOM
-    // 1. Multiplier par le scale pour appliquer le zoom
-    // 2. Ajouter le pan pour appliquer le déplacement
-    // 3. Ajouter l'offset du canvas dans la page
-    const domX = canvasX * canvasScale + canvasTransform.x + rect.left
-    const domY = canvasY * canvasScale + canvasTransform.y + rect.top
+    // ✅ CORRECTION CRITIQUE : Coordonnées relatives au conteneur canvas
+    // Les bulles TipTap sont positionnées avec position: absolute dans leur layer
+    // qui est lui-même positionné relativement au conteneur canvas
+    const relativeX = event.clientX - rect.left
+    const relativeY = event.clientY - rect.top
 
-    console.log('🔧 getDOMCoordinates: Conversion Canvas → DOM', {
-      canvas: { x: canvasX, y: canvasY },
+    console.log('🔧 getDOMCoordinates: Conversion Canvas → DOM (relative)', {
+      clientCoords: { x: event.clientX, y: event.clientY },
+      canvasRect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+      relativeCoords: { x: relativeX, y: relativeY },
       scale: canvasScale,
-      pan: { x: canvasTransform.x, y: canvasTransform.y },
-      canvasRect: { left: rect.left, top: rect.top },
-      dom: { x: domX, y: domY }
+      pan: { x: canvasTransform.x, y: canvasTransform.y }
     })
 
-    return { x: domX, y: domY }
-  }, [getCanvasCoordinates, canvasScale, canvasTransform.x, canvasTransform.y])
+    return { x: relativeX, y: relativeY }
+  }, [canvasScale, canvasTransform.x, canvasTransform.y])
 
   // ✅ NOUVEAU : Calculer et notifier la transformation du canvas (pan + zoom)
   useEffect(() => {
@@ -416,42 +620,83 @@ export default function SimpleCanvasEditor({
     return null
   }, [elements, isPointInElement])
 
-  // Fonction pour charger une image et l'ajouter à un panel
+  // ✅ ARCHITECTURE UNIFIÉE : Intégrer l'image directement dans le panel
   const addImageToPanel = useCallback((panelId: string, imageUrl: string) => {
-    console.log('🎯 addImageToPanel appelé:', { panelId, imageUrl })
+    console.log('🎯 addImageToPanel UNIFIÉ appelé:', { panelId, imageUrl })
+
+    // Trouver le panel dans les éléments locaux
+    const panel = elements.find(el => el.id === panelId && el.type === 'panel')
+    if (!panel) {
+      console.error('❌ Panel non trouvé:', panelId)
+      return
+    }
 
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
       console.log('✅ Image chargée avec succès:', imageUrl, 'Dimensions:', img.width, 'x', img.height)
-      setElements(prev => prev.map(element => {
-        if (element.id === panelId && element.type === 'panel') {
-          console.log('🎯 Mise à jour du panel:', panelId)
-          return {
-            ...element,
-            imageUrl,
-            imageElement: img,
-            hasImage: true,
-            style: {
-              ...element.style,
-              backgroundColor: 'transparent' // Masquer le fond noir quand une image est ajoutée
-            }
+
+      // ✅ ARCHITECTURE UNIFIÉE : Mettre à jour le panel avec l'image intégrée
+      const updatedPanel = {
+        ...panel,
+        // Ajouter l'image directement dans le panel local
+        imageUrl,
+        imageElement: img,
+        hasImage: true,
+        style: {
+          ...panel.style,
+          backgroundColor: 'transparent' // Masquer le fond pour voir l'image
+        }
+      }
+
+      // Mettre à jour le panel local
+      setElements(prev => prev.map(element =>
+        element.id === panelId ? updatedPanel : element
+      ))
+
+      // ✅ SYNCHRONISER AVEC CANVASCONTEXT ET STATEMANAGER (architecture unifiée)
+      try {
+        const assemblyPanel = convertToAssemblyElement(updatedPanel) as any
+
+        // ✅ INTÉGRER L'IMAGE DANS LE PANELELEMENT
+        const unifiedPanel = {
+          ...assemblyPanel,
+          imageData: {
+            src: imageUrl,
+            originalWidth: img.width,
+            originalHeight: img.height,
+            alt: 'Image manga',
+            scaleFactor: 0.95, // 95% pour bordures noires manga
+            offsetX: 0,
+            offsetY: 0,
+            maintainAspectRatio: true
+          },
+          panelStyle: {
+            ...assemblyPanel.panelStyle,
+            fillAlpha: 0.05 // Très transparent pour voir l'image
           }
         }
-        return element
-      }))
+
+        // Synchroniser avec CanvasContext et StateManager
+        updateElement(panelId, unifiedPanel)
+        console.log('✅ Panel unifié avec image synchronisé:', panelId)
+
+      } catch (error) {
+        console.error('❌ Erreur de synchronisation panel unifié:', error)
+      }
     }
     img.onerror = (error) => {
       console.error('❌ Erreur lors du chargement de l\'image:', imageUrl, error)
     }
     img.src = imageUrl
-  }, [])
+  }, [elements, updateElement, convertToAssemblyElement])
 
-  // Mettre à jour les handles de redimensionnement quand la sélection change (panels seulement)
+  // ✅ CORRECTION : Handles de redimensionnement SEULEMENT pour les panels
+  // Les éléments TipTap (text, bubble) utilisent leurs overlays spécialisés
   useEffect(() => {
     if (selectedElementId) {
       const selectedElement = elements.find(el => el.id === selectedElementId)
-      if (selectedElement) {
+      if (selectedElement && selectedElement.type === 'panel') {
         setResizeHandles(calculateResizeHandles(selectedElement))
       } else {
         setResizeHandles([])
@@ -692,17 +937,15 @@ export default function SimpleCanvasEditor({
         ctx.textBaseline = 'middle'
         ctx.fillText(element.content, centerX, centerY)
       }
-    } else if (element.type === 'text') {
-      // Dessiner du texte libre
-      ctx.fillStyle = '#000000'
-      ctx.font = '16px Arial'
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'top'
-      ctx.fillText(element.content || 'Texte', element.x, element.y)
     }
+    // ✅ SUPPRIMÉ : Rendu canvas des éléments "text"
+    // Les textes libres sont gérés par TipTapFreeTextLayer (HTML/TipTap)
+    // Le rendu canvas créait une duplication visuelle avec cadre bleu identique aux panels
+    // ✅ SUPPRIMÉ : Support des images séparées (architecture unifiée panel-image)
     
-    // Indicateur de sélection simple
-    if (isSelected) {
+    // ✅ CORRECTION : Indicateur de sélection SEULEMENT pour les panels
+    // Les éléments TipTap (text, bubble) utilisent leurs overlays spécialisés
+    if (isSelected && element.type === 'panel') {
       ctx.strokeStyle = '#007bff'
       ctx.lineWidth = 3
       ctx.strokeRect(element.x - 5, element.y - 5, element.width + 10, element.height + 10)
@@ -760,9 +1003,13 @@ export default function SimpleCanvasEditor({
       drawCreationPreview(ctx)
     }
 
-    // Dessiner les handles de redimensionnement (panels seulement)
+    // ✅ CORRECTION : Dessiner les handles SEULEMENT pour les panels sélectionnés
+    // Les éléments TipTap utilisent leurs overlays spécialisés
     if (selectedElementId && resizeHandles.length > 0) {
-      drawResizeHandles(ctx)
+      const selectedElement = elements.find(el => el.id === selectedElementId)
+      if (selectedElement && selectedElement.type === 'panel') {
+        drawResizeHandles(ctx)
+      }
     }
   }, [elements, width, height, gridVisible, drawElement, creationState, selectedElementId, resizeHandles, drawCreationPreview, drawResizeHandles, isDragOverPanel, drawDragFeedback])
 
@@ -841,31 +1088,36 @@ export default function SimpleCanvasEditor({
   const [bubbleDragState, setBubbleDragState] = useState<{ bubbleId: string, startLeft: number, startTop: number } | null>(null)
 
   const handleBubbleDragStart = useCallback((bubbleId: string, startX: number, startY: number) => {
-    const bubbleElement = document.querySelector(`[data-bubble-id="${bubbleId}"]`) as HTMLElement
-    if (bubbleElement && bubbleElement.parentElement) {
-      const parent = bubbleElement.parentElement
-      const currentLeft = parseInt(parent.style.left || '0', 10)
-      const currentTop = parseInt(parent.style.top || '0', 10)
+    // ✅ CORRECTION : Lire les données depuis CanvasContext au lieu du DOM
+    const bubbleElement = canvasElements.find(el => el.id === bubbleId && el.type === 'dialogue') as DialogueElement | undefined
+    if (bubbleElement) {
+      const currentLeft = bubbleElement.transform.x
+      const currentTop = bubbleElement.transform.y
 
       setBubbleDragState({ bubbleId, startLeft: currentLeft, startTop: currentTop })
       console.log('🎯 Bubble drag start state:', { bubbleId, startLeft: currentLeft, startTop: currentTop })
     }
-  }, [])
+  }, [canvasElements])
 
   const handleBubbleDrag = useCallback((bubbleId: string, deltaX: number, deltaY: number) => {
     if (!bubbleDragState || bubbleDragState.bubbleId !== bubbleId) return
 
-    const bubbleElement = document.querySelector(`[data-bubble-id="${bubbleId}"]`) as HTMLElement
-    if (bubbleElement && bubbleElement.parentElement) {
-      const parent = bubbleElement.parentElement
-      const newLeft = bubbleDragState.startLeft + deltaX
-      const newTop = bubbleDragState.startTop + deltaY
+    const newLeft = bubbleDragState.startLeft + deltaX
+    const newTop = bubbleDragState.startTop + deltaY
 
-      parent.style.left = `${newLeft}px`
-      parent.style.top = `${newTop}px`
+    // ✅ CORRECTION : Mettre à jour CanvasContext au lieu du DOM
+    const bubbleUpdateEvent = new CustomEvent('updateTipTapBubbleTransform', {
+      detail: {
+        bubbleId,
+        transform: {
+          x: newLeft,
+          y: newTop
+        }
+      }
+    })
+    window.dispatchEvent(bubbleUpdateEvent)
 
-      console.log('🎯 Bubble drag applied:', bubbleId, { deltaX, deltaY, newLeft, newTop })
-    }
+    console.log('🎯 Bubble drag applied:', bubbleId, { deltaX, deltaY, newLeft, newTop })
   }, [bubbleDragState])
 
   const handleBubbleDragEnd = useCallback((bubbleId: string) => {
@@ -883,13 +1135,13 @@ export default function SimpleCanvasEditor({
   } | null>(null)
 
   const handleBubbleResizeStart = useCallback((bubbleId: string, handle: string, startX: number, startY: number) => {
-    const bubbleElement = document.querySelector(`[data-bubble-id="${bubbleId}"]`) as HTMLElement
-    if (bubbleElement && bubbleElement.parentElement) {
-      const parent = bubbleElement.parentElement
-      const currentWidth = parseInt(parent.style.width || '150', 10)
-      const currentHeight = parseInt(parent.style.height || '80', 10)
-      const currentLeft = parseInt(parent.style.left || '0', 10)
-      const currentTop = parseInt(parent.style.top || '0', 10)
+    // ✅ CORRECTION : Lire les données depuis CanvasContext au lieu du DOM
+    const bubbleElement = canvasElements.find(el => el.id === bubbleId && el.type === 'dialogue') as DialogueElement | undefined
+    if (bubbleElement) {
+      const currentWidth = bubbleElement.transform.width
+      const currentHeight = bubbleElement.transform.height
+      const currentLeft = bubbleElement.transform.x
+      const currentTop = bubbleElement.transform.y
 
       setBubbleResizeState({
         bubbleId,
@@ -899,9 +1151,9 @@ export default function SimpleCanvasEditor({
         startLeft: currentLeft,
         startTop: currentTop
       })
-      console.log('🎯 Bubble resize start state:', { bubbleId, handle, startWidth: currentWidth, startHeight: currentHeight })
+      console.log('🎯 Bubble resize start state:', { bubbleId, handle, startWidth: currentWidth, startHeight: currentHeight, startLeft: currentLeft, startTop: currentTop })
     }
-  }, [])
+  }, [canvasElements])
 
   const handleBubbleResize = useCallback((bubbleId: string, handle: string, deltaX: number, deltaY: number) => {
     if (!bubbleResizeState || bubbleResizeState.bubbleId !== bubbleId || bubbleResizeState.handle !== handle) return
@@ -954,11 +1206,8 @@ export default function SimpleCanvasEditor({
           break
       }
 
-      // ✅ MISE À JOUR VISUELLE IMMÉDIATE
-      parent.style.width = `${newWidth}px`
-      parent.style.height = `${newHeight}px`
-      parent.style.left = `${newLeft}px`
-      parent.style.top = `${newTop}px`
+      // ✅ CORRECTION : Supprimer les modifications DOM directes qui entrent en conflit avec React
+      // Laisser React gérer le rendu via CanvasContext uniquement
 
       // ✅ NOUVEAU : Mettre à jour les données de la bulle TipTap
       const bubbleUpdateEvent = new CustomEvent('updateTipTapBubbleTransform', {
@@ -1296,6 +1545,7 @@ export default function SimpleCanvasEditor({
     const delta = event.deltaY > 0 ? -1 : 1
     const zoomFactor = 1.1
 
+    // ✅ NOUVEAU : Les fonctions zoomIn/zoomOut déclenchent déjà la désélection automatique
     if (delta > 0) {
       zoomIn()
     } else {
@@ -1308,8 +1558,64 @@ export default function SimpleCanvasEditor({
     const canvas = canvasRef.current
     if (!canvas) return
 
-    const { x, y } = getCanvasCoordinates(event)
-    console.log('🖱️ SimpleCanvasEditor mouseDown:', { x, y, tipTapBubblesCount: tipTapBubbles.size })
+    // ✅ CORRECTION CRITIQUE : Utiliser des fonctions de coordonnées différentes selon le type d'élément
+    const canvasCoords = getCanvasCoordinates(event) // Pour les éléments canvas (panels)
+    const htmlLayerCoords = getHTMLLayerCoordinates(event) // Pour les couches HTML (textes, bulles)
+
+    console.log('🖱️ SimpleCanvasEditor mouseDown:', {
+      canvasCoords,
+      htmlLayerCoords,
+      tipTapBubblesCount: tipTapBubbles.size
+    })
+
+    // ✅ PRIORITÉ ABSOLUE : Création de bulles quand l'outil bulle est actif
+    if (bubbleCreationMode && bubbleTypeToCreate) {
+      // ✅ CORRECTION FINALE : Utiliser getHTMLLayerCoordinates() pour éviter la double transformation
+      console.log('🎯 PRIORITÉ BULLE: Création bulle TipTap (priorité absolue sur tout):', {
+        htmlLayerCoords,
+        type: bubbleTypeToCreate,
+        zoomLevel,
+        canvasScale
+      })
+
+      // Créer l'événement personnalisé avec les coordonnées HTML layer (sans double transformation)
+      const bubbleCreationEvent = new CustomEvent('createTipTapBubble', {
+        detail: {
+          x: htmlLayerCoords.x, // ✅ CORRIGÉ : Coordonnées HTML layer sans double transformation
+          y: htmlLayerCoords.y, // ✅ CORRIGÉ : Coordonnées HTML layer sans double transformation
+          bubbleType: bubbleTypeToCreate
+        }
+      })
+
+      // Dispatcher l'événement pour que TipTapBubbleLayer le capture
+      window.dispatchEvent(bubbleCreationEvent)
+
+      cancelBubbleCreation()
+      return // ✅ ARRÊTER ICI - Pas de sélection d'éléments, pas d'autres actions
+    }
+
+    // ✅ PRIORITÉ ABSOLUE : Création de texte quand l'outil texte est actif
+    if (activeTool === 'text') {
+      // ✅ CORRECTION FINALE : Utiliser getHTMLLayerCoordinates() pour éviter la double transformation
+      console.log('🎯 PRIORITÉ TEXTE: Création texte TipTap (priorité absolue sur tout):', {
+        htmlLayerCoords,
+        zoomLevel,
+        canvasScale
+      })
+
+      // Créer l'événement personnalisé avec les coordonnées HTML layer (sans double transformation)
+      const textCreationEvent = new CustomEvent('createTipTapFreeText', {
+        detail: {
+          x: htmlLayerCoords.x, // ✅ CORRIGÉ : Coordonnées HTML layer sans double transformation
+          y: htmlLayerCoords.y  // ✅ CORRIGÉ : Coordonnées HTML layer sans double transformation
+        }
+      })
+
+      // Dispatcher l'événement pour que le système TipTap le capture
+      window.dispatchEvent(textCreationEvent)
+      setActiveTool('select')
+      return // ✅ ARRÊTER ICI - Pas de sélection d'éléments, pas d'autres actions
+    }
 
     // ✨ GESTION DE L'OUTIL MAIN (PAN) - AUCUNE SÉLECTION POSSIBLE
     if (activeTool === 'hand') {
@@ -1324,11 +1630,15 @@ export default function SimpleCanvasEditor({
       return // Sortir immédiatement, pas de sélection
     }
 
-    // Vérifier si on clique sur un handle de redimensionnement
+    // ✅ CORRECTION CRITIQUE : Définir x et y pour les éléments canvas (panels)
+    const { x, y } = canvasCoords
+
+    // ✅ CORRECTION : Vérifier les handles SEULEMENT pour les panels
+    // Les éléments TipTap utilisent leurs overlays spécialisés
     const handle = findHandleAtPosition(x, y)
     if (handle && selectedElementId) {
       const selectedElement = elements.find(el => el.id === selectedElementId)
-      if (selectedElement) {
+      if (selectedElement && selectedElement.type === 'panel') {
         setManipulationState({
           isDragging: false,
           isResizing: true,
@@ -1379,62 +1689,22 @@ export default function SimpleCanvasEditor({
     window.dispatchEvent(globalDeselectEvent)
 
     if (activeTool === 'panel') {
+      // ✅ CORRECTION : Utiliser canvasCoords pour les panels (système Konva)
       // Commencer le mode création par drag
       setCreationState({
         isCreating: true,
-        startX: x,
-        startY: y,
-        currentX: x,
-        currentY: y,
+        startX: canvasCoords.x,
+        startY: canvasCoords.y,
+        currentX: canvasCoords.x,
+        currentY: canvasCoords.y,
         elementType: 'panel'
       })
-    } else if (activeTool === 'text') {
-      // ✅ CRÉER UN TEXTE LIBRE AVEC TIPTAP
-      console.log('🎯 Création texte libre TipTap:', {
-        canvasCoords: { x, y },
-        zoomLevel,
-        canvasScale
-      })
-
-      // Créer l'événement personnalisé avec les coordonnées canvas
-      const textCreationEvent = new CustomEvent('createTipTapFreeText', {
-        detail: {
-          x: x, // Coordonnées canvas directes
-          y: y  // Coordonnées canvas directes
-        }
-      })
-
-      // Dispatcher l'événement pour que le système TipTap le capture
-      window.dispatchEvent(textCreationEvent)
-      setActiveTool('select')
-    } else if (bubbleCreationMode && bubbleTypeToCreate) {
-      // ✅ CORRIGÉ : Utiliser les coordonnées canvas directement
-      console.log('🎯 Création bulle TipTap:', {
-        canvasCoords: { x, y },
-        type: bubbleTypeToCreate,
-        zoomLevel,
-        canvasScale
-      })
-
-      // Créer l'événement personnalisé avec les coordonnées canvas
-      // TipTapBubbleLayer gère la transformation CSS, donc pas besoin de conversion DOM
-      const bubbleCreationEvent = new CustomEvent('createTipTapBubble', {
-        detail: {
-          x: x, // Coordonnées canvas directes
-          y: y, // Coordonnées canvas directes
-          bubbleType: bubbleTypeToCreate
-        }
-      })
-
-      // Dispatcher l'événement pour que TipTapBubbleLayer le capture
-      window.dispatchEvent(bubbleCreationEvent)
-
-      cancelBubbleCreation()
     } else {
-      onCanvasClick?.(x, y)
+      onCanvasClick?.(canvasCoords.x, canvasCoords.y)
     }
   }, [
     getCanvasCoordinates,
+    getHTMLLayerCoordinates,
     findHandleAtPosition,
     selectedElementId,
     elements,
@@ -1473,8 +1743,19 @@ export default function SimpleCanvasEditor({
       return
     }
 
-    // Mise à jour du curseur
+    // ✅ NOUVEAU : Mise à jour du curseur avec priorité pour les outils de création
     const handle = findHandleAtPosition(x, y)
+
+    // ✅ PRIORITÉ : Ne pas changer le curseur si les outils bulle ou texte sont actifs
+    // Le hook useConsistentCursor gère déjà le curseur crosshair
+    const isCreationTool = activeTool === 'text' || activeTool === 'bubble' || bubbleCreationMode
+
+    if (isCreationTool) {
+      // Laisser le hook useConsistentCursor gérer le curseur
+      console.log('🖱️ SimpleCanvasEditor: Curseur géré par useConsistentCursor pour outil:', activeTool)
+      return
+    }
+
     if (activeTool === 'hand') {
       canvas.style.cursor = panState.isPanning ? 'grabbing' : 'grab'
     } else if (handle) {
@@ -1622,9 +1903,39 @@ export default function SimpleCanvasEditor({
         const hasCollision = detectPanelCollision(newPanel.x, newPanel.y, newPanel.width, newPanel.height)
 
         if (!hasCollision) {
+          // ✅ SYNCHRONISATION COMPLÈTE : Ajouter au state local, CanvasContext ET StateManager
           setElements(prev => [...prev, newPanel])
           setSelectedElementId(newPanel.id)
           setActiveTool('select')
+
+          // Synchroniser avec CanvasContext pour SettingsPanel
+          try {
+            const assemblyElement = convertToAssemblyElement(newPanel)
+            addElementToCanvas(assemblyElement)
+            console.log('✅ Panel synchronisé avec CanvasContext:', newPanel.id)
+
+            // ✅ CRITIQUE : Ajouter aussi au StateManager pour l'isolation des pages
+            addElementToStateManager(assemblyElement)
+            console.log('✅ Panel synchronisé avec StateManager:', newPanel.id)
+          } catch (error) {
+            console.error('❌ Erreur de synchronisation:', error)
+          }
+
+          // ✅ NOUVEAU : Synchroniser avec le système de sélection global (comme les textes/bulles)
+          // Déclencher onElementClick pour synchroniser avec PolotnoAssemblyApp et useAssemblyStore
+          setTimeout(() => {
+            const virtualElement = {
+              id: newPanel.id,
+              type: 'panel',
+              x: newPanel.x,
+              y: newPanel.y,
+              width: newPanel.width,
+              height: newPanel.height
+            }
+
+            onElementClick?.(virtualElement)
+            console.log('🎯 SimpleCanvasEditor: Sélection automatique panel synchronisée avec le système global:', newPanel.id)
+          }, 50) // Petit délai pour que l'élément soit ajouté au contexte
         } else {
           // Afficher un message d'erreur temporaire
           setCollisionError('Impossible de créer un panel sur un panel existant')
@@ -1651,9 +1962,40 @@ export default function SimpleCanvasEditor({
               borderRadius: 0
             }
           }
+
+          // ✅ SYNCHRONISATION COMPLÈTE : Ajouter au state local, CanvasContext ET StateManager
           setElements(prev => [...prev, newPanel])
           setSelectedElementId(newPanel.id)
           setActiveTool('select')
+
+          // Synchroniser avec CanvasContext pour SettingsPanel
+          try {
+            const assemblyElement = convertToAssemblyElement(newPanel)
+            addElementToCanvas(assemblyElement)
+            console.log('✅ Panel synchronisé avec CanvasContext:', newPanel.id)
+
+            // ✅ CRITIQUE : Ajouter aussi au StateManager pour l'isolation des pages
+            addElementToStateManager(assemblyElement)
+            console.log('✅ Panel synchronisé avec StateManager:', newPanel.id)
+          } catch (error) {
+            console.error('❌ Erreur de synchronisation:', error)
+          }
+
+          // ✅ NOUVEAU : Synchroniser avec le système de sélection global (comme les textes/bulles)
+          // Déclencher onElementClick pour synchroniser avec PolotnoAssemblyApp et useAssemblyStore
+          setTimeout(() => {
+            const virtualElement = {
+              id: newPanel.id,
+              type: 'panel',
+              x: newPanel.x,
+              y: newPanel.y,
+              width: newPanel.width,
+              height: newPanel.height
+            }
+
+            onElementClick?.(virtualElement)
+            console.log('🎯 SimpleCanvasEditor: Sélection automatique panel synchronisée avec le système global:', newPanel.id)
+          }, 50) // Petit délai pour que l'élément soit ajouté au contexte
         } else {
           // Afficher un message d'erreur temporaire
           setCollisionError('Impossible de créer un panel sur un panel existant')
@@ -1671,6 +2013,28 @@ export default function SimpleCanvasEditor({
       })
     }
 
+    // ✅ CRITIQUE : Synchroniser les manipulations avec CanvasContext/StateManager
+    if ((manipulationState.isDragging || manipulationState.isResizing) && manipulationState.draggedElementId) {
+      const manipulatedElement = elements.find(el => el.id === manipulationState.draggedElementId)
+      if (manipulatedElement) {
+        console.log('💾 Synchronisation manipulation:', manipulationState.draggedElementId, {
+          isDragging: manipulationState.isDragging,
+          isResizing: manipulationState.isResizing,
+          newPosition: { x: manipulatedElement.x, y: manipulatedElement.y },
+          newSize: { width: manipulatedElement.width, height: manipulatedElement.height }
+        })
+
+        try {
+          // Convertir en AssemblyElement et synchroniser
+          const assemblyElement = convertToAssemblyElement(manipulatedElement)
+          updateElement(manipulationState.draggedElementId, assemblyElement)
+          console.log('✅ Manipulation synchronisée avec CanvasContext/StateManager:', manipulationState.draggedElementId)
+        } catch (error) {
+          console.error('❌ Erreur de synchronisation manipulation:', error)
+        }
+      }
+    }
+
     // Arrêter la manipulation
     setManipulationState({
       isDragging: false,
@@ -1684,7 +2048,7 @@ export default function SimpleCanvasEditor({
       startElementWidth: 0,
       startElementHeight: 0
     })
-  }, [getCanvasCoordinates, creationState, setActiveTool, createOptimalPanel, detectPanelCollision, setCollisionError, panState, setPanState])
+  }, [getCanvasCoordinates, creationState, setActiveTool, createOptimalPanel, detectPanelCollision, setCollisionError, panState, setPanState, convertToAssemblyElement, addElementToCanvas, manipulationState, elements, updateElement])
 
   // Gestionnaire de double-clic
   const handleDoubleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1823,9 +2187,9 @@ export default function SimpleCanvasEditor({
     const handleForceDeselectAll = (event: CustomEvent) => {
       console.log('🖐️ SimpleCanvasEditor: Désélection forcée reçue:', event.detail)
 
-      // Désélectionner tous les éléments canvas
+      // ✅ CORRECTION : Désélectionner seulement les panels (les éléments TipTap gèrent leur propre désélection)
       setSelectedElementId(null)
-      setResizeHandles([])
+      setResizeHandles([]) // Handles seulement pour les panels maintenant
 
       // Réinitialiser les états de manipulation
       setManipulationState({
@@ -1866,6 +2230,12 @@ export default function SimpleCanvasEditor({
     if (event.key === 'Delete' && selectedElementId) {
       setElements(prev => prev.filter(el => el.id !== selectedElementId))
       setSelectedElementId(null)
+
+      // ✅ NOUVEAU : Émettre événement de désélection globale après suppression
+      const globalDeselectEvent = new CustomEvent('globalDeselect', {
+        detail: { source: 'delete-key' }
+      })
+      window.dispatchEvent(globalDeselectEvent)
     } else if (event.key === 'Escape') {
       if (creationState.isCreating) {
         setCreationState({
@@ -1881,6 +2251,12 @@ export default function SimpleCanvasEditor({
         cancelBubbleCreation()
       }
       setSelectedElementId(null)
+
+      // ✅ NOUVEAU : Émettre événement de désélection globale pour ESC
+      const globalDeselectEvent = new CustomEvent('globalDeselect', {
+        detail: { source: 'escape-key' }
+      })
+      window.dispatchEvent(globalDeselectEvent)
     }
   }, [selectedElementId, creationState, bubbleCreationMode, cancelBubbleCreation])
 
@@ -1968,8 +2344,8 @@ export default function SimpleCanvasEditor({
             </div>
           )}
 
-          {/* ✅ NOUVEAU : DOM Selection Overlay pour les bulles TipTap (désactivé en mode édition) */}
-          {bubbleMode !== 'editing' && (
+          {/* ✅ CORRIGÉ : DOM Selection Overlay pour les bulles TipTap (SEULEMENT en mode manipulating) */}
+          {bubbleMode === 'manipulating' && (
             <BubbleSelectionOverlay
               selectedBubbleId={isSelectedElementBubble() ? selectedElementId : null}
               onDragStart={handleBubbleDragStart}
@@ -1982,8 +2358,8 @@ export default function SimpleCanvasEditor({
             />
           )}
 
-          {/* ✅ NOUVEAU : DOM Selection Overlay pour les textes libres TipTap (désactivé en mode édition) */}
-          {textMode !== 'editing' && (
+          {/* ✅ CORRIGÉ : DOM Selection Overlay pour les textes libres TipTap (SEULEMENT en mode manipulating) */}
+          {textMode === 'manipulating' && (
             <TextSelectionOverlay
               selectedTextId={isSelectedElementText() ? selectedElementId : null}
               onDragStart={handleTextDragStart}

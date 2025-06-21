@@ -97,6 +97,17 @@ export interface AssemblyData {
   currentPage: number
   totalPages: number
   lastModified: Date
+  // Nouvel état canvas pour persistance entre menus
+  canvasState?: {
+    position: { x: number; y: number }
+    zoom: number
+    currentPageId: string | null
+    showGrid: boolean
+    gridSize: number
+    activeTool: string
+    lastActiveTab: string
+    timestamp: number
+  }
 }
 
 export interface ProjectExportData {

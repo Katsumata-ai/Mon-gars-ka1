@@ -240,25 +240,50 @@ export const PolotnoProvider: React.FC<PolotnoProviderProps> = ({ children }) =>
     dispatch({ type: 'TOGGLE_GRID' })
   }, [])
 
+  // ✅ NOUVEAU : Fonction utilitaire pour déclencher la désélection automatique lors du zoom
+  const triggerZoomDeselection = useCallback(() => {
+    console.log('🔍 PolotnoContext: Déclenchement désélection automatique pour zoom')
+
+    // Émettre l'événement de désélection globale (même que l'outil main)
+    const globalDeselectEvent = new CustomEvent('globalDeselect', {
+      detail: { source: 'zoom-operation' }
+    })
+    window.dispatchEvent(globalDeselectEvent)
+
+    // Émettre aussi l'événement spécifique pour forcer la désélection
+    const forceDeselectEvent = new CustomEvent('forceDeselectAll', {
+      detail: { source: 'zoom-operation' }
+    })
+    window.dispatchEvent(forceDeselectEvent)
+  }, [])
+
   const zoomIn = useCallback(() => {
     console.log('🔍 PolotnoContext: zoomIn appelé')
+    // ✅ NOUVEAU : Désélection automatique avant le zoom
+    triggerZoomDeselection()
     dispatch({ type: 'ZOOM_IN' })
-  }, [])
+  }, [triggerZoomDeselection])
 
   const zoomOut = useCallback(() => {
     console.log('🔍 PolotnoContext: zoomOut appelé')
+    // ✅ NOUVEAU : Désélection automatique avant le zoom
+    triggerZoomDeselection()
     dispatch({ type: 'ZOOM_OUT' })
-  }, [])
+  }, [triggerZoomDeselection])
 
   const setZoomLevel = useCallback((level: number) => {
     console.log('🔍 PolotnoContext: setZoomLevel appelé avec', level)
+    // ✅ NOUVEAU : Désélection automatique avant le zoom
+    triggerZoomDeselection()
     dispatch({ type: 'SET_ZOOM_LEVEL', payload: level })
-  }, [])
+  }, [triggerZoomDeselection])
 
   const resetZoom = useCallback(() => {
     console.log('🔍 PolotnoContext: resetZoom appelé')
+    // ✅ NOUVEAU : Désélection automatique avant le zoom
+    triggerZoomDeselection()
     dispatch({ type: 'RESET_ZOOM' })
-  }, [])
+  }, [triggerZoomDeselection])
 
   const saveProject = useCallback(async () => {
     if (!state.store) return

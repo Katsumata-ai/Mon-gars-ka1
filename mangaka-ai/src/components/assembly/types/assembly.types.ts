@@ -123,6 +123,18 @@ export interface PanelElement {
     fillAlpha: number
   }
   properties: ElementProperties
+  // ✅ NOUVEAU : Support d'image intégrée pour l'architecture unifiée panel-image
+  imageData?: {
+    src: string
+    originalWidth: number
+    originalHeight: number
+    alt?: string
+    // Propriétés de rendu manga
+    scaleFactor?: number // Facteur d'échelle (0.95 par défaut pour bordures noires)
+    offsetX?: number // Décalage horizontal pour centrage
+    offsetY?: number // Décalage vertical pour centrage
+    maintainAspectRatio?: boolean // Maintenir les proportions
+  }
 }
 
 // Interface pour les éléments de texte libre
@@ -203,25 +215,40 @@ export interface PageState {
   }
 }
 
+// Interface pour l'état du canvas
+export interface CanvasState {
+  position: { x: number; y: number }
+  zoom: number
+  currentPageId: string | null
+  showGrid: boolean
+  gridSize: number
+  activeTool: string
+  lastActiveTab: string
+  timestamp: number
+}
+
 // Interface pour l'état global de l'assemblage
 export interface AssemblyState {
   // Application PixiJS
   pixiApp: Application | null
-  
+
   // État des pages
   currentPageId: string | null
   pages: Record<string, PageState>
-  
+
   // Éléments de la page courante
   elements: AssemblyElement[]
   selectedElementIds: string[]
-  
+
   // Outils et interface
   activeTool: 'select' | 'move' | 'panel' | 'dialogue' | 'text' | 'image'
   showGrid: boolean
   gridSize: number
   zoom: number
-  
+
+  // État du canvas pour persistance
+  canvasState: CanvasState
+
   // Couches
   layers: {
     [K in LayerType]: {
@@ -230,7 +257,7 @@ export interface AssemblyState {
       opacity: number
     }
   }
-  
+
   // Historique undo/redo
   history: {
     past: AssemblyElement[][]
@@ -260,7 +287,17 @@ export interface AssemblyActions {
   // Initialisation
   initializePixiApp: (app: Application) => void
   setCurrentPage: (pageId: string) => void
-  
+
+  // Gestion des pages
+  addPage: (projectId: string, title?: string) => Promise<string>
+  deletePage: (projectId: string, pageId: string) => Promise<number>
+  duplicatePage: (projectId: string, sourcePageId: string) => Promise<string>
+  reorderPages: (projectId: string, pageOrders: Array<{ pageId: string; newPageNumber: number }>) => Promise<boolean>
+
+  // Gestion de l'état canvas
+  saveCanvasState: (canvasState: Partial<CanvasState>) => void
+  restoreCanvasState: (projectId: string) => CanvasState | null
+
   // Gestion des éléments
   addElement: (element: AssemblyElement) => void
   updateElement: (id: string, updates: Partial<AssemblyElement>) => void

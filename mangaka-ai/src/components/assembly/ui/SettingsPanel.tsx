@@ -1,10 +1,10 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Settings, Trash2, Square, MessageCircle, Type, Image as ImageIcon, Palette, Move, RotateCw } from 'lucide-react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Settings, Trash2, Square, MessageCircle, Type, Image as ImageIcon, Palette, RotateCw } from 'lucide-react'
+import { useAssemblyStore } from '../managers/StateManager'
 import { useCanvasContext } from '../context/CanvasContext'
 import { AssemblyElement, DialogueElement, TextElement, PanelElement, ImageElement } from '../types/assembly.types'
-import { UnifiedSelectionManager } from '../core/UnifiedSelectionManager'
 
 interface SettingsPanelProps {
   className?: string
@@ -15,39 +15,34 @@ interface SettingsPanelProps {
  * Détecte automatiquement le type d'élément sélectionné et affiche les paramètres appropriés
  */
 export default function SettingsPanel({ className = '' }: SettingsPanelProps) {
-  const { elements, removeElement, updateElement } = useCanvasContext()
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
-  const [selectedElement, setSelectedElement] = useState<AssemblyElement | null>(null)
+  // ✅ CORRECTION : Utiliser les deux sources de données correctement
+  // - Éléments depuis CanvasContext (où ils sont réellement stockés)
+  // - Sélection depuis useAssemblyStore (où elle est mise à jour)
+  const { elements: canvasElements, removeElement, updateElement } = useCanvasContext()
+  const { selectedElementIds, clearSelection } = useAssemblyStore()
 
-  // Écouter les changements de sélection via UnifiedSelectionManager
+  // Calculer les éléments sélectionnés en combinant les deux sources
+  const selectedElements = useMemo(() => {
+    if (!selectedElementIds || selectedElementIds.length === 0) {
+      return []
+    }
+    return canvasElements.filter(el => selectedElementIds.includes(el.id))
+  }, [canvasElements, selectedElementIds])
+
+  // Calculer l'élément sélectionné (mode sélection simple)
+  const selectedElement = selectedElements.length > 0 ? selectedElements[0] : null
+  const selectedElementId = selectedElement?.id || null
+
+  // Debug pour vérifier la sélection
   useEffect(() => {
-    const selectionManager = UnifiedSelectionManager.getInstance()
-
-    const unsubscribe = selectionManager.onSelectionChange((selectedIds: string[]) => {
-      console.log('🎯 SettingsPanel: Changement de sélection:', selectedIds)
-
-      if (selectedIds.length > 0) {
-        const elementId = selectedIds[0] // Mode sélection simple
-        const element = elements.find(el => el.id === elementId)
-
-        if (element) {
-          setSelectedElementId(elementId)
-          setSelectedElement(element)
-          console.log('✅ SettingsPanel: Élément trouvé:', element.type, elementId)
-        } else {
-          console.log('⚠️ SettingsPanel: Élément non trouvé dans la liste:', elementId)
-          setSelectedElementId(null)
-          setSelectedElement(null)
-        }
-      } else {
-        setSelectedElementId(null)
-        setSelectedElement(null)
-        console.log('🧹 SettingsPanel: Sélection effacée')
-      }
+    console.log('🎯 SettingsPanel: État de sélection CORRIGÉ:', {
+      canvasElementsCount: canvasElements.length,
+      selectedElementIds,
+      selectedElementsCount: selectedElements.length,
+      selectedElement: selectedElement?.type,
+      selectedElementId
     })
-
-    return unsubscribe
-  }, [elements])
+  }, [canvasElements, selectedElementIds, selectedElements, selectedElement, selectedElementId])
 
   // Fonction de suppression d'élément avec confirmation
   const handleDeleteElement = () => {
@@ -57,12 +52,11 @@ export default function SettingsPanel({ className = '' }: SettingsPanelProps) {
       if (confirm(`Êtes-vous sûr de vouloir supprimer ce ${elementTypeName.toLowerCase()} ?`)) {
         console.log('🗑️ Suppression confirmée de l\'élément:', selectedElementId)
 
-        // Supprimer l'élément du contexte Canvas
+        // ✅ CORRECTION : Supprimer l'élément via CanvasContext (où il est stocké)
         removeElement(selectedElementId)
 
-        // Désélectionner après suppression via UnifiedSelectionManager
-        const selectionManager = UnifiedSelectionManager.getInstance()
-        selectionManager.clearSelection()
+        // Désélectionner après suppression
+        clearSelection()
 
         console.log('✅ Élément supprimé et désélectionné:', selectedElementId)
       } else {
@@ -81,7 +75,7 @@ export default function SettingsPanel({ className = '' }: SettingsPanelProps) {
   // Rendu selon l'état de sélection
   if (!selectedElement) {
     return (
-      <div className={`h-full flex flex-col bg-dark-800 ${className}`}>
+      <div className={`h-full flex flex-col bg-dark-800 ${className}`} data-testid="settings-panel">
         <div className="h-full flex items-center justify-center p-4">
           <div className="text-center">
             <Settings size={32} className="text-gray-600 mx-auto mb-3" />
@@ -96,7 +90,7 @@ export default function SettingsPanel({ className = '' }: SettingsPanelProps) {
   }
 
   return (
-    <div className={`h-full flex flex-col bg-dark-800 ${className}`}>
+    <div className={`h-full flex flex-col bg-dark-800 ${className}`} data-testid="settings-panel">
       {/* En-tête avec type d'élément et suppression */}
       <div className="p-4 border-b border-dark-700">
         <div className="flex items-center justify-between">
@@ -198,115 +192,26 @@ function PanelSettings({
 }) {
   return (
     <div className="space-y-4">
-      <div className="bg-dark-700 rounded-lg p-4">
-        <h4 className="text-white font-medium mb-3 flex items-center">
-          <Move size={16} className="mr-2" />
-          Position & Taille
-        </h4>
-        
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-gray-400 text-xs">X</label>
-            <input
-              type="number"
-              value={Math.round(element.transform.x)}
-              onChange={(e) => onUpdate({
-                transform: { ...element.transform, x: parseInt(e.target.value) || 0 }
-              })}
-              className="w-full bg-dark-600 text-white text-sm p-2 rounded"
-            />
-          </div>
-          <div>
-            <label className="text-gray-400 text-xs">Y</label>
-            <input
-              type="number"
-              value={Math.round(element.transform.y)}
-              onChange={(e) => onUpdate({
-                transform: { ...element.transform, y: parseInt(e.target.value) || 0 }
-              })}
-              className="w-full bg-dark-600 text-white text-sm p-2 rounded"
-            />
-          </div>
-          <div>
-            <label className="text-gray-400 text-xs">Largeur</label>
-            <input
-              type="number"
-              value={Math.round(element.transform.width)}
-              onChange={(e) => onUpdate({
-                transform: { ...element.transform, width: parseInt(e.target.value) || 1 }
-              })}
-              className="w-full bg-dark-600 text-white text-sm p-2 rounded"
-            />
-          </div>
-          <div>
-            <label className="text-gray-400 text-xs">Hauteur</label>
-            <input
-              type="number"
-              value={Math.round(element.transform.height)}
-              onChange={(e) => onUpdate({
-                transform: { ...element.transform, height: parseInt(e.target.value) || 1 }
-              })}
-              className="w-full bg-dark-600 text-white text-sm p-2 rounded"
-            />
-          </div>
-        </div>
-      </div>
 
-      <div className="bg-dark-700 rounded-lg p-4">
-        <h4 className="text-white font-medium mb-3 flex items-center">
-          <Palette size={16} className="mr-2" />
-          Apparence
-        </h4>
-        
-        <div className="space-y-3">
-          <div>
-            <label className="text-gray-400 text-xs">Couleur de fond</label>
-            <input
-              type="color"
-              value={`#${element.panelStyle.backgroundColor.toString(16).padStart(6, '0')}`}
-              onChange={(e) => onUpdate({
-                panelStyle: { 
-                  ...element.panelStyle, 
-                  backgroundColor: parseInt(e.target.value.slice(1), 16) 
-                }
-              })}
-              className="w-full h-8 bg-dark-600 rounded"
-            />
-          </div>
-          
-          <div>
-            <label className="text-gray-400 text-xs">Épaisseur du contour</label>
-            <input
-              type="range"
-              min="0"
-              max="10"
-              value={element.panelStyle.outlineWidth}
-              onChange={(e) => onUpdate({
-                panelStyle: { 
-                  ...element.panelStyle, 
-                  outlineWidth: parseInt(e.target.value) 
-                }
-              })}
-              className="w-full"
-            />
-            <span className="text-gray-400 text-xs">{element.panelStyle.outlineWidth}px</span>
-          </div>
-        </div>
-      </div>
+
+
     </div>
   )
 }
 
 // Composant pour les paramètres de Dialogue
-function DialogueSettings({ 
-  element, 
-  onUpdate 
-}: { 
+function DialogueSettings({
+  element,
+  onUpdate
+}: {
   element: DialogueElement
-  onUpdate: (updates: Partial<AssemblyElement>) => void 
+  onUpdate: (updates: Partial<AssemblyElement>) => void
 }) {
   return (
     <div className="space-y-4">
+
+
+      {/* Contenu */}
       <div className="bg-dark-700 rounded-lg p-4">
         <h4 className="text-white font-medium mb-3">Contenu</h4>
         <textarea
@@ -362,15 +267,18 @@ function DialogueSettings({
 }
 
 // Composant pour les paramètres de Text
-function TextSettings({ 
-  element, 
-  onUpdate 
-}: { 
+function TextSettings({
+  element,
+  onUpdate
+}: {
   element: TextElement
-  onUpdate: (updates: Partial<AssemblyElement>) => void 
+  onUpdate: (updates: Partial<AssemblyElement>) => void
 }) {
   return (
     <div className="space-y-4">
+
+
+      {/* Contenu */}
       <div className="bg-dark-700 rounded-lg p-4">
         <h4 className="text-white font-medium mb-3">Contenu</h4>
         <textarea
@@ -402,20 +310,7 @@ function TextSettings({
             <span className="text-gray-400 text-xs">{element.textStyle.fontSize}px</span>
           </div>
           
-          <div>
-            <label className="text-gray-400 text-xs">Couleur</label>
-            <input
-              type="color"
-              value={element.textStyle.textColor}
-              onChange={(e) => onUpdate({
-                textStyle: { 
-                  ...element.textStyle, 
-                  textColor: e.target.value 
-                }
-              })}
-              className="w-full h-8 bg-dark-600 rounded"
-            />
-          </div>
+
         </div>
       </div>
     </div>
@@ -446,33 +341,7 @@ function ImageSettings({
         </p>
       </div>
 
-      <div className="bg-dark-700 rounded-lg p-4">
-        <h4 className="text-white font-medium mb-3">Position & Taille</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-gray-400 text-xs">Largeur</label>
-            <input
-              type="number"
-              value={Math.round(element.transform.width)}
-              onChange={(e) => onUpdate({
-                transform: { ...element.transform, width: parseInt(e.target.value) || 1 }
-              })}
-              className="w-full bg-dark-600 text-white text-sm p-2 rounded"
-            />
-          </div>
-          <div>
-            <label className="text-gray-400 text-xs">Hauteur</label>
-            <input
-              type="number"
-              value={Math.round(element.transform.height)}
-              onChange={(e) => onUpdate({
-                transform: { ...element.transform, height: parseInt(e.target.value) || 1 }
-              })}
-              className="w-full bg-dark-600 text-white text-sm p-2 rounded"
-            />
-          </div>
-        </div>
-      </div>
+
     </div>
   )
 }

@@ -404,42 +404,75 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   }, [])
 
   const updateElement = useCallback((id: string, updates: Partial<AssemblyElement>) => {
+    console.log('🔄 CanvasContext updateElement appelé:', id, updates)
     setState(prev => {
       const newElements = prev.elements.map(el =>
         el.id === id ? { ...el, ...updates } : el
       )
+      console.log('🔄 CanvasContext éléments mis à jour:', newElements.length)
       return {
         ...prev,
         elements: newElements,
         saveState: { ...prev.saveState, isDirty: true }
       }
     })
+
+    // ✅ CRITIQUE : Synchroniser la mise à jour avec StateManager pour l'isolation des pages
+    try {
+      const { updateElement: updateStateManagerElement } = require('@/components/assembly/managers/StateManager').useAssemblyStore.getState()
+      updateStateManagerElement(id, updates)
+      console.log('🔄 CanvasContext: Mise à jour synchronisée avec StateManager:', id)
+    } catch (error) {
+      console.error('❌ Erreur lors de la synchronisation de mise à jour avec StateManager:', error)
+    }
   }, [])
 
   const removeElement = useCallback((id: string) => {
+    console.log('🗑️ CanvasContext removeElement appelé:', id)
     setState(prev => {
       const newElements = prev.elements.filter(el => el.id !== id)
-      const newSelectedIds = prev.selectedElementIds.filter(selectedId => selectedId !== id)
+      console.log('🗑️ CanvasContext éléments avant suppression:', prev.elements.length)
+      console.log('🗑️ CanvasContext éléments après suppression:', newElements.length)
       return {
         ...prev,
         elements: newElements,
-        selectedElementIds: newSelectedIds,
+        // ✅ CORRECTION : Ne plus essayer d'accéder à selectedElementIds qui n'existe plus
         saveState: { ...prev.saveState, isDirty: true }
       }
     })
+
+    // ✅ NOUVEAU : Synchroniser la suppression avec StateManager pour l'isolation des pages
+    try {
+      const { deleteElement } = require('@/components/assembly/managers/StateManager').useAssemblyStore.getState()
+      deleteElement(id)
+      console.log('🔄 CanvasContext: Suppression synchronisée avec StateManager:', id)
+    } catch (error) {
+      console.error('❌ Erreur lors de la synchronisation de suppression avec StateManager:', error)
+    }
   }, [])
 
   const removeElements = useCallback((ids: string[]) => {
+    console.log('🗑️ CanvasContext removeElements appelé:', ids)
     setState(prev => {
       const newElements = prev.elements.filter(el => !ids.includes(el.id))
-      const newSelectedIds = prev.selectedElementIds.filter(selectedId => !ids.includes(selectedId))
+      console.log('🗑️ CanvasContext éléments avant suppression multiple:', prev.elements.length)
+      console.log('🗑️ CanvasContext éléments après suppression multiple:', newElements.length)
       return {
         ...prev,
         elements: newElements,
-        selectedElementIds: newSelectedIds,
+        // ✅ CORRECTION : Ne plus essayer d'accéder à selectedElementIds qui n'existe plus
         saveState: { ...prev.saveState, isDirty: true }
       }
     })
+
+    // ✅ NOUVEAU : Synchroniser les suppressions multiples avec StateManager pour l'isolation des pages
+    try {
+      const { deleteElements } = require('@/components/assembly/managers/StateManager').useAssemblyStore.getState()
+      deleteElements(ids)
+      console.log('🔄 CanvasContext: Suppressions multiples synchronisées avec StateManager:', ids.length)
+    } catch (error) {
+      console.error('❌ Erreur lors de la synchronisation de suppressions multiples avec StateManager:', error)
+    }
   }, [])
 
   // ✅ SUPPRIMÉ : Fonctions de sélection - maintenant gérées par SimpleCanvasEditor

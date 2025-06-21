@@ -181,63 +181,116 @@ export default function PixiPagesSidebar({
     }
   }, [currentPage, onPageSelect])
 
-  // Gérer l'ajout de page
-  const handleAddPage = useCallback(() => {
-    const newPageNumber = pages.length + 1
-    const newPage: PageMetadata = {
-      id: `page_${projectId}_${newPageNumber}`,
-      number: newPageNumber,
-      title: `Page ${newPageNumber}`,
-      status: 'empty',
-      elementsCount: 0,
-      lastModified: new Date(),
-      createdAt: new Date()
+  // Gérer l'ajout de page avec le nouveau StateManager
+  const handleAddPage = useCallback(async () => {
+    try {
+      const { addPage } = useAssemblyStore.getState()
+      const newPageId = await addPage(projectId, `Page ${pages.length + 1}`)
+
+      // Mettre à jour la liste locale des pages
+      const newPage: PageMetadata = {
+        id: newPageId,
+        number: pages.length + 1,
+        title: `Page ${pages.length + 1}`,
+        status: 'empty',
+        elementsCount: 0,
+        lastModified: new Date(),
+        createdAt: new Date()
+      }
+
+      setPages(prev => [...prev, newPage])
+      onAddPage()
+
+      console.log('✅ Page ajoutée avec succès:', newPageId)
+    } catch (error) {
+      console.error('❌ Erreur ajout page:', error)
+      // TODO: Afficher un toast d'erreur
     }
-    
-    setPages(prev => [...prev, newPage])
-    onAddPage()
   }, [pages.length, projectId, onAddPage])
 
-  // Gérer la suppression de page
-  const handleDeletePage = useCallback((pageNumber: number) => {
-    if (pages.length <= 1) return
+  // Gérer la suppression de page avec le nouveau StateManager
+  const handleDeletePage = useCallback(async (pageNumber: number) => {
+    if (pages.length <= 1) {
+      console.warn('⚠️ Impossible de supprimer la dernière page')
+      return
+    }
 
-    setPages(prev => prev.filter(page => page.number !== pageNumber))
-    
-    // Nettoyer le cache de miniatures
-    const pageId = `page_${projectId}_${pageNumber}`
-    setThumbnailCache(prev => {
-      const newCache = { ...prev }
-      delete newCache[pageId]
-      return newCache
-    })
+    try {
+      const pageToDelete = pages.find(p => p.number === pageNumber)
+      if (!pageToDelete) {
+        console.warn('⚠️ Page à supprimer non trouvée:', pageNumber)
+        return
+      }
 
-    onDeletePage(pageNumber)
-  }, [pages.length, projectId, onDeletePage])
+      const { deletePage } = useAssemblyStore.getState()
+      const deletedPageNumber = await deletePage(projectId, pageToDelete.id)
 
-  // Gérer la duplication de page
-  const handleDuplicatePage = useCallback((pageNumber: number) => {
+      // Mettre à jour la liste locale avec renumérotation
+      setPages(prev => {
+        const filtered = prev.filter(page => page.number !== pageNumber)
+        // Renuméroter les pages restantes
+        return filtered.map((page, index) => ({
+          ...page,
+          number: index + 1
+        }))
+      })
+
+      // Nettoyer le cache de miniatures
+      setThumbnailCache(prev => {
+        const newCache = { ...prev }
+        delete newCache[pageToDelete.id]
+        return newCache
+      })
+
+      onDeletePage(deletedPageNumber)
+
+      console.log('✅ Page supprimée avec succès:', deletedPageNumber)
+    } catch (error) {
+      console.error('❌ Erreur suppression page:', error)
+      // TODO: Afficher un toast d'erreur
+    }
+  }, [pages, projectId, onDeletePage])
+
+  // Gérer la duplication de page avec le nouveau StateManager
+  const handleDuplicatePage = useCallback(async (pageNumber: number) => {
     const sourcePage = pages.find(p => p.number === pageNumber)
-    if (!sourcePage) return
-
-    const newPageNumber = pages.length + 1
-    const newPage: PageMetadata = {
-      id: `page_${projectId}_${newPageNumber}`,
-      number: newPageNumber,
-      title: `${sourcePage.title} (Copie)`,
-      status: sourcePage.status,
-      elementsCount: sourcePage.elementsCount,
-      lastModified: new Date(),
-      createdAt: new Date()
+    if (!sourcePage) {
+      console.warn('⚠️ Page source non trouvée pour duplication:', pageNumber)
+      return
     }
 
-    setPages(prev => [...prev, newPage])
+    try {
+      const { duplicatePage } = useAssemblyStore.getState()
+      const newPageId = await duplicatePage(projectId, sourcePage.id)
 
-    // Copier la miniature si elle existe
-    const sourceThumbnail = thumbnailCache[sourcePage.id]
-    if (sourceThumbnail) {
-      setThumbnailCache(prev => ({ ...prev, [newPage.id]: sourceThumbnail }))
+      // Mettre à jour la liste locale des pages
+      const newPageNumber = pages.length + 1
+      const newPage: PageMetadata = {
+        id: newPageId,
+        number: newPageNumber,
+        title: `${sourcePage.title} (Copie)`,
+        status: sourcePage.status,
+        elementsCount: sourcePage.elementsCount,
+        lastModified: new Date(),
+        createdAt: new Date()
+      }
+
+      setPages(prev => [...prev, newPage])
+
+      // Copier la miniature si elle existe
+      const sourceThumbnail = thumbnailCache[sourcePage.id]
+      if (sourceThumbnail) {
+        setThumbnailCache(prev => ({ ...prev, [newPage.id]: sourceThumbnail }))
+      }
+
+      onDuplicatePage(pageNumber)
+
+      console.log('✅ Page dupliquée avec succès:', newPageId)
+    } catch (error) {
+      console.error('❌ Erreur duplication page:', error)
+      // TODO: Afficher un toast d'erreur
     }
+  }, [pages, projectId, thumbnailCache, onDuplicatePage])
 
     onDuplicatePage?.(pageNumber)
   }, [pages, projectId, thumbnailCache, onDuplicatePage])

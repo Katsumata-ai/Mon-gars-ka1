@@ -8,9 +8,11 @@ import { CanvasTransform, ViewportInfo } from '../core/CoordinateSystem'
 import { LayerManager } from '../core/LayerManager'
 import { useCanvasContext } from '../context/CanvasContext'
 import { usePolotnoContext } from '../context/PolotnoContext'
+import { useAssemblyStore } from '../managers/StateManager'
 import TipTapBubble, { BubbleMode } from './TipTapBubble'
 import { DialogueElement } from '../types/assembly.types'
 import { transformManager } from '../core/UnifiedTransformManager'
+// import { useCanvasTransform, useElementCreation } from '../../../hooks/useCanvasTransform' // 🚨 SUPPRIMÉ - Solution radicale
 import './TipTapBubble.css'
 
 interface TipTapBubbleLayerProps {
@@ -36,8 +38,28 @@ export default function TipTapBubbleLayer({
     elements,
     addElement,
     updateElement,
-    setActiveTool
+    setActiveTool,
+    zoom
   } = useCanvasContext()
+
+  // ✅ CRITIQUE : Accès au StateManager pour la synchronisation (comme les panels)
+  const { addElement: addElementToStateManager, updateElement: updateElementInStateManager } = useAssemblyStore()
+
+  // ✅ CRITIQUE : Wrapper pour synchroniser les mises à jour avec StateManager
+  const updateElementWithSync = useCallback((id: string, updates: any) => {
+    console.log('🔄 TipTapBubbleLayer: Mise à jour speech bubble avec synchronisation:', id, updates)
+
+    // Mettre à jour dans CanvasContext
+    updateElement(id, updates)
+
+    // ✅ SYNCHRONISER avec StateManager pour la sauvegarde
+    try {
+      updateElementInStateManager(id, updates)
+      console.log('✅ Speech bubble mise à jour synchronisée avec StateManager:', id)
+    } catch (error) {
+      console.error('❌ Erreur de synchronisation mise à jour speech bubble avec StateManager:', error)
+    }
+  }, [updateElement, updateElementInStateManager])
 
   // ✅ NOUVEAU : Obtenir l'outil actif depuis Polotno pour vérifier l'outil main
   const { activeTool } = usePolotnoContext()
@@ -59,10 +81,37 @@ export default function TipTapBubbleLayer({
   useEffect(() => {
     const handleCreateBubble = (event: CustomEvent) => {
       const { x, y, bubbleType } = event.detail
-      console.log('🎯 TipTapBubbleLayer: Réception événement création bulle', { x, y, bubbleType })
+
+      console.log('🎯 TipTapBubbleLayer: Réception événement création bulle', {
+        x, y, bubbleType,
+        timestamp: Date.now(),
+        zoomLevel,
+        canvasTransform,
+        note: 'Début du processus de création'
+      })
+
+      // ✅ SOLUTION FINALE : Utilisation directe des coordonnées canvas converties
+      // getHTMLLayerCoordinates fournit des coordonnées canvas (converties pour le zoom)
+      // Le CSS transform du layer s'occupe du pan, le zoom est déjà converti
 
       const optimalWidth = 150
       const optimalHeight = 80
+
+      // ✅ COORDONNÉES CANVAS : Utiliser les coordonnées canvas de getHTMLLayerCoordinates
+      // Ces coordonnées sont converties pour le zoom, le CSS transform gère le pan
+      // Positionnement direct sans double transformation
+      const elementPosition = {
+        x: x - optimalWidth / 2,   // Centrer directement sur les coordonnées canvas
+        y: y - optimalHeight / 2   // Centrer directement sur les coordonnées canvas
+      }
+
+      console.log('✅ TipTapBubbleLayer: Positionnement direct avec coordonnées canvas', {
+        canvasCoords: { x, y },
+        elementPosition,
+        optimalSize: { width: optimalWidth, height: optimalHeight },
+        layerTransform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${zoomLevel / 100})`,
+        note: 'Coordonnées canvas converties zoom - CSS transform gère le pan'
+      })
 
       const bubble: DialogueElement = {
         id: `bubble_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -70,8 +119,8 @@ export default function TipTapBubbleLayer({
         layerType: 'dialogue',
         text: '',
         transform: {
-          x: x - optimalWidth / 2,
-          y: y - optimalHeight / 2,
+          x: elementPosition.x,
+          y: elementPosition.y,
           rotation: 0,
           alpha: 1,
           zIndex: 200,
@@ -110,7 +159,7 @@ export default function TipTapBubbleLayer({
         properties: {
           visible: true,
           locked: false,
-          selectable: true,
+          blendMode: 'normal',
           name: `Bulle ${bubbleType}`
         }
       }
@@ -118,18 +167,109 @@ export default function TipTapBubbleLayer({
       // Ajouter la bulle au contexte
       addElement(bubble)
 
+      // ✅ CRITIQUE : Synchroniser avec StateManager pour la sauvegarde (comme les panels)
+      try {
+        addElementToStateManager(bubble)
+        console.log('✅ Speech bubble synchronisée avec StateManager:', bubble.id)
+      } catch (error) {
+        console.error('❌ Erreur de synchronisation speech bubble avec StateManager:', error)
+      }
+
       // Switch vers select tool
       setActiveTool('select')
 
-      console.log('✅ Bulle TipTap créée:', bubble.id)
+      // ✅ NOUVEAU : Synchroniser avec le système de sélection global (comme la sélection manuelle)
+      // Sélectionner la bulle localement
+      setSelectedBubbleId(bubble.id)
+
+      // ✅ NOUVEAU : Émettre l'événement elementSelected pour synchroniser avec SimpleCanvasEditor
+      const elementSelectedEvent = new CustomEvent('elementSelected', {
+        detail: { id: bubble.id, type: 'bubble' }
+      })
+      window.dispatchEvent(elementSelectedEvent)
+
+      // ✅ NOUVEAU : Créer un CanvasElement virtuel et déclencher onElementClick
+      // Ceci va synchroniser avec PolotnoAssemblyApp et useAssemblyStore
+      setTimeout(() => {
+        const bubbleElement = document.querySelector(`[data-bubble-id="${bubble.id}"]`) as HTMLElement
+        if (bubbleElement) {
+          const virtualElement = {
+            id: bubble.id,
+            type: 'bubble',
+            x: bubbleElement.offsetLeft,
+            y: bubbleElement.offsetTop,
+            width: bubbleElement.offsetWidth,
+            height: bubbleElement.offsetHeight,
+            bubbleType: bubbleType
+          }
+
+          // Déclencher l'événement bubbleClicked pour synchroniser avec SimpleCanvasEditor
+          const bubbleClickEvent = new CustomEvent('bubbleClicked', {
+            detail: {
+              bubbleId: bubble.id,
+              clientX: 0,
+              clientY: 0,
+              element: bubbleElement
+            }
+          })
+          window.dispatchEvent(bubbleClickEvent)
+
+          console.log('🎯 TipTapBubbleLayer: Sélection automatique synchronisée avec le système global:', bubble.id)
+        }
+      }, 50) // Petit délai pour que l'élément DOM soit créé
+
+      console.log('✅ Bulle TipTap créée avec synchronisation globale:', bubble.id)
     }
 
     window.addEventListener('createTipTapBubble', handleCreateBubble as EventListener)
     return () => window.removeEventListener('createTipTapBubble', handleCreateBubble as EventListener)
-  }, [addElement, setActiveTool])
+  }, [addElement, addElementToStateManager, setActiveTool, zoomLevel, canvasTransform])
 
   // ✅ SYNCHRONISATION AVEC LE SYSTÈME DE SÉLECTION GLOBAL DE SIMPLECANVASEDITOR
   const [selectedBubbleId, setSelectedBubbleId] = useState<string | null>(null)
+
+  // 🚨 SOLUTION RADICALE : BYPASS COMPLET - Calcul direct et simple
+  const canvasScale = zoomLevel / 100
+  const panX = canvasTransform.x
+  const panY = canvasTransform.y
+
+  console.log('🚨 TipTapBubbleLayer RADICAL: Valeurs directes', {
+    zoomLevel,
+    canvasScale,
+    panX,
+    panY,
+    canvasTransformProp: canvasTransform,
+    timestamp: Date.now(),
+    phase: 'RENDER'
+  })
+
+  // ✅ CONVERSION DIRECTE DOM → CANVAS (même logique que Konva)
+  const domToCanvas = useCallback((x: number, y: number) => {
+    const result = {
+      x: (x - panX) / canvasScale,
+      y: (y - panY) / canvasScale
+    }
+
+    console.log('🚨 TipTapBubbleLayer RADICAL domToCanvas:', {
+      input: { x, y },
+      transform: { panX, panY, canvasScale },
+      output: result
+    })
+
+    return result
+  }, [panX, panY, canvasScale])
+
+  // 🔍 Debug: Vérifier la synchronisation complète (pan + zoom) comme TipTapFreeTextLayer
+  useEffect(() => {
+    console.log('🔍 TipTapBubbleLayer: Synchronisation complète (pan + zoom)', {
+      zoomLevel,
+      canvasScale,
+      panX: canvasTransform.x,
+      panY: canvasTransform.y,
+      bubblesCount: bubbles.length,
+      appliedTransform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasScale})`
+    })
+  }, [zoomLevel, canvasScale, canvasTransform.x, canvasTransform.y, bubbles.length])
 
   // ✅ ÉCOUTER LES ÉVÉNEMENTS DE SÉLECTION GLOBAUX
   useEffect(() => {
@@ -177,8 +317,8 @@ export default function TipTapBubbleLayer({
       const { bubbleId, transform } = event.detail
       console.log('🎯 TipTapBubbleLayer: Mise à jour transform bulle:', bubbleId, transform)
 
-      // Mettre à jour la bulle dans le contexte
-      updateElement(bubbleId, { transform })
+      // Mettre à jour la bulle dans le contexte avec synchronisation StateManager
+      updateElementWithSync(bubbleId, { transform })
     }
 
     window.addEventListener('elementSelected', handleElementSelection as EventListener)
@@ -308,7 +448,7 @@ export default function TipTapBubbleLayer({
     handleModeChange(element.id, 'reading') // 'manipulating' n'existe pas dans BubbleMode
   }
 
-  // ✅ STYLES DE LA COUCHE
+  // ✅ STYLES DE LA COUCHE - CORRECTION CRITIQUE : Appliquer la transformation comme TipTapFreeTextLayer
   const layerStyle = useMemo(() => ({
     position: 'absolute' as const,
     top: 0,
@@ -317,11 +457,16 @@ export default function TipTapBubbleLayer({
     height: '100%',
     pointerEvents: 'none' as const, // ✅ CORRECTION CRITIQUE : Ne pas intercepter les événements
     zIndex: 30, // ✅ Z-index réduit pour rester sous les sidebars (z-50)
-    overflow: 'hidden' // ✅ ÉLIMINER SCROLLBARS
-  }), [])
+    overflow: 'hidden', // ✅ ÉLIMINER SCROLLBARS
+    // ✅ CORRECTION CRITIQUE : Appliquer la transformation complète comme TipTapFreeTextLayer
+    // Inclure le pan (translate) ET le zoom (scale) pour synchronisation parfaite
+    transform: `translate(${canvasTransform.x}px, ${canvasTransform.y}px) scale(${canvasScale})`,
+    transformOrigin: 'center',
+    // ✅ SUPPRESSION TRANSITION : Pour synchronisation instantanée
+    transition: 'none'
+  }), [canvasTransform.x, canvasTransform.y, canvasScale])
 
   // ✅ NOUVEAU : SYNCHRONISATION PARFAITE VIA GESTIONNAIRE UNIFIÉ
-  const canvasScale = zoomLevel / 100
 
   // Enregistrement de la couche HTML dans le gestionnaire unifié
   useEffect(() => {
@@ -380,7 +525,7 @@ export default function TipTapBubbleLayer({
             element={bubble}
             isSelected={false} // ✅ SUPPRIMÉ : Sélection gérée par SimpleCanvasEditor
             mode={mode}
-            onUpdate={updateElement}
+            onUpdate={updateElementWithSync}
             onDoubleClick={handleBubbleDoubleClick}
             onModeChange={handleModeChange}
           />

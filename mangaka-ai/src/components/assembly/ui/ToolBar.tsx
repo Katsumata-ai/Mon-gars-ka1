@@ -22,6 +22,7 @@ import {
 import MangaButton from '@/components/ui/MangaButton'
 import { cn } from '@/lib/utils'
 import { useAssemblyStore, useCanUndo, useCanRedo, useSelectedElements } from '../managers/StateManager'
+import { usePolotnoContext } from '../context/PolotnoContext'
 
 interface ToolBarProps {
   onSave?: () => void
@@ -42,8 +43,6 @@ export default function ToolBar({ onSave, onExport, onTogglePages, className }: 
   const {
     activeTool,
     setActiveTool,
-    zoom,
-    setZoom,
     showGrid,
     toggleGrid,
     undo,
@@ -55,6 +54,9 @@ export default function ToolBar({ onSave, onExport, onTogglePages, className }: 
     saveState
   } = useAssemblyStore()
 
+  // ✅ NOUVEAU : Utiliser les fonctions de zoom de PolotnoContext qui incluent la désélection automatique
+  const { zoomLevel, zoomIn, zoomOut, resetZoom } = usePolotnoContext()
+
   const canUndo = useCanUndo()
   const canRedo = useCanRedo()
   const selectedElements = useSelectedElements()
@@ -63,16 +65,17 @@ export default function ToolBar({ onSave, onExport, onTogglePages, className }: 
     setActiveTool(toolId)
   }
 
+  // ✅ NOUVEAU : Utiliser les fonctions de PolotnoContext qui déclenchent la désélection automatique
   const handleZoomIn = () => {
-    setZoom(Math.min(400, zoom + 10))
+    zoomIn()
   }
 
   const handleZoomOut = () => {
-    setZoom(Math.max(25, zoom - 10))
+    zoomOut()
   }
 
   const handleZoomReset = () => {
-    setZoom(100)
+    resetZoom()
   }
 
   const handleDeleteSelected = () => {
@@ -133,7 +136,7 @@ export default function ToolBar({ onSave, onExport, onTogglePages, className }: 
             onClick={handleZoomOut}
             className="w-8 h-8 rounded flex items-center justify-center text-dark-400 hover:bg-dark-600 hover:text-white transition-colors"
             title="Zoom - (-)"
-            disabled={zoom <= 25}
+            disabled={zoomLevel <= 25}
           >
             <ZoomOut className="w-4 h-4" />
           </button>
@@ -143,14 +146,14 @@ export default function ToolBar({ onSave, onExport, onTogglePages, className }: 
             className="text-xs text-dark-300 px-3 py-1 hover:bg-dark-600 hover:text-white rounded transition-colors min-w-[3rem] text-center"
             title="Réinitialiser le zoom (0)"
           >
-            {zoom}%
+            {zoomLevel}%
           </button>
 
           <button
             onClick={handleZoomIn}
             className="w-8 h-8 rounded flex items-center justify-center text-dark-400 hover:bg-dark-600 hover:text-white transition-colors"
             title="Zoom + (+)"
-            disabled={zoom >= 400}
+            disabled={zoomLevel >= 400}
           >
             <ZoomIn className="w-4 h-4" />
           </button>
@@ -295,7 +298,9 @@ export default function ToolBar({ onSave, onExport, onTogglePages, className }: 
 
 // Hook pour les raccourcis clavier
 export function useToolBarShortcuts() {
-  const { setActiveTool, toggleGrid, undo, redo, setZoom, zoom } = useAssemblyStore()
+  const { setActiveTool, toggleGrid, undo, redo } = useAssemblyStore()
+  // ✅ NOUVEAU : Utiliser les fonctions de zoom de PolotnoContext qui incluent la désélection automatique
+  const { zoomIn, zoomOut, resetZoom } = usePolotnoContext()
 
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -325,15 +330,15 @@ export function useToolBarShortcuts() {
           case '=':
           case '+':
             event.preventDefault()
-            setZoom(Math.min(400, zoom + 10))
+            zoomIn()
             break
           case '-':
             event.preventDefault()
-            setZoom(Math.max(25, zoom - 10))
+            zoomOut()
             break
           case '0':
             event.preventDefault()
-            setZoom(100)
+            resetZoom()
             break
         }
         return
@@ -374,5 +379,5 @@ export function useToolBarShortcuts() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [setActiveTool, toggleGrid, undo, redo, setZoom, zoom])
+  }, [setActiveTool, toggleGrid, undo, redo, zoomIn, zoomOut, resetZoom])
 }

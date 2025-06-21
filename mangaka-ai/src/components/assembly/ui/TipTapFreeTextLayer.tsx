@@ -8,7 +8,9 @@ import SimpleFreeText from './SimpleFreeText'
 import { TextElement } from '../types/assembly.types'
 import { FreeTextTool } from '../tools/FreeTextTool'
 import { useCanvasContext } from '../context/CanvasContext'
+import { useAssemblyStore } from '../managers/StateManager'
 import { CanvasTransform } from '../core/CoordinateSystem'
+// import { useCanvasTransform, useElementCreation } from '../../../hooks/useCanvasTransform' // 🚨 SUPPRIMÉ - Solution radicale
 
 interface TipTapFreeTextLayerProps {
   canvasTransform: CanvasTransform
@@ -29,10 +31,45 @@ export function TipTapFreeTextLayer({
     setActiveTool
   } = useCanvasContext()
 
+  // ✅ CRITIQUE : Accès au StateManager pour la synchronisation (comme les speech bubbles)
+  const { addElement: addElementToStateManager, updateElement: updateElementInStateManager } = useAssemblyStore()
+
+  // ✅ CRITIQUE : Wrapper pour synchroniser les mises à jour avec StateManager
+  const updateElementWithSync = useCallback((id: string, updates: any) => {
+    console.log('🔄 TipTapFreeTextLayer: Mise à jour texte libre avec synchronisation:', id, updates)
+
+    // Mettre à jour dans CanvasContext
+    updateElement(id, updates)
+
+    // ✅ SYNCHRONISER avec StateManager pour la sauvegarde
+    try {
+      updateElementInStateManager(id, updates)
+      console.log('✅ Texte libre mise à jour synchronisée avec StateManager:', id)
+    } catch (error) {
+      console.error('❌ Erreur de synchronisation mise à jour texte libre avec StateManager:', error)
+    }
+  }, [updateElement, updateElementInStateManager])
+
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null)
   const [textModes, setTextModes] = useState<Record<string, 'reading' | 'editing' | 'manipulating'>>({})
   const [editingTextId, setEditingTextId] = useState<string | null>(null)
   const [freeTextTool] = useState(() => new FreeTextTool())
+
+  // 🚨 SOLUTION RADICALE : BYPASS COMPLET - Calcul direct et simple
+  const canvasScale = zoomLevel / 100
+  const panX = canvasTransform.x
+  const panY = canvasTransform.y
+
+  console.log('🚨 TipTapFreeTextLayer RADICAL: Valeurs directes', {
+    zoomLevel,
+    canvasScale,
+    panX,
+    panY,
+    canvasTransformProp: canvasTransform
+  })
+
+  // ✅ SUPPRIMÉ : domToCanvas plus nécessaire
+  // getHTMLLayerCoordinates fournit maintenant des coordonnées canvas converties
 
   // ✅ FILTRER LES TEXTES LIBRES
   const texts = useMemo(() => {
@@ -40,9 +77,6 @@ export function TipTapFreeTextLayer({
       element.type === 'text'
     )
   }, [elements])
-
-  // ✅ SYNCHRONISATION INSTANTANÉE AVEC LE ZOOM (comme les panels)
-  const canvasScale = zoomLevel / 100
 
   // 🔍 Debug: Vérifier la synchronisation complète (pan + zoom)
   useEffect(() => {
@@ -62,19 +96,74 @@ export function TipTapFreeTextLayer({
       const { x, y } = event.detail
       console.log('🎯 TipTapFreeTextLayer: Création texte libre demandée:', { x, y })
 
-      // Utiliser l'outil pour créer le texte
-      freeTextTool.startCreation(x, y)
+      // ✅ CORRECTION ZOOM : Utiliser directement les coordonnées canvas de getHTMLLayerCoordinates
+      // Ces coordonnées sont déjà converties pour le zoom, pas besoin de reconversion
+      const canvasCoords = { x, y }
+
+      console.log('✅ TipTapFreeTextLayer: Coordonnées canvas directes', {
+        canvasCoords,
+        zoomLevel,
+        canvasScale,
+        note: 'Coordonnées déjà converties par getHTMLLayerCoordinates'
+      })
+
+      // Utiliser l'outil pour créer le texte avec les coordonnées canvas
+      freeTextTool.startCreation(canvasCoords.x, canvasCoords.y)
       const newText = freeTextTool.finishCreation()
 
       if (newText) {
         // Ajouter le texte au contexte
         addElement(newText)
 
+        // ✅ CRITIQUE : Synchroniser avec StateManager pour la sauvegarde (comme les speech bubbles)
+        try {
+          addElementToStateManager(newText)
+          console.log('✅ Texte libre synchronisé avec StateManager:', newText.id)
+        } catch (error) {
+          console.error('❌ Erreur de synchronisation texte libre avec StateManager:', error)
+        }
+
         // Switch vers select tool
         setActiveTool('select')
 
         setSelectedTextId(newText.id)
         setEditingTextId(newText.id)
+
+        // ✅ NOUVEAU : Synchroniser avec le système de sélection global (comme la sélection manuelle)
+        // Émettre l'événement elementSelected pour synchroniser avec SimpleCanvasEditor
+        const elementSelectedEvent = new CustomEvent('elementSelected', {
+          detail: { id: newText.id, type: 'text' }
+        })
+        window.dispatchEvent(elementSelectedEvent)
+
+        // ✅ NOUVEAU : Créer un CanvasElement virtuel et déclencher onElementClick
+        // Ceci va synchroniser avec PolotnoAssemblyApp et useAssemblyStore
+        setTimeout(() => {
+          const textElement = document.querySelector(`[data-text-id="${newText.id}"]`) as HTMLElement
+          if (textElement) {
+            const virtualElement = {
+              id: newText.id,
+              type: 'text',
+              x: textElement.offsetLeft,
+              y: textElement.offsetTop,
+              width: textElement.offsetWidth,
+              height: textElement.offsetHeight
+            }
+
+            // Déclencher l'événement textClicked pour synchroniser avec SimpleCanvasEditor
+            const textClickEvent = new CustomEvent('textClicked', {
+              detail: {
+                textId: newText.id,
+                clientX: 0,
+                clientY: 0,
+                element: textElement
+              }
+            })
+            window.dispatchEvent(textClickEvent)
+
+            console.log('🎯 TipTapFreeTextLayer: Sélection automatique synchronisée avec le système global:', newText.id)
+          }
+        }, 50) // Petit délai pour que l'élément DOM soit créé
 
         // ✅ FOCUS AUTOMATIQUE SUR L'ÉDITEUR APRÈS CRÉATION (SimpleFreeText)
         setTimeout(() => {
@@ -86,7 +175,7 @@ export function TipTapFreeTextLayer({
           }
         }, 100) // Moins de temps car SimpleFreeText est plus rapide
 
-        console.log('✅ TipTapFreeTextLayer: Texte libre créé en mode édition:', newText)
+        console.log('✅ TipTapFreeTextLayer: Texte libre créé en mode édition avec synchronisation globale:', newText)
       }
     }
 
@@ -95,7 +184,7 @@ export function TipTapFreeTextLayer({
     return () => {
       window.removeEventListener('createTipTapFreeText', handleCreateFreeText as EventListener)
     }
-  }, [freeTextTool, addElement, setActiveTool])
+  }, [freeTextTool, addElement, addElementToStateManager, setActiveTool, setSelectedTextId, setEditingTextId])
 
   // ✅ SYNCHRONISATION AVEC LE SYSTÈME DE SÉLECTION GLOBAL DE SIMPLECANVASEDITOR
   useEffect(() => {
@@ -178,10 +267,10 @@ export function TipTapFreeTextLayer({
     }
   }, [selectedTextId])
 
-  // ✅ GESTION DES MISES À JOUR DE TEXTE
+  // ✅ GESTION DES MISES À JOUR DE TEXTE avec synchronisation StateManager
   const handleTextUpdate = useCallback((id: string, updates: Partial<TextElement>) => {
-    updateElement(id, updates)
-  }, [updateElement])
+    updateElementWithSync(id, updates)
+  }, [updateElementWithSync])
 
   // ✅ GESTION DU DOUBLE-CLIC POUR ÉDITION
   const handleTextDoubleClick = useCallback((id: string) => {

@@ -66,16 +66,36 @@ export async function POST(
     const resolvedParams = await params
     const projectId = resolvedParams.id
     const body = await request.json()
-    const { page_number, title } = body
+    const { title } = body
     const supabase = await createClient()
+
+    console.log('📝 API: Création nouvelle page pour projet:', projectId)
+
+    // ✅ CORRECTION : Utiliser la fonction SQL pour obtenir le prochain numéro
+    const { data: nextPageNumberResult, error: pageNumberError } = await supabase
+      .rpc('get_next_page_number', { p_project_id: projectId })
+
+    if (pageNumberError) {
+      console.error('Erreur récupération numéro page:', pageNumberError)
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Erreur lors de la récupération du numéro de page'
+        },
+        { status: 500 }
+      )
+    }
+
+    const nextPageNumber = nextPageNumberResult
+    console.log('📝 API: Prochain numéro de page calculé:', nextPageNumber)
 
     // Créer la nouvelle page dans Supabase
     const { data: newPage, error } = await supabase
       .from('pages')
       .insert({
         project_id: projectId,
-        page_number,
-        title: title || `Page ${page_number}`,
+        page_number: nextPageNumber,
+        title: title || `Page ${nextPageNumber}`,
         content: {
           stage: {
             children: []
@@ -91,11 +111,14 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: 'Erreur lors de la création de la page'
+          error: 'Erreur lors de la création de la page',
+          details: error.message
         },
         { status: 500 }
       )
     }
+
+    console.log('✅ API: Page créée avec succès:', newPage)
 
     return NextResponse.json({
       success: true,

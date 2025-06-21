@@ -1,5 +1,7 @@
 // Utilitaires pour les curseurs personnalisés selon l'outil actif
 
+import React from 'react'
+
 /**
  * Obtient le curseur CSS approprié selon l'outil actif
  */
@@ -7,25 +9,27 @@ export function getCursorForTool(tool: string): string {
   switch (tool) {
     case 'select':
       return 'default'
-    
+
     case 'panel':
       return 'crosshair'
-    
+
     case 'dialogue':
-      return 'copy'
-    
+    case 'bubble':
+      return 'crosshair' // ✅ CORRIGÉ : Crosshair pour les bulles
+
     case 'text':
-      return 'text'
-    
+      return 'crosshair' // ✅ CORRIGÉ : Crosshair pour le texte
+
     case 'zoom':
       return 'zoom-in'
-    
+
     case 'pan':
+    case 'hand':
       return 'grab'
-    
+
     case 'move':
       return 'move'
-    
+
     default:
       return 'default'
   }
@@ -129,16 +133,95 @@ export function resetCursor(element: HTMLElement): void {
  */
 export function useCursor(tool: string, isInteracting = false) {
   const cursor = getCursorForInteraction(tool, isInteracting)
-  
+
   React.useEffect(() => {
     document.body.style.cursor = cursor
-    
+
     return () => {
       document.body.style.cursor = 'default'
     }
   }, [cursor])
-  
+
   return cursor
+}
+
+/**
+ * ✅ NOUVEAU : Hook pour gérer les curseurs avec priorité élevée pour les outils de création
+ * Applique le curseur crosshair de manière cohérente pour les outils bulle et texte
+ */
+export function useConsistentCursor(
+  activeTool: string,
+  bubbleCreationMode: boolean = false,
+  containerRef?: React.RefObject<HTMLElement>
+) {
+  React.useEffect(() => {
+    // Déterminer si on doit forcer le curseur crosshair
+    const shouldForceCrosshair =
+      activeTool === 'text' ||
+      activeTool === 'bubble' ||
+      (bubbleCreationMode && activeTool === 'bubble')
+
+    if (!shouldForceCrosshair) {
+      return // Pas besoin de forcer le curseur
+    }
+
+    console.log('🖱️ useConsistentCursor: Application curseur crosshair pour outil:', activeTool)
+
+    // Appliquer le curseur au conteneur spécifique ou au body
+    const targetElement = containerRef?.current || document.body
+
+    // Sauvegarder le curseur actuel
+    const originalCursor = targetElement.style.cursor
+
+    // Appliquer le curseur crosshair avec priorité élevée
+    targetElement.style.cursor = 'crosshair'
+    targetElement.style.setProperty('cursor', 'crosshair', 'important')
+
+    // Ajouter une classe CSS pour surcharger tous les curseurs enfants
+    const className = 'force-crosshair-cursor'
+    targetElement.classList.add(className)
+
+    // Ajouter les styles CSS dynamiquement
+    const styleId = 'consistent-cursor-styles'
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement
+
+    if (!styleElement) {
+      styleElement = document.createElement('style')
+      styleElement.id = styleId
+      document.head.appendChild(styleElement)
+    }
+
+    styleElement.textContent = `
+      .force-crosshair-cursor,
+      .force-crosshair-cursor *,
+      .force-crosshair-cursor *:hover,
+      .force-crosshair-cursor canvas,
+      .force-crosshair-cursor canvas:hover,
+      .force-crosshair-cursor [data-panel-id],
+      .force-crosshair-cursor [data-panel-id]:hover,
+      .force-crosshair-cursor [data-bubble-id],
+      .force-crosshair-cursor [data-bubble-id]:hover,
+      .force-crosshair-cursor [data-text-id],
+      .force-crosshair-cursor [data-text-id]:hover {
+        cursor: crosshair !important;
+      }
+    `
+
+    // Cleanup function
+    return () => {
+      console.log('🖱️ useConsistentCursor: Nettoyage curseur pour outil:', activeTool)
+
+      // Restaurer le curseur original
+      targetElement.style.cursor = originalCursor
+      targetElement.style.removeProperty('cursor')
+      targetElement.classList.remove(className)
+
+      // Supprimer les styles si plus nécessaire
+      if (styleElement && styleElement.parentNode) {
+        styleElement.parentNode.removeChild(styleElement)
+      }
+    }
+  }, [activeTool, bubbleCreationMode, containerRef])
 }
 
 /**
@@ -182,6 +265,3 @@ export const ResizeCursors = {
     return 'default'
   }
 }
-
-// Import React pour le hook
-import React from 'react'

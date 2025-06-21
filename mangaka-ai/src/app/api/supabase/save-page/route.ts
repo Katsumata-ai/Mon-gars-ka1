@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const { pageId, projectId, content, metadata, status } = await request.json()
+    const { pageId, projectId, content, status } = await request.json()
 
     if (!pageId || !projectId || !content) {
       return NextResponse.json(
@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
         .from('pages')
         .update({
           content,
-          metadata,
           status,
           updated_at: new Date().toISOString()
         })
@@ -53,7 +52,6 @@ export async function POST(request: NextRequest) {
           title: `Page ${Date.now()}`,
           page_number: 1, // TODO: Calculer le bon numéro de page
           content,
-          metadata,
           status
         })
 

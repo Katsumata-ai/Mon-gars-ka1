@@ -285,9 +285,12 @@ export default function SimpleFreeText({
           style={textStyle}
         >
           {textValue || (
-            <span style={{ opacity: 0.5, fontStyle: 'italic' }}>
-              Tapez votre texte...
-            </span>
+            // ✅ CORRIGÉ : Placeholder seulement visible en mode manipulating (quand sélectionné)
+            mode === 'manipulating' && (
+              <span style={{ opacity: 0.5, fontStyle: 'italic' }}>
+                Tapez votre texte...
+              </span>
+            )
           )}
         </div>
       )}

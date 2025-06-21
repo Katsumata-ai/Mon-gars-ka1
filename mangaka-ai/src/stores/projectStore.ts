@@ -105,6 +105,58 @@ export const useProjectStore = create<ProjectState>()(
         state.lastSavedToLocal = new Date()
       }),
 
+      // Nouvelle action : Sauvegarder l'état canvas assemblage
+      saveAssemblyCanvasState: (canvasState: AssemblyData['canvasState']) => set((state) => {
+        state.assemblyData = {
+          ...state.assemblyData,
+          canvasState: {
+            ...state.assemblyData.canvasState,
+            ...canvasState,
+            timestamp: Date.now()
+          },
+          lastModified: new Date()
+        }
+        state.lastSavedToLocal = new Date()
+
+        // Sauvegarder immédiatement dans localStorage pour persistance
+        if (typeof localStorage !== 'undefined' && state.projectId) {
+          try {
+            localStorage.setItem(
+              `mangaka_assembly_canvas_${state.projectId}`,
+              JSON.stringify(state.assemblyData.canvasState)
+            )
+          } catch (error) {
+            console.warn('Erreur sauvegarde canvas localStorage:', error)
+          }
+        }
+      }),
+
+      // Nouvelle action : Restaurer l'état canvas assemblage
+      restoreAssemblyCanvasState: () => {
+        const state = get()
+        if (typeof localStorage === 'undefined' || !state.projectId) return null
+
+        try {
+          const savedCanvasState = localStorage.getItem(`mangaka_assembly_canvas_${state.projectId}`)
+          if (savedCanvasState) {
+            const canvasState = JSON.parse(savedCanvasState)
+
+            set((state) => {
+              state.assemblyData = {
+                ...state.assemblyData,
+                canvasState
+              }
+            })
+
+            return canvasState
+          }
+        } catch (error) {
+          console.warn('Erreur restauration canvas localStorage:', error)
+        }
+
+        return null
+      },
+
       // Sauvegarde base de données
       saveToDatabase: async () => {
         const state = get()
@@ -118,6 +170,21 @@ export const useProjectStore = create<ProjectState>()(
         })
 
         try {
+          // Inclure l'état canvas actuel dans les données d'assemblage
+          const assemblyDataWithCanvas = {
+            ...state.assemblyData,
+            canvasState: state.assemblyData.canvasState || {
+              position: { x: 0, y: 0 },
+              zoom: 25,
+              currentPageId: null,
+              showGrid: true,
+              gridSize: 20,
+              activeTool: 'select',
+              lastActiveTab: 'assembly',
+              timestamp: Date.now()
+            }
+          }
+
           const response = await fetch(`/api/projects/${state.projectId}/save-all`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -127,7 +194,7 @@ export const useProjectStore = create<ProjectState>()(
               backgroundsData: state.backgroundsData,
               decorsData: state.decorsData,
               scenesData: state.scenesData,
-              assemblyData: state.assemblyData
+              assemblyData: assemblyDataWithCanvas
             })
           })
 

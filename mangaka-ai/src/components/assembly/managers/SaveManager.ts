@@ -87,11 +87,6 @@ export class DeferredSaveManager {
           pageId: options.pageId,
           projectId: options.projectId,
           content: serializedContent,
-          metadata: {
-            version: "1.0",
-            pixiVersion: "8.0.0",
-            timestamp: Date.now()
-          },
           status
         })
       })

@@ -57,8 +57,9 @@ export function TipTapFreeText({
       },
     },
     onUpdate: ({ editor }) => {
-      const newText = editor.getHTML()
-      console.log('📝 TipTapFreeText onUpdate:', element.id, 'New text:', newText)
+      // ✅ CORRECTION : Utiliser getText() au lieu de getHTML() pour éviter les balises HTML
+      const newText = editor.getText()
+      console.log('📝 TipTapFreeText onUpdate:', element.id, 'New text (sans HTML):', newText)
       onUpdate(element.id, { text: newText })
     },
     onFocus: () => {

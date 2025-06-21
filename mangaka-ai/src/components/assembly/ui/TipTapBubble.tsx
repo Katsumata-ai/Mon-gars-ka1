@@ -109,8 +109,9 @@ export default function TipTapBubble({
       },
     },
     onUpdate: ({ editor }) => {
-      const newText = editor.getHTML()
-      console.log('📝 TipTap onUpdate:', element.id, 'New text:', newText)
+      // ✅ CORRECTION : Utiliser getText() au lieu de getHTML() pour éviter les balises HTML
+      const newText = editor.getText()
+      console.log('📝 TipTap onUpdate:', element.id, 'New text (sans HTML):', newText)
       onUpdate(element.id, { text: newText })
 
       // ✅ SUPPRIMÉ : Auto-redimensionnement selon le contenu
@@ -152,6 +153,42 @@ export default function TipTapBubble({
       console.log('🔄 TipTap editable state updated:', element.id, mode === 'editing')
     }
   }, [editor, mode, element.id])
+
+  // ✅ NOUVEAU : Mettre à jour les styles de police dynamiquement
+  useEffect(() => {
+    const fontSize = Math.max(element.dialogueStyle.fontSize, 12)
+
+    // Mettre à jour les styles CSS globaux pour cette bulle spécifique
+    const styleId = `bubble-font-${element.id}`
+    let style = document.getElementById(styleId) as HTMLStyleElement
+
+    if (!style) {
+      style = document.createElement('style')
+      style.id = styleId
+      document.head.appendChild(style)
+    }
+
+    style.textContent = `
+      [data-bubble-id="${element.id}"] .tiptap-bubble-text,
+      [data-bubble-id="${element.id}"] .tiptap-bubble-text *,
+      [data-bubble-id="${element.id}"] .tiptap-bubble-editor,
+      [data-bubble-id="${element.id}"] .tiptap-bubble-editor *,
+      [data-bubble-id="${element.id}"] .ProseMirror,
+      [data-bubble-id="${element.id}"] .ProseMirror * {
+        font-size: ${fontSize}px !important;
+      }
+    `
+
+    // Nettoyer le style quand le composant est démonté
+    return () => {
+      const styleToRemove = document.getElementById(styleId)
+      if (styleToRemove) {
+        styleToRemove.remove()
+      }
+    }
+  }, [element.dialogueStyle.fontSize, element.id])
+
+
 
   // ✅ DEBUG : Vérifier l'état de l'éditeur
   useEffect(() => {
@@ -564,6 +601,7 @@ export default function TipTapBubble({
       {/* ✅ SUPPRIMÉ : styled-jsx qui causait des problèmes de couleur */}
 
       <div
+        data-bubble-id={element.id}
         style={{
           position: 'absolute',
           left: element.transform.x,

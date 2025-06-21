@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { FileText, Image, Plus, Trash2, Layers, Eye, EyeOff, Link, Unlink, Settings } from 'lucide-react'
 import { useCanvasContext } from '../context/CanvasContext'
+import { useAssemblyStore } from '../managers/StateManager'
 import SettingsPanel from '../ui/SettingsPanel'
 
 interface RightPanelProps {
@@ -34,12 +35,16 @@ export default function RightPanel({
   const [activeMode, setActiveMode] = useState<PanelMode>('pages')
   const [loading, setLoading] = useState(false)
 
-  // Données temporaires pour le développement
-  const [pages] = useState([
-    { id: 1, title: 'Page 1', thumbnail: null },
-    { id: 2, title: 'Page 2', thumbnail: null },
-    { id: 3, title: 'Page 3', thumbnail: null }
-  ])
+  // ✅ NOUVEAU : Utiliser les vraies données du StateManager
+  const { pages: storePages, currentPageId } = useAssemblyStore()
+
+  // Convertir les pages du store en format pour l'interface
+  const pages = Object.values(storePages).map(page => ({
+    id: page.pageId,
+    title: page.metadata.name,
+    thumbnail: null, // TODO: Générer les miniatures
+    pageNumber: page.pageNumber
+  })).sort((a, b) => a.pageNumber - b.pageNumber)
 
   // État pour les vraies images depuis la base de données
   const [imageCategories, setImageCategories] = useState([
@@ -166,10 +171,11 @@ export default function RightPanel({
         {activeMode === 'pages' ? (
           <PagesMode
             pages={pages}
-            currentPage={currentPage}
+            currentPageId={currentPageId}
             onPageSelect={onPageSelect}
             onAddPage={onAddPage}
             onDeletePage={onDeletePage}
+            projectId={projectId}
           />
         ) : activeMode === 'images' ? (
           <ImagesMode
@@ -184,20 +190,70 @@ export default function RightPanel({
   )
 }
 
-// Composant pour le mode Pages
+// Composant pour le mode Pages avec intégration StateManager
 function PagesMode({
   pages,
-  currentPage,
+  currentPageId,
   onPageSelect,
   onAddPage,
-  onDeletePage
+  onDeletePage,
+  projectId
 }: {
   pages: any[]
-  currentPage: number
+  currentPageId: string | null
   onPageSelect?: (page: number) => void
   onAddPage?: () => void
   onDeletePage?: (page: number) => void
+  projectId: string
 }) {
+  const { addPage, deletePage, duplicatePage, setCurrentPage } = useAssemblyStore()
+
+  // Gérer l'ajout de page via StateManager
+  const handleAddPage = async () => {
+    try {
+      console.log('➕ Ajout de nouvelle page via StateManager')
+      const newPageId = await addPage(projectId, `Page ${pages.length + 1}`)
+      console.log('✅ Page créée avec ID:', newPageId)
+      onAddPage?.()
+    } catch (error) {
+      console.error('❌ Erreur ajout page:', error)
+    }
+  }
+
+  // Gérer la suppression de page via StateManager
+  const handleDeletePage = async (pageId: string) => {
+    if (pages.length <= 1) {
+      console.warn('⚠️ Impossible de supprimer la dernière page')
+      return
+    }
+
+    try {
+      console.log('🗑️ Suppression de page via StateManager:', pageId)
+      await deletePage(projectId, pageId)
+      console.log('✅ Page supprimée')
+      onDeletePage?.(parseInt(pageId))
+    } catch (error) {
+      console.error('❌ Erreur suppression page:', error)
+    }
+  }
+
+  // Gérer la duplication de page via StateManager
+  const handleDuplicatePage = async (pageId: string) => {
+    try {
+      console.log('📋 Duplication de page via StateManager:', pageId)
+      const newPageId = await duplicatePage(projectId, pageId)
+      console.log('✅ Page dupliquée avec ID:', newPageId)
+    } catch (error) {
+      console.error('❌ Erreur duplication page:', error)
+    }
+  }
+
+  // Gérer le changement de page via StateManager
+  const handlePageSelect = (pageId: string) => {
+    console.log('🔄 Changement de page via StateManager:', pageId)
+    setCurrentPage(pageId)
+    onPageSelect?.(parseInt(pageId))
+  }
   return (
     <div className="h-full flex flex-col">
       {/* En-tête avec bouton d'ajout */}
@@ -205,7 +261,7 @@ function PagesMode({
         <div className="flex items-center justify-between">
           <h3 className="text-white font-medium">Pages du projet</h3>
           <button
-            onClick={onAddPage}
+            onClick={handleAddPage}
             className="p-2 text-gray-400 hover:text-white hover:bg-dark-700 rounded transition-colors"
             title="Ajouter une page"
           >
@@ -223,12 +279,12 @@ function PagesMode({
               className={`
                 group relative p-3 rounded-lg border cursor-pointer
                 transition-all duration-200 hover:bg-dark-700
-                ${currentPage === page.id
+                ${currentPageId === page.id
                   ? 'border-red-500 bg-red-500/10'
                   : 'border-dark-600 hover:border-dark-500'
                 }
               `}
-              onClick={() => onPageSelect?.(page.id)}
+              onClick={() => handlePageSelect(page.id)}
             >
               {/* Miniature de la page */}
               <div className="aspect-[3/4] bg-dark-600 rounded mb-2 flex items-center justify-center">
@@ -252,7 +308,7 @@ function PagesMode({
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  onDeletePage?.(page.id)
+                  handleDeletePage(page.id)
                 }}
                 className="
                   absolute top-2 right-2 p-1 rounded
@@ -260,6 +316,7 @@ function PagesMode({
                   opacity-0 group-hover:opacity-100 transition-all
                 "
                 title="Supprimer la page"
+                disabled={pages.length <= 1}
               >
                 <Trash2 size={14} />
               </button>
