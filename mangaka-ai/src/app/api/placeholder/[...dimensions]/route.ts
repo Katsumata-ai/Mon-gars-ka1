@@ -28,7 +28,6 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Erreur génération placeholder:', error)
     return NextResponse.json({ error: 'Erreur génération placeholder' }, { status: 500 })
   }
 }

@@ -22,18 +22,22 @@ export function useAuth() {
   const initializeAuth = useCallback(async () => {
     try {
       const { data: { user }, error } = await supabase.auth.getUser()
-      
-      if (error) {
+
+      // Ne pas logger l'erreur AuthSessionMissingError car c'est normal quand l'utilisateur n'est pas connecté
+      if (error && error.name !== 'AuthSessionMissingError') {
         console.error('Error getting user:', error)
       }
-      
+
       setAuthState({
         user,
         loading: false,
         initialized: true
       })
-    } catch (error) {
-      console.error('Auth initialization error:', error)
+    } catch (error: any) {
+      // Ne pas logger l'erreur AuthSessionMissingError car c'est normal quand l'utilisateur n'est pas connecté
+      if (error?.name !== 'AuthSessionMissingError') {
+        console.error('Auth initialization error:', error)
+      }
       setAuthState({
         user: null,
         loading: false,

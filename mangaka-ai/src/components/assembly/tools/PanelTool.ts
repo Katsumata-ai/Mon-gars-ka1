@@ -1,10 +1,7 @@
 // Outil de création de panels pour le workflow Dashtoon
 
-// ✅ MIGRATION KONVA : Remplacement PixiJS par Konva.js
-import Konva from 'konva'
 import { AssemblyElement, PanelElement } from '../types/assembly.types'
 import { generateElementId } from '../managers/StateManager'
-// Le service sera passé via les callbacks
 
 export interface PanelCreationState {
   isCreating: boolean
@@ -140,11 +137,7 @@ export class PanelTool {
       }
     }
 
-    console.log('✅ Panel créé:', panel)
-
-    // 🔍 DÉTECTION AUTOMATIQUE DES IMAGES SOUS LE PANEL
-    // La détection sera gérée par le callback onPanelCreated
-    console.log('📋 Panel créé, détection automatique sera gérée par le contexte')
+    // Détection automatique des images sous le panel sera gérée par le callback
 
     // Nettoyer la prévisualisation
     this.cancelCreation(stage)

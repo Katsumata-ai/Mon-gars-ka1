@@ -154,23 +154,9 @@ export const useAssemblyStore = create<AssemblyStore>()(
       })
     },
 
-    // ✅ DIAGNOSTIC : Charger les pages depuis la DB avec logs détaillés
+    // Charger les pages depuis la DB
     loadPagesFromDB: async (pagesFromDB: any[]) => {
       set((state) => {
-        console.log('🏪 StateManager loadPagesFromDB: Chargement de', pagesFromDB.length, 'pages')
-
-        // ✅ DIAGNOSTIC : Afficher le détail de chaque page
-        pagesFromDB.forEach((page: any) => {
-          console.log('🔍 DIAGNOSTIC - Page Supabase:', {
-            id: page.id,
-            pageNumber: page.page_number,
-            title: page.title,
-            elementsCount: page.content?.stage?.children?.length || 0,
-            hasContent: !!page.content,
-            hasStage: !!page.content?.stage,
-            hasChildren: !!page.content?.stage?.children
-          })
-        })
 
         // ✅ CORRECTION : Fonction locale pour nettoyer HTML (pas de this dans Zustand)
         const cleanHTMLFromText = (text: string): string => {
@@ -251,36 +237,10 @@ export const useAssemblyStore = create<AssemblyStore>()(
       })
     },
 
-    // ✅ NOUVEAU : Fonction de diagnostic pour vérifier la synchronisation
+    // Fonction de diagnostic pour vérifier la synchronisation
     diagnoseSyncIssues: () => {
       const state = get()
-      console.log('🔍 DIAGNOSTIC COMPLET - État StateManager:', {
-        currentPageId: state.currentPageId,
-        elementsCount: state.elements.length,
-        pagesInStore: Object.keys(state.pages).length,
-        pages: Object.values(state.pages).map(page => ({
-          id: page.pageId,
-          pageNumber: page.pageNumber,
-          title: page.metadata.name,
-          elementsCount: page.content.stage.children.length
-        }))
-      })
-
-      if (state.currentPageId) {
-        const currentPage = state.pages[state.currentPageId]
-        if (currentPage) {
-          console.log('🔍 DIAGNOSTIC - Page courante détaillée:', {
-            pageId: currentPage.pageId,
-            pageNumber: currentPage.pageNumber,
-            title: currentPage.metadata.name,
-            stateElementsCount: state.elements.length,
-            pageElementsCount: currentPage.content.stage.children.length,
-            elementsMatch: state.elements.length === currentPage.content.stage.children.length
-          })
-        } else {
-          console.log('🚨 DIAGNOSTIC - Page courante introuvable dans le store!')
-        }
-      }
+      // Diagnostic silencieux pour éviter les logs en production
     },
 
     // ✅ NOUVEAU : Forcer la synchronisation avec Supabase
@@ -670,7 +630,7 @@ export const useAssemblyStore = create<AssemblyStore>()(
           return canvasState
         }
       } catch (error) {
-        console.warn('Erreur restauration localStorage:', error)
+        // Erreur restauration localStorage silencieuse
       }
 
       return null
@@ -678,10 +638,8 @@ export const useAssemblyStore = create<AssemblyStore>()(
 
     // Actions - Gestion des éléments
     addElement: (element: AssemblyElement) => {
-      console.log('🏪 StateManager addElement appelé:', element.id, element.type)
       set((state) => {
         state.elements.push(element)
-        console.log('🏪 StateManager elements après ajout:', state.elements.length, state.elements.map(el => el.id))
 
         // ✅ CRITIQUE : Sauvegarder automatiquement dans la page courante
         if (state.currentPageId && state.pages[state.currentPageId]) {
@@ -958,7 +916,6 @@ export const useAssemblyStore = create<AssemblyStore>()(
 
       // Vérifier qu'on a une page courante et des éléments
       if (!state.currentPageId || !state.pages[state.currentPageId]) {
-        console.log('⚠️ Pas de page courante pour la sauvegarde automatique')
         return
       }
 

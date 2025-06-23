@@ -11,15 +11,7 @@ import { AssemblyElement, ImageElement } from '../types/assembly.types'
 import { generateElementId } from '../context/CanvasContext'
 // ✅ MIGRATION KONVA : BubbleLayer supprimé - bulles intégrées dans Konva
 
-// ✅ MIGRATION KONVA : Import dynamique KonvaApplication
-const KonvaApplication = dynamic(() => import('../core/KonvaApplication'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-      <div className="text-white text-sm">Chargement du canvas Konva...</div>
-    </div>
-  )
-})
+// KonvaApplication supprimé - utilisation de PixiApplication pour le moment
 
 interface CanvasAreaProps {
   width?: number
@@ -642,17 +634,10 @@ export default function CanvasArea({
 
       {/* 🎯 NAVIGATION LIBRE : Zone de canvas étendue sans limites */}
       <div className="absolute inset-0">
-        {/* ✅ KONVA DYNAMIQUE : Canvas avec dimensions adaptatives */}
-        <KonvaApplication
-          width={width}
-          height={height}
-          onElementClick={handleElementClick}
-          onCanvasClick={handleCanvasClick}
-          onBubbleDoubleClick={onBubbleDoubleClick}
-          onBubbleRightClick={onBubbleRightClick}
-          canvasTransform={canvasTransform}
-          className="w-full h-full"
-        />
+        {/* Canvas temporairement désactivé - KonvaApplication supprimé */}
+        <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+          <div className="text-white text-sm">Canvas Konva supprimé - utilisation de Polotno</div>
+        </div>
       </div>
 
       {/* Indicateur de position (développement) */}

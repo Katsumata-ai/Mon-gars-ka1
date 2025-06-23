@@ -20,7 +20,7 @@ const createInitialState = () => ({
   userId: '',
   scriptData: {
     content: '',
-    title: 'Script Sans Titre',
+    title: 'Nouveau Script',
     stats: { pages: 0, panels: 0, chapters: 0, words: 0, characters: 0, dialogues: 0 },
     fileTree: [],
     lastModified: new Date()

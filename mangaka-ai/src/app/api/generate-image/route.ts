@@ -172,8 +172,6 @@ export async function POST(request: NextRequest) {
     try {
       imageUrl = await generateImageWithXai(finalPrompt)
     } catch (error) {
-      console.error('🚨 Erreur lors de la génération d\'image:', error)
-
       // Retourner une erreur claire au lieu d'utiliser des images de test
       return NextResponse.json(
         {

@@ -79,11 +79,10 @@ export class SelectTool {
   }
 
   /**
-   * Met à jour le curseur du canvas avec optimisation et debugging
+   * Met à jour le curseur du canvas avec optimisation
    */
   private updateCursor(cursor: string): void {
     if (!this.canvasElement) {
-      // ✅ CORRECTION : Désactiver les logs d'erreur pour Konva (pas de canvas HTML)
       return
     }
 
@@ -92,12 +91,6 @@ export class SelectTool {
     if (currentCursor === cursor) {
       return // Pas de changement nécessaire
     }
-
-    console.log('🖱️ Changement de curseur:', {
-      from: currentCursor || 'undefined',
-      to: cursor,
-      context: this.getCursorContext()
-    })
 
     this.canvasElement.style.cursor = cursor
   }

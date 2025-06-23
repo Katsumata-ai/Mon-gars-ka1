@@ -59,14 +59,12 @@ export function TipTapFreeText({
     onUpdate: ({ editor }) => {
       // ✅ CORRECTION : Utiliser getText() au lieu de getHTML() pour éviter les balises HTML
       const newText = editor.getText()
-      console.log('📝 TipTapFreeText onUpdate:', element.id, 'New text (sans HTML):', newText)
       onUpdate(element.id, { text: newText })
     },
     onFocus: () => {
-      console.log(`📝 TipTapFreeText focused: ${element.id}`)
+      // Focus silencieux
     },
     onBlur: () => {
-      console.log(`📝 TipTapFreeText blurred: ${element.id}`)
       if (mode === 'editing') {
         onModeChange?.(element.id, 'reading')
       }
@@ -140,7 +138,6 @@ export function TipTapFreeText({
         }
       })
       window.dispatchEvent(registerEvent)
-      console.log('📝 TipTapFreeText enregistré:', element.id)
 
       // Cleanup au démontage
       return () => {
@@ -148,7 +145,6 @@ export function TipTapFreeText({
           detail: { textId: element.id }
         })
         window.dispatchEvent(unregisterEvent)
-        console.log('🗑️ TipTapFreeText désenregistré:', element.id)
       }
     }
   }, [element.id])

@@ -105,7 +105,6 @@ export class FreeTextTool {
       this.onTextCreated(textElement)
     }
 
-    console.log('✅ FreeTextTool: Texte créé:', textElement)
     return textElement
   }
 
@@ -115,7 +114,6 @@ export class FreeTextTool {
   cancelCreation(): void {
     if (this.state.isCreating) {
       this.state.isCreating = false
-      console.log('❌ FreeTextTool: Création annulée')
     }
   }
 
@@ -137,7 +135,7 @@ export class FreeTextTool {
    * Vérifie les collisions avec d'autres éléments
    */
   private checkCollision(textElement: TextElement): boolean {
-    // TODO: Implémenter la détection de collision si nécessaire
+    // Pas de détection de collision pour les textes libres
     return false
   }
 

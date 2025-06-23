@@ -40,6 +40,7 @@
   --font-display: 'Orbitron', monospace;
   --font-japanese: 'Noto Sans JP', sans-serif;
   --font-comic: 'Comic Sans MS', 'Bangers', 'Roboto', system-ui, sans-serif;
+  --font-logo: 'Bangers', 'Comic Sans MS', cursive;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -477,4 +478,12 @@ a:hover {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+/* MANGAKA AI Logo Styling */
+.font-logo {
+  font-family: var(--font-logo);
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }

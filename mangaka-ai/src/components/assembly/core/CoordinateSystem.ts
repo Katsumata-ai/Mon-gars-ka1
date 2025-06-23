@@ -197,9 +197,11 @@ export class UnifiedCoordinateSystem {
   }
 
   /**
-   * ✅ DEBUG : Afficher les informations de transformation
+   * ✅ DEBUG : Afficher les informations de transformation (développement seulement)
    */
   debugInfo(label: string, point?: { x: number; y: number }) {
+    if (process.env.NODE_ENV !== 'development') return null
+
     const info = {
       label,
       canvasTransform: this.canvasTransform,
@@ -207,11 +209,11 @@ export class UnifiedCoordinateSystem {
       canvasSize: this.canvasSize,
       canvasRect: this.getCanvasRect()
     }
-    
+
     if (point) {
       const canvasPoint = this.domToCanvas(point.x, point.y)
       const domPoint = this.canvasToDOM(canvasPoint.x, canvasPoint.y)
-      
+
       info['conversions'] = {
         original: point,
         toCanvas: canvasPoint,
@@ -222,8 +224,7 @@ export class UnifiedCoordinateSystem {
         }
       }
     }
-    
-    console.log('🔄 CoordinateSystem Debug:', info)
+
     return info
   }
 }

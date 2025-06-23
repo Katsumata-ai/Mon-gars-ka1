@@ -1,15 +1,12 @@
 'use client'
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react'
-import { Application, Container, Graphics, FederatedPointerEvent, Text, TextStyle, Sprite } from 'pixi.js'
 import { useCanvasContext, generateElementId } from '../context/CanvasContext'
 import { AssemblyElement, PanelElement, DialogueElement, TextElement, SpriteElement, ImageElement } from '../types/assembly.types'
-// ✅ SUPPRIMÉ : BubbleManipulationManager - remplacé par IntegratedBubbleQueue
 import { HandleType } from '../types/assembly.types'
 import { PanelTool } from '../tools/PanelTool'
 import { BubbleTool } from '../tools/BubbleTool'
 import { SelectTool } from '../tools/SelectTool'
-// ✅ PHASE 2B : NativeTextEditor supprimé - utilisation TipTap HTML
 import { applyCenteringUniversal, createOptimalTextStyle } from '../utils/TextCenteringUtils'
 // import { panelMaskingService } from '../services/PanelMaskingService'
 // import { useDragDrop } from '../hooks/useDragDrop'
@@ -84,10 +81,7 @@ export default function PixiApplication({
     cancelBubblePlacement
   } = canvas
 
-  // Monitoring optimisé pour le développement
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🎯 PixiApplication render - activeTool:', activeTool)
-  }
+  // Monitoring optimisé pour le développement (supprimé pour production)
 
   // 🔧 CORRECTION : Calculer selectedElements à partir de selectedElementIds et elements
   const selectedElements = useMemo(() => {
@@ -213,17 +207,14 @@ export default function PixiApplication({
         // Configurer l'animation des handles de sélection
         const cleanupAnimation = setupSelectionAnimation(app)
 
-        console.log('✅ PixiJS Application initialisée avec succès')
-        console.log('🎯 Stage interactif:', app.stage.eventMode)
-        console.log('🎯 Hit area:', app.stage.hitArea)
-        console.log('🎯 App ref:', !!appRef.current)
+        // PixiJS Application initialisée avec succès
 
         // Retourner la fonction de nettoyage pour le démontage
         return () => {
           cleanupAnimation()
         }
       } catch (error) {
-        console.error('Erreur lors de l\'initialisation de PixiJS:', error)
+        // Erreur silencieuse en production
       }
     }
 
@@ -638,8 +629,7 @@ export default function PixiApplication({
       addElement(bubble)
       selectElement(bubble.id)
 
-      console.log('🎯 MANGAKA: Bulle créée et sélectionnée pour édition immédiate')
-      // TODO: Activer l'édition de texte immédiatement (prochaine étape)
+      // Bulle créée et sélectionnée pour édition immédiate
     }
   }, [addElement, selectElement])
 

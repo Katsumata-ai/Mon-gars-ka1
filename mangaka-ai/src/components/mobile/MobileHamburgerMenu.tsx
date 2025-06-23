@@ -103,7 +103,7 @@ export default function MobileHamburgerMenu({
               <h2 className="text-lg font-bold text-white truncate">
                 {projectName}
               </h2>
-              <p className="text-sm text-dark-400">MANGAKA AI</p>
+              <p className="text-sm text-dark-400 font-logo">MANGAKA AI</p>
             </div>
             <button
               onClick={toggleMenu}
@@ -159,7 +159,7 @@ export default function MobileHamburgerMenu({
 
         {/* Footer */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-dark-700 bg-dark-900" suppressHydrationWarning={true}>
-          <div className="text-xs text-dark-500 text-center" suppressHydrationWarning={true}>
+          <div className="text-xs text-dark-500 text-center font-logo" suppressHydrationWarning={true}>
             MANGAKA AI v2.0 Mobile
           </div>
         </div>

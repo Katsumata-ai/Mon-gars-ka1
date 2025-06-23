@@ -9,10 +9,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Configuration simplifiée pour éviter les problèmes de démarrage
-  reactStrictMode: false,
+  // Configuration optimisée pour la production
+  reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@tiptap/react', '@tiptap/starter-kit'],
+  },
+  // Optimisations de performance
+  swcMinify: true,
+  output: 'standalone',
 };
 
 export default nextConfig;

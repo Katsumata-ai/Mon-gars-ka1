@@ -45,10 +45,7 @@ export default function TipTapBubble({
   // ✅ ÉTAT POUR LE DRAG AVEC DÉLAI
   const [dragTimeout, setDragTimeout] = useState<NodeJS.Timeout | null>(null)
 
-  // ✅ LOG DES CHANGEMENTS DE MODE
-  useEffect(() => {
-    console.log('🔍 TipTapBubble: Changement de mode pour', element.id, '→', mode)
-  }, [mode, element.id])
+  // ✅ CHANGEMENTS DE MODE (logs supprimés pour production)
 
   // ✅ NETTOYAGE DU TIMEOUT AU DÉMONTAGE
   useEffect(() => {
@@ -190,18 +187,7 @@ export default function TipTapBubble({
 
 
 
-  // ✅ DEBUG : Vérifier l'état de l'éditeur
-  useEffect(() => {
-    if (editor) {
-      console.log('🔍 TipTap editor state:', {
-        id: element.id,
-        mode,
-        isEditable: editor.isEditable,
-        isFocused: editor.isFocused,
-        content: editor.getHTML()
-      })
-    }
-  }, [editor, mode, element.id])
+  // ✅ ÉTAT DE L'ÉDITEUR (debug supprimé pour production)
 
   // ✅ FOCUS AUTOMATIQUE EN MODE ÉDITION
   useEffect(() => {
@@ -294,7 +280,6 @@ export default function TipTapBubble({
         }
       })
       window.dispatchEvent(registerEvent)
-      console.log('📝 TipTapBubble enregistré:', element.id)
 
       // Cleanup au démontage
       return () => {
@@ -302,7 +287,6 @@ export default function TipTapBubble({
           detail: { bubbleId: element.id }
         })
         window.dispatchEvent(unregisterEvent)
-        console.log('🗑️ TipTapBubble désenregistré:', element.id)
       }
     }
   }, [element.id])

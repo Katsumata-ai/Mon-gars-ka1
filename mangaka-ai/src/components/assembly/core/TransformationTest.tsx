@@ -18,7 +18,8 @@ export default function TransformationTest({ onTestResult }: TransformationTestP
 
   useEffect(() => {
     const runTests = async () => {
-      console.log('🧪 TransformationTest: Début des tests de synchronisation')
+      // Tests de synchronisation en mode développement seulement
+      if (process.env.NODE_ENV !== 'development') return
 
       // Test 1: Enregistrement et désenregistrement
       const test1Start = performance.now()

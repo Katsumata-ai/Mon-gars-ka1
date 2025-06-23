@@ -174,7 +174,6 @@ export class UnifiedTransformManager {
     }
 
     this.konvaTargets.set(id, target)
-    console.log('📝 UnifiedTransformManager: Cible Konva enregistrée:', id)
   }
 
   /**

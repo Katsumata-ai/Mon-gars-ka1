@@ -219,7 +219,6 @@ export class TipTapPool {
       })
       
     } catch (error) {
-      console.warn('⚠️ Error during editor cleanup:', error)
       this.stats.memoryLeaksDetected++
     }
   }
@@ -242,7 +241,7 @@ export class TipTapPool {
       editor.setEditable(true)
       
     } catch (error) {
-      console.warn('⚠️ Error during editor reset:', error)
+      // Erreur silencieuse
     }
   }
 
@@ -255,7 +254,7 @@ export class TipTapPool {
       editor.destroy()
       this.stats.totalDestroyed++
     } catch (error) {
-      console.warn('⚠️ Error during editor destruction:', error)
+      // Erreur silencieuse
     }
   }
 
@@ -310,7 +309,6 @@ export class TipTapPool {
         const usage = memory.usedJSHeapSize / 1024 / 1024 // MB
         
         if (usage > 100) { // Plus de 100MB
-          console.warn(`⚠️ High memory usage detected: ${usage.toFixed(2)}MB`)
           this.performCleanup()
         }
       }, 30000) // Vérifier toutes les 30 secondes

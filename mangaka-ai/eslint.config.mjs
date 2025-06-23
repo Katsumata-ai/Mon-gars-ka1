@@ -13,15 +13,16 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
-      // Temporarily disable some rules for build
-      "@typescript-eslint/no-unused-vars": "warn",
+      // Production-ready rules
+      "@typescript-eslint/no-unused-vars": "error",
       "@typescript-eslint/no-explicit-any": "warn",
-      "react/no-unescaped-entities": "warn",
+      "react/no-unescaped-entities": "error",
       "@next/next/no-img-element": "warn",
-      "jsx-a11y/alt-text": "warn",
-      "react-hooks/exhaustive-deps": "warn",
+      "jsx-a11y/alt-text": "error",
+      "react-hooks/exhaustive-deps": "error",
       "@typescript-eslint/no-unsafe-function-type": "warn",
-      "prefer-spread": "warn",
+      "prefer-spread": "error",
+      "no-console": "warn",
     }
   }
 ];

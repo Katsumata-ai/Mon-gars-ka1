@@ -176,13 +176,8 @@ export class TextureManager {
       if (cached) {
         cached.texture.destroy()
         this.cache.delete(id)
-        console.log(`Texture expirée supprimée: ${id}`)
       }
     })
-
-    if (expiredIds.length > 0) {
-      console.log(`${expiredIds.length} textures expirées nettoyées`)
-    }
   }
 
   // Charger les images depuis les galeries Supabase

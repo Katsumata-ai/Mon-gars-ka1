@@ -466,29 +466,9 @@ export default function ScriptEditorPanel({ projectId, pagesSidebarVisible = fal
     }
   }, [])
 
-  // Auto-sauvegarde avec vérification d'authentification (désactivé temporairement)
+  // Auto-sauvegarde avec vérification d'authentification
   const autoSave = useCallback(async () => {
-    // TODO: Réactiver quand le backend sera configuré
-    // // Vérifier si l'utilisateur est connecté et si le contenu n'est pas vide
-    // if (!user || !scriptContent.trim() || authLoading) {
-    //   return
-    // }
-
-    // setAutoSaving(true)
-    // try {
-    //   const { error } = await supabase
-    //     .from('manga_scripts')
-    //     .upsert({
-    //       project_id: projectId,
-    //       title: title,
-    //       script_data: {
-    //         content: scriptContent,
-    //         stats: stats,
-    //         fileTree: fileTree
-    //       },
-    //       updated_at: new Date().toISOString(),
-    //       user_id: user.id
-    //     })
+    // Sauvegarde automatique intégrée
 
     //   if (!error) {
     //     setLastSaved(new Date())

@@ -165,96 +165,27 @@ export default function ImprovedSceneCreator({
   const { credits, loading: creditsLoading, user, refreshCredits } = useUserCredits()
   const supabase = createClient()
 
-  // Utiliser les données en cache si disponibles, sinon charger depuis l'API
+  // Utiliser les données en cache (filtrées par project_id) au lieu de faire des requêtes directes
   useEffect(() => {
     if (cachedCharacters && charactersLoaded) {
+      console.log('🎭 ImprovedSceneCreator - Utilisation du cache personnages:', cachedCharacters.length)
       setCharacters(cachedCharacters)
-    } else if (user && !charactersLoaded) {
-      loadCharacters()
     }
-  }, [user, cachedCharacters, charactersLoaded])
+  }, [cachedCharacters, charactersLoaded])
 
   useEffect(() => {
     if (cachedDecors && decorsLoaded) {
+      console.log('🏞️ ImprovedSceneCreator - Utilisation du cache décors:', cachedDecors.length)
       setDecors(cachedDecors)
-    } else if (user && !decorsLoaded) {
-      loadDecors()
     }
-  }, [user, cachedDecors, decorsLoaded])
+  }, [cachedDecors, decorsLoaded])
 
   useEffect(() => {
     if (cachedScenes && scenesLoaded) {
+      console.log('🎬 ImprovedSceneCreator - Utilisation du cache scènes:', cachedScenes.length)
       setGeneratedScenes(cachedScenes)
-    } else if (user && !scenesLoaded) {
-      loadGeneratedScenes()
     }
-  }, [user, cachedScenes, scenesLoaded])
-
-  const loadCharacters = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('character_images')
-        .select('id, image_url, original_prompt, metadata, created_at')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setCharacters(data || [])
-    } catch (err) {
-      console.error('Erreur chargement personnages:', err)
-    }
-  }
-
-  const loadDecors = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('decor_images')
-        .select('id, image_url, original_prompt, metadata, created_at')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setDecors(data || [])
-    } catch (err) {
-      console.error('Erreur chargement décors:', err)
-    }
-  }
-
-  const loadGeneratedScenes = async () => {
-    setLoadingScenes(true)
-    try {
-      const { data, error } = await supabase
-        .from('scene_images')
-        .select('id, image_url, original_prompt, optimized_prompt, metadata, character_ids, decor_id, scene_settings, created_at')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      // Transformer les données au format Scene
-      const transformedScenes: Scene[] = (data || []).map(scene => ({
-        id: scene.id,
-        name: (scene.original_prompt || '').slice(0, 40) || 'Scène sans nom',
-        description: scene.original_prompt || '',
-        prompt: scene.optimized_prompt || scene.original_prompt || '',
-        image_url: scene.image_url,
-        characters: scene.character_ids || [],
-        decors: scene.decor_id ? [scene.decor_id] : [],
-        camera_plan: scene.scene_settings?.cameraAngle || '',
-        lighting: scene.scene_settings?.lighting || '',
-        ambiance: scene.scene_settings?.mood || '',
-        details: scene.scene_settings?.additionalDetails || '',
-        created_at: scene.created_at,
-        metadata: scene.metadata
-      }))
-
-      setGeneratedScenes(transformedScenes)
-    } catch (err) {
-      console.error('Erreur chargement scènes:', err)
-    } finally {
-      setLoadingScenes(false)
-    }
-  }
+  }, [cachedScenes, scenesLoaded])
 
   // Fonctions de gestion des scènes
   const handleSceneSelect = (scene: Scene) => {
@@ -275,13 +206,11 @@ export default function ImprovedSceneCreator({
         throw new Error(errorData.error || 'Erreur lors de la suppression')
       }
 
-      // Mettre à jour le cache si disponible, sinon recharger
+      // Mettre à jour le cache et l'état local
       if (onSceneDeleted) {
         onSceneDeleted(scene.id)
-        setGeneratedScenes(prev => prev.filter(s => s.id !== scene.id))
-      } else {
-        await loadGeneratedScenes()
       }
+      setGeneratedScenes(prev => prev.filter(s => s.id !== scene.id))
 
       toast.success('🗑️ Scène supprimée avec succès !', {
         duration: 3000,

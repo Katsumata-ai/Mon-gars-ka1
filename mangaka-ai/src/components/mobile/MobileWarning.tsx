@@ -105,7 +105,7 @@ export default function MobileWarning({ className }: MobileWarningProps) {
 
         {/* Footer avec branding */}
         <div className="mt-8 pt-6 border-t border-dark-700">
-          <p className="text-xs text-dark-500 uppercase tracking-wider font-medium">
+          <p className="text-xs text-dark-500 uppercase tracking-wider font-logo">
             MANGAKA AI - Manga Studio
           </p>
         </div>

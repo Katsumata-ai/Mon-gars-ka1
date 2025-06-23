@@ -43,14 +43,28 @@ export async function POST(request: NextRequest) {
         )
       }
     } else {
-      // Créer une nouvelle page
+      // Calculer le prochain numéro de page disponible
+      const { data: maxPageData } = await supabase
+        .from('pages')
+        .select('page_number')
+        .eq('project_id', projectId)
+        .order('page_number', { ascending: false })
+        .limit(1)
+
+      const nextPageNumber = maxPageData && maxPageData.length > 0
+        ? maxPageData[0].page_number + 1
+        : 1
+
+      console.log('📄 Création nouvelle page:', { pageId, projectId, nextPageNumber })
+
+      // Créer une nouvelle page avec le bon numéro
       const { error } = await supabase
         .from('pages')
         .insert({
           id: pageId,
           project_id: projectId,
-          title: `Page ${Date.now()}`,
-          page_number: 1, // TODO: Calculer le bon numéro de page
+          title: `Page ${nextPageNumber}`,
+          page_number: nextPageNumber,
           content,
           status
         })

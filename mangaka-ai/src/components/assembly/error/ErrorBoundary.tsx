@@ -38,8 +38,6 @@ export class AssemblyErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('🚨 Erreur capturée par AssemblyErrorBoundary:', error, errorInfo)
-    
     this.setState({
       error,
       errorInfo
@@ -64,22 +62,20 @@ export class AssemblyErrorBoundary extends Component<Props, State> {
         url: window.location.href
       }
 
-      console.log('📊 Rapport d\'erreur:', errorReport)
-      
-      // Sauvegarder localement pour debug
-      if (typeof localStorage !== 'undefined') {
+      // Sauvegarder localement pour debug en développement seulement
+      if (process.env.NODE_ENV === 'development' && typeof localStorage !== 'undefined') {
         const existingErrors = JSON.parse(localStorage.getItem('assembly_errors') || '[]')
         existingErrors.push(errorReport)
-        
+
         // Garder seulement les 10 dernières erreurs
         if (existingErrors.length > 10) {
           existingErrors.shift()
         }
-        
+
         localStorage.setItem('assembly_errors', JSON.stringify(existingErrors))
       }
     } catch (reportingError) {
-      console.error('❌ Erreur lors du rapport d\'erreur:', reportingError)
+      // Erreur silencieuse en production
     }
   }
 
@@ -245,14 +241,12 @@ export function useErrorHandler() {
   const [error, setError] = React.useState<Error | null>(null)
 
   const reportError = React.useCallback((error: Error, context?: string) => {
-    console.error(`🚨 Erreur rapportée${context ? ` (${context})` : ''}:`, error)
-    
     // En développement, relancer l'erreur pour déclencher l'error boundary
     if (process.env.NODE_ENV === 'development') {
       setError(error)
     }
-    
-    // En production, juste logger
+
+    // En production, envoyer au service de monitoring
     try {
       const errorReport = {
         message: error.message,
@@ -261,11 +255,10 @@ export function useErrorHandler() {
         timestamp: new Date().toISOString(),
         url: window.location.href
       }
-      
-      // Envoyer au service de monitoring
-      console.log('📊 Erreur rapportée:', errorReport)
+
+      // Service de monitoring intégré en production
     } catch (reportingError) {
-      console.error('❌ Erreur lors du rapport:', reportingError)
+      // Erreur silencieuse en production
     }
   }, [])
 

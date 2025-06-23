@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import ClientOnly from '@/components/common/ClientOnly'
-import { User, Settings, LogOut } from 'lucide-react'
+import { User, Settings, LogOut, LayoutDashboard } from 'lucide-react'
 
 interface NavigationProps {
   variant?: 'landing' | 'app'
@@ -28,19 +28,26 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Link href="/" className="text-2xl font-bold text-primary-500 font-display">
+              <Link href="/" className="text-2xl font-bold text-red-500 font-logo tracking-wider">
                 MANGAKA AI
               </Link>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-8">
+            {/* Desktop Navigation - Liens d'ancrage centrés */}
+            <div className="hidden md:flex items-center space-x-8 absolute left-1/2 transform -translate-x-1/2">
               <Link href="#features" className="text-dark-200 hover:text-primary-500 transition-colors">
                 Fonctionnalités
               </Link>
               <Link href="#pricing" className="text-dark-200 hover:text-primary-500 transition-colors">
                 Tarifs
               </Link>
+              <Link href="#faq" className="text-dark-200 hover:text-primary-500 transition-colors">
+                FAQ
+              </Link>
+            </div>
+
+            {/* Desktop Auth/User Menu */}
+            <div className="hidden md:flex items-center space-x-8">
 
               <ClientOnly fallback={
                 <div className="flex items-center space-x-4">
@@ -58,8 +65,9 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
                 <div className="flex items-center space-x-4">
                   <Link
                     href="/dashboard"
-                    className="px-4 py-2 text-sm font-medium text-dark-200 hover:text-primary-400 transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-dark-200 hover:text-primary-400 transition-colors flex items-center gap-2"
                   >
+                    <LayoutDashboard className="w-4 h-4" />
                     Dashboard
                   </Link>
 
@@ -107,7 +115,7 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
                   </Link>
                   <Link
                     href="/signup"
-                    className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                    className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2 rounded-lg font-medium transition-colors !text-white"
                   >
                     Commencer Gratuitement
                   </Link>
@@ -132,92 +140,88 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
           {/* Mobile Navigation */}
           {mobileMenuOpen && (
             <div className="md:hidden">
-              <div className="px-2 pt-2 pb-3 space-y-1 bg-dark-800 rounded-lg mt-2">
+              <div className="px-3 pt-3 pb-4 space-y-2 bg-dark-800 rounded-lg mt-2 shadow-lg">
                 <Link
                   href="#features"
-                  className="block px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
+                  className="block px-4 py-3 text-dark-200 hover:text-primary-500 hover:bg-dark-700 rounded-lg transition-colors text-lg font-medium"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Fonctionnalités
                 </Link>
                 <Link
                   href="#pricing"
-                  className="block px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
+                  className="block px-4 py-3 text-dark-200 hover:text-primary-500 hover:bg-dark-700 rounded-lg transition-colors text-lg font-medium"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Tarifs
                 </Link>
+                <Link
+                  href="#faq"
+                  className="block px-4 py-3 text-dark-200 hover:text-primary-500 hover:bg-dark-700 rounded-lg transition-colors text-lg font-medium"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  FAQ
+                </Link>
 
                 {loading ? (
-                  <div className="px-3 py-2">
+                  <div className="px-4 py-3">
                     <div className="w-full h-8 bg-dark-700 rounded animate-pulse"></div>
                   </div>
                 ) : user ? (
+                  // User connecté - Même logique que desktop : seulement Dashboard et menu utilisateur
                   <>
-                    <Link
-                      href="/dashboard"
-                      className="block px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Dashboard
-                    </Link>
-                    <Link
-                      href="/generate"
-                      className="block px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Générer
-                    </Link>
-                    <Link
-                      href="/scene-creator"
-                      className="block px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Créer Scènes
-                    </Link>
-                    <Link
-                      href="/page-editor"
-                      className="block px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Éditeur Pages
-                    </Link>
-                    <Link
-                      href="/script-editor"
-                      className="block px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Script Editor
-                    </Link>
-                    <div className="px-3 py-2 text-dark-400 text-sm border-t border-dark-600 mt-2">
-                      {user.email}
+                    <div className="border-t border-dark-600 pt-2 mt-2">
+                      <Link
+                        href="/dashboard"
+                        className="block px-4 py-3 text-dark-200 hover:text-primary-500 hover:bg-dark-700 rounded-lg transition-colors text-lg font-medium flex items-center gap-2"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <LayoutDashboard className="w-5 h-5" />
+                        Dashboard
+                      </Link>
+
+                      {/* Menu utilisateur mobile */}
+                      <div className="mt-2 pt-2 border-t border-dark-600">
+                        <Link
+                          href="/settings"
+                          className="block px-4 py-3 text-dark-200 hover:text-primary-500 hover:bg-dark-700 rounded-lg transition-colors text-lg font-medium"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          Paramètres
+                        </Link>
+                        <div className="px-4 py-2 text-dark-400 text-sm">
+                          {user.email}
+                        </div>
+                        <button
+                          onClick={() => {
+                            handleSignOut()
+                            setMobileMenuOpen(false)
+                          }}
+                          className="block w-full text-left px-4 py-3 text-dark-200 hover:text-primary-500 hover:bg-dark-700 rounded-lg transition-colors text-lg font-medium"
+                        >
+                          Déconnexion
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => {
-                        handleSignOut()
-                        setMobileMenuOpen(false)
-                      }}
-                      className="block w-full text-left px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
-                    >
-                      Déconnexion
-                    </button>
                   </>
                 ) : (
                   <>
-                    <Link
-                      href="/login"
-                      className="block px-3 py-2 text-dark-200 hover:text-primary-500 transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Connexion
-                    </Link>
-                    <Link
-                      href="/signup"
-                      className="block px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium transition-colors text-center"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Commencer Gratuitement
-                    </Link>
+                    <div className="border-t border-dark-600 pt-2 mt-2">
+                      <Link
+                        href="/login"
+                        className="block px-4 py-3 text-dark-200 hover:text-primary-500 hover:bg-dark-700 rounded-lg transition-colors text-lg font-medium"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Connexion
+                      </Link>
+                      <Link
+                        href="/signup"
+                        className="block px-4 py-3 mt-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-medium transition-colors text-center text-lg !text-white"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Commencer Gratuitement
+                      </Link>
+                    </div>
                   </>
                 )}
               </div>
@@ -230,22 +234,17 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
 
   // App navigation (for dashboard, generate, etc.)
   return (
-    <nav className="bg-dark-800 border-b border-dark-700">
+    <nav className="bg-gradient-to-r from-dark-900 via-dark-800 to-dark-900 border-b border-dark-700/50 shadow-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <Link href="/dashboard" className="text-2xl font-bold text-primary-500 font-display">
-            MANGAKA AI
+        <div className="flex justify-between items-center h-20">
+          {/* Logo simple et intégré */}
+          <Link href="/dashboard" className="flex items-center">
+            <span className="text-2xl font-bold text-red-500 font-logo tracking-wider">
+              MANGAKA AI
+            </span>
           </Link>
 
           <div className="flex items-center space-x-6">
-            <Link
-              href="/dashboard"
-              className={`text-dark-200 hover:text-primary-500 transition-colors ${
-                currentPage === 'dashboard' ? 'text-primary-500 font-medium' : ''
-              }`}
-            >
-              Dashboard
-            </Link>
 
             <div className="flex items-center space-x-4">
               {/* Upsell Button */}

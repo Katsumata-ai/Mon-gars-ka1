@@ -182,12 +182,6 @@ export default function SimpleCanvasEditor({
 
   // ✅ SYNCHRONISATION BIDIRECTIONNELLE COMPLÈTE : CanvasContext ↔ SimpleCanvasEditor
   useEffect(() => {
-    console.log('🔄 SimpleCanvasEditor: Synchronisation avec CanvasContext', {
-      canvasElementsCount: canvasElements.length,
-      localElementsCount: elements.length,
-      canvasElementIds: canvasElements.map(el => el.id),
-      localElementIds: elements.map(el => el.id)
-    })
 
     // ✅ CONVERSION : AssemblyElement → CanvasElement pour l'affichage
     const convertToCanvasElement = (assemblyElement: AssemblyElement): CanvasElement => {
@@ -1482,7 +1476,7 @@ export default function SimpleCanvasEditor({
   useEffect(() => {
     const handleTextClick = (event: CustomEvent) => {
       const { textId, clientX, clientY, element } = event.detail
-      console.log('🎯 SimpleCanvasEditor: Texte libre TipTap cliqué:', textId)
+
 
       // Sélectionner le texte avec le même système que les panels
       setSelectedElementId(textId)
@@ -1609,11 +1603,6 @@ export default function SimpleCanvasEditor({
     // ✅ PRIORITÉ ABSOLUE : Création de texte quand l'outil texte est actif
     if (activeTool === 'text') {
       // ✅ CORRECTION FINALE : Utiliser getHTMLLayerCoordinates() pour éviter la double transformation
-      console.log('🎯 PRIORITÉ TEXTE: Création texte TipTap (priorité absolue sur tout):', {
-        htmlLayerCoords,
-        zoomLevel,
-        canvasScale
-      })
 
       // Créer l'événement personnalisé avec les coordonnées HTML layer (sans double transformation)
       const textCreationEvent = new CustomEvent('createTipTapFreeText', {
@@ -1946,7 +1935,7 @@ export default function SimpleCanvasEditor({
             }
 
             onElementClick?.(virtualElement)
-            console.log('🎯 SimpleCanvasEditor: Sélection automatique panel synchronisée avec le système global:', newPanel.id)
+
           }, 50) // Petit délai pour que l'élément soit ajouté au contexte
         } else {
           // Afficher un message d'erreur temporaire
@@ -2006,7 +1995,7 @@ export default function SimpleCanvasEditor({
             }
 
             onElementClick?.(virtualElement)
-            console.log('🎯 SimpleCanvasEditor: Sélection automatique panel synchronisée avec le système global:', newPanel.id)
+
           }, 50) // Petit délai pour que l'élément soit ajouté au contexte
         } else {
           // Afficher un message d'erreur temporaire

@@ -2,11 +2,8 @@
 
 // Composants principaux optimisés
 export { default as PixiApplication } from './core/PixiApplication'
-export { default as ToolBar } from './ui/ToolBar'
-export { default as ImageLibrary } from './ui/ImageLibrary'
-export { default as PixiPagesSidebar } from './ui/PixiPagesSidebar'
-export { default as PixiAssemblyApp } from './PixiAssemblyAppOptimized'
-export { default as PixiAssemblyAppOptimized } from './PixiAssemblyAppOptimized'
+// Composants UI PixiJS supprimés - utilisation des composants Polotno
+// PixiAssemblyApp supprimé - utilisation de PolotnoAssemblyApp
 
 // Layout Dashtoon
 export {
@@ -54,18 +51,7 @@ export {
   usePixiApp
 } from './hooks/useCanvasOptimized'
 
-// Système de performance
-export {
-  PerformanceMonitor,
-  performanceMonitor,
-  usePerformanceMonitor
-} from './performance/PerformanceMonitor'
-
-export {
-  MemoryManager,
-  memoryManager,
-  useMemoryManager
-} from './performance/MemoryManager'
+// Système de performance PixiJS supprimé - Polotno gère ses propres performances
 
 // Gestionnaire d'état legacy (Zustand) - À supprimer progressivement
 export {
@@ -87,11 +73,7 @@ export {
   useTextureManager
 } from './managers/TextureManager'
 
-// Utilitaires de performance
-export {
-  PerformanceTest,
-  runAllPerformanceTests
-} from './utils/PerformanceTest'
+// Utilitaires de performance PixiJS supprimés
 
 // Types
 export type {
@@ -119,5 +101,4 @@ export type {
   SerializedState
 } from './types/assembly.types'
 
-// Hooks utilitaires
-export { useToolBarShortcuts } from './ui/ToolBar'
+// Hooks utilitaires PixiJS supprimés

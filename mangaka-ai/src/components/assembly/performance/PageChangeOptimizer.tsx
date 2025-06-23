@@ -79,7 +79,7 @@ export function PageChangeOptimizerProvider({
         console.log(`📦 Page ${pageId} préchargée en ${loadTime.toFixed(2)}ms`)
       }
     } catch (error) {
-      console.warn('⚠️ Erreur préchargement page:', pageId, error)
+      // Erreur silencieuse
     }
   }, [pages, maxCacheSize])
 
@@ -91,7 +91,6 @@ export function PageChangeOptimizerProvider({
   // Nettoyer le cache
   const clearPreloadCache = useCallback(() => {
     preloadCache.current.clear()
-    console.log('🧹 Cache de préchargement nettoyé')
   }, [])
 
   // Obtenir les métriques de performance

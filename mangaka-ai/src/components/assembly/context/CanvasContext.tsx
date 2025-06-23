@@ -320,7 +320,7 @@ export const useCanvasContext = () => {
   if (!context) {
     // En mode développement, afficher un warning au lieu de lancer une erreur
     if (process.env.NODE_ENV === 'development') {
-      console.warn('useCanvasContext must be used within a CanvasProvider')
+      // Warning silencieux en production
     }
     // Retourner un contexte par défaut pour éviter les crashes
     return {

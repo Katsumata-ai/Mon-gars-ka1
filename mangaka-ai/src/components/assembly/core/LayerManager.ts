@@ -123,15 +123,7 @@ export class LayerManager {
     // Enregistrer l'élément
     this.elementRegistry.set(elementId, { layerType, zIndex, priority })
     this.layerUsage.set(layerType, currentUsage + 1)
-    
-    console.log(`🎯 Z-Index assigné:`, {
-      elementId,
-      layerType,
-      priority,
-      zIndex,
-      usage: `${currentUsage + 1}/${config.maxElements}`
-    })
-    
+
     return zIndex
   }
 
@@ -144,12 +136,6 @@ export class LayerManager {
       const currentUsage = this.layerUsage.get(registration.layerType) || 0
       this.layerUsage.set(registration.layerType, Math.max(0, currentUsage - 1))
       this.elementRegistry.delete(elementId)
-      
-      console.log(`🗑️ Z-Index libéré:`, {
-        elementId,
-        layerType: registration.layerType,
-        newUsage: this.layerUsage.get(registration.layerType)
-      })
     }
   }
 
@@ -205,12 +191,6 @@ export class LayerManager {
             const registration = this.elementRegistry.get(elementId)!
             const newZIndex = this.assignZIndex(elementId, registration.layerType, registration.priority)
             resolved++
-            
-            console.log(`🔧 Conflit résolu:`, {
-              elementId,
-              oldZIndex: zIndex,
-              newZIndex
-            })
           }
         })
       }
@@ -258,15 +238,10 @@ export class LayerManager {
   }
 
   /**
-   * ✅ DEBUG : Afficher l'état complet
+   * Debug : Afficher l'état complet (silencieux en production)
    */
   debugInfo() {
-    console.log('🎯 LayerManager Debug Info:', {
-      totalElements: this.elementRegistry.size,
-      layerUsage: Object.fromEntries(this.layerUsage),
-      layerStats: Object.fromEntries(this.getLayerStats()),
-      elements: Object.fromEntries(this.elementRegistry)
-    })
+    // Debug silencieux pour éviter les logs en production
   }
 
   /**
@@ -280,7 +255,5 @@ export class LayerManager {
     Object.keys(LayerManager.LAYER_CONFIGS).forEach(layerType => {
       this.layerUsage.set(layerType as LayerType, 0)
     })
-    
-    console.log('🧹 LayerManager cleaned up')
   }
 }
