@@ -19,31 +19,32 @@ export default function DeleteAccountButton({ className }: DeleteAccountButtonPr
   const supabase = createClient()
 
   const handleDeleteAccount = async () => {
-    if (confirmText !== 'SUPPRIMER') {
-      toast.error('Veuillez taper "SUPPRIMER" pour confirmer')
+    if (confirmText !== 'DELETE') {
+      toast.error('Please type "DELETE" to confirm')
       return
     }
 
     setIsDeleting(true)
 
     try {
-      // Appeler une API route pour supprimer le compte
+      // Call API route to delete account
       const response = await fetch('/api/delete-account', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important : inclure les cookies de session
       })
 
       if (!response.ok) {
-        throw new Error('Erreur lors de la suppression du compte')
+        throw new Error('Error deleting account')
       }
 
-      // Déconnexion
+      // Sign out
       await supabase.auth.signOut()
 
-      toast.success('Votre compte a été supprimé avec succès')
-
+      toast.success('Your account has been successfully deleted')
+      
       // Redirection vers la landing page
       router.push('/')
       router.refresh()
@@ -73,7 +74,7 @@ export default function DeleteAccountButton({ className }: DeleteAccountButtonPr
         onClick={() => setShowConfirmDialog(true)}
         className={className}
       >
-        Supprimer le compte
+        Delete Account
       </button>
 
       {/* Premier dialogue de confirmation */}
@@ -82,19 +83,19 @@ export default function DeleteAccountButton({ className }: DeleteAccountButtonPr
           <div className="bg-dark-800 rounded-xl p-6 max-w-md w-full border border-dark-700">
             <div className="flex items-center space-x-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              <h3 className="text-xl font-bold text-white">Supprimer votre compte</h3>
+              <h3 className="text-xl font-bold text-white">Delete Your Account</h3>
             </div>
             
             <p className="text-dark-200 mb-6">
-              Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible et supprimera :
+              Are you sure you want to delete your account? This action is irreversible and will delete:
             </p>
             
             <ul className="text-dark-300 text-sm space-y-2 mb-6">
-              <li>• Tous vos personnages créés</li>
-              <li>• Tous vos décors et scènes</li>
-              <li>• Vos projets manga en cours</li>
-              <li>• Votre historique de crédits</li>
-              <li>• Toutes vos données personnelles</li>
+              <li>• All your created characters</li>
+              <li>• All your backgrounds and scenes</li>
+              <li>• Your ongoing manga projects</li>
+              <li>• Your credit history</li>
+              <li>• All your personal data</li>
             </ul>
 
             <div className="flex space-x-3">
@@ -102,27 +103,27 @@ export default function DeleteAccountButton({ className }: DeleteAccountButtonPr
                 onClick={handleCancel}
                 className="flex-1 bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg transition-colors"
               >
-                Annuler
+                Cancel
               </button>
               <button
                 onClick={handleFirstConfirm}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
-                Continuer
+                Continue
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Dialogue de confirmation finale */}
+      {/* Final confirmation dialog */}
       {showFinalConfirmDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-dark-800 rounded-xl p-6 max-w-md w-full border border-red-500">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <Trash2 className="w-6 h-6 text-red-500" />
-                <h3 className="text-xl font-bold text-white">Confirmation finale</h3>
+                <h3 className="text-xl font-bold text-white">Final Confirmation</h3>
               </div>
               <button
                 onClick={handleCancel}
@@ -134,19 +135,19 @@ export default function DeleteAccountButton({ className }: DeleteAccountButtonPr
             
             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6">
               <p className="text-red-400 text-sm font-medium">
-                ⚠️ ATTENTION : Cette action est définitive et irréversible !
+                ⚠️ WARNING: This action is final and irreversible!
               </p>
             </div>
             
             <p className="text-dark-200 mb-4">
-              Pour confirmer la suppression de votre compte, tapez <strong className="text-red-400">SUPPRIMER</strong> ci-dessous :
+              To confirm account deletion, type <strong className="text-red-400">DELETE</strong> below:
             </p>
             
             <input
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
-              placeholder="Tapez SUPPRIMER"
+              placeholder="Type DELETE"
               className="w-full bg-dark-700 text-white px-4 py-2 rounded-lg border border-dark-600 focus:border-red-500 focus:outline-none mb-6"
               disabled={isDeleting}
             />
@@ -157,14 +158,14 @@ export default function DeleteAccountButton({ className }: DeleteAccountButtonPr
                 disabled={isDeleting}
                 className="flex-1 bg-dark-700 hover:bg-dark-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
               >
-                Annuler
+                Cancel
               </button>
               <button
                 onClick={handleDeleteAccount}
-                disabled={isDeleting || confirmText !== 'SUPPRIMER'}
+                disabled={isDeleting || confirmText !== 'DELETE'}
                 className="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isDeleting ? 'Suppression...' : 'Supprimer définitivement'}
+                {isDeleting ? 'Deleting...' : 'Delete Permanently'}
               </button>
             </div>
           </div>
