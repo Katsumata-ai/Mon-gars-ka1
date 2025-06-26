@@ -5,9 +5,6 @@
 ## 🚀 Quick Start
 
 ```bash
-# Navigate to the project
-cd mangaka-ai
-
 # Install dependencies
 npm install
 
@@ -45,13 +42,36 @@ npm run dev
 
 ## 🔧 Environment Setup
 
-Create a `.env.local` file:
+Copy `.env.example` to `.env.local` and fill in your values:
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-XAI_API_KEY=your_xai_api_key
+```bash
+cp .env.example .env.local
 ```
+
+Required environment variables:
+- **Supabase:** Database and authentication
+- **XAI Grok 2:** AI image generation
+- **Stripe:** Payment processing
+
+## 🏗️ Architecture
+
+### Frontend Architecture
+- **Next.js 15** with App Router
+- **React 19** with TypeScript
+- **Tailwind CSS** for styling
+- **Zustand** for state management
+
+### Backend Services
+- **Supabase:** PostgreSQL database, authentication, storage
+- **XAI Grok 2:** AI image generation API
+- **Stripe:** Payment processing and subscriptions
+
+### Key Features
+- **Real-time collaboration** via Supabase
+- **AI-powered generation** with XAI Grok 2
+- **Freemium model** with Stripe integration
+- **Canvas-based editor** using Fabric.js
+- **Responsive design** for mobile and desktop
 
 ## 📦 Build & Deploy
 
@@ -78,9 +98,83 @@ mangaka-ai/
 │   ├── stores/          # Zustand state management
 │   └── styles/          # Global styles
 ├── public/              # Static assets
+├── assets/              # Screenshots and images
 ├── database/            # Database migrations
+├── docs/                # Documentation
+├── tests/               # Automated tests
 └── supabase/           # Supabase configuration
 ```
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+
+1. **Prepare for deployment:**
+```bash
+npm run build
+npm run lint
+```
+
+2. **Deploy to Vercel:**
+```bash
+npm i -g vercel
+vercel login
+vercel --prod
+```
+
+3. **Configure environment variables in Vercel dashboard:**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `XAI_API_KEY`
+- `STRIPE_SECRET_KEY`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+
+### Alternative Platforms
+
+- **Netlify:** Compatible with Next.js static export
+- **DigitalOcean App Platform:** Full-stack deployment
+- **Docker:** Use `output: 'standalone'` in `next.config.ts`
+
+## 🧪 Testing
+
+```bash
+# Run Playwright tests
+npx playwright test
+
+# Run specific test suites
+npx playwright test tests/subscription-e2e.spec.js
+```
+
+## 🤝 Contributing
+
+1. **Fork the repository**
+2. **Create a feature branch:** `git checkout -b feature/amazing-feature`
+3. **Commit changes:** `git commit -m 'Add amazing feature'`
+4. **Push to branch:** `git push origin feature/amazing-feature`
+5. **Open a Pull Request**
+
+### Development Guidelines
+
+- Follow TypeScript best practices
+- Use ESLint and Prettier for code formatting
+- Write tests for new features
+- Update documentation for API changes
+- Ensure all tests pass before submitting PR
+
+## 📊 Performance
+
+- **Lighthouse Score:** 90+ target
+- **Core Web Vitals:** Optimized
+- **Bundle Size:** Monitored with Next.js analyzer
+- **Image Optimization:** Next.js Image component
+
+## 🔒 Security
+
+- Environment variables for sensitive data
+- Supabase RLS policies for data protection
+- Stripe webhook signature verification
+- Input validation and sanitization
 
 ## 📄 License
 
