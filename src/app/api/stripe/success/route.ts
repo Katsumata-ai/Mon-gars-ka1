@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     console.log('✅ Utilisateur authentifié:', user.email)
 
     // Simuler la création de l'abonnement (comme le ferait un webhook)
-    await simulateWebhookSubscription(user.id, user.email, sessionId, plan)
+    await simulateWebhookSubscription(user.id, user.email || 'unknown@email.com', sessionId, plan)
 
     // Rediriger vers la thank you page
     const thankYouUrl = new URL('/thank-you', req.url)

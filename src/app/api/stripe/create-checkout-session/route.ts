@@ -5,7 +5,7 @@ import { STRIPE_CONFIG } from '@/lib/stripe/config'
 
 // Initialiser Stripe avec la clé secrète de production
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
+  apiVersion: '2025-02-24.acacia',
 })
 
 export async function GET(request: NextRequest) {

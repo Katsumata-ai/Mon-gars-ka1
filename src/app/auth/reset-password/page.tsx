@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle } from 'lucide-react'
@@ -33,8 +35,8 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     // Vérifier s'il y a une erreur dans l'URL
-    const error = searchParams.get('error')
-    const sessionStatus = searchParams.get('session')
+    const error = searchParams?.get('error')
+    const sessionStatus = searchParams?.get('session')
 
     if (error === 'invalid_token') {
       setFormState(prev => ({

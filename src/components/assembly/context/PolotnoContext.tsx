@@ -188,7 +188,7 @@ export const PolotnoProvider: React.FC<PolotnoProviderProps> = ({ children }) =>
     if (!state.store) return
 
     const selectedElements = state.store.selectedElements
-    selectedElements.forEach(element => {
+    selectedElements.forEach((element: any) => {
       element.remove()
     })
     
@@ -351,14 +351,13 @@ export const PolotnoProvider: React.FC<PolotnoProviderProps> = ({ children }) =>
     selectElement,
     selectElements,
     clearSelection,
-    setZoom,
+    setZoom: setZoomLevel,
     resetView,
     startBubbleCreation,
     cancelBubbleCreation,
     toggleGrid,
     zoomIn,
     zoomOut,
-    setZoom: setZoomLevel,
     resetZoom,
     saveProject,
     loadProject,

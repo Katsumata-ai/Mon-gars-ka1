@@ -45,7 +45,7 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
 
   // ✅ NEW: Hook for consistent crosshair cursor
   const canvasContainerRef = React.useRef<HTMLDivElement>(null)
-  useConsistentCursor(activeTool, bubbleCreationMode, canvasContainerRef)
+  useConsistentCursor(activeTool, bubbleCreationMode, canvasContainerRef as React.RefObject<HTMLElement>)
 
   // Utiliser le vrai système de sélection
   const { selectElement, clearSelection } = useAssemblyStore()
@@ -204,12 +204,10 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
         className={className}
         leftToolbar={
           <PolotnoVerticalToolbar
-            onSave={handleSave}
             onExport={handleExport}
             onOpenBubbleModal={handleOpenBubbleModal}
             activeTool={activeTool}
             onToolChange={setActiveTool}
-            isDirty={isDirty}
             isLoading={isLoading}
           />
         }

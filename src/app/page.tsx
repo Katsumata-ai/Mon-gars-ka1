@@ -24,7 +24,6 @@ const mangakaPricingTiers = STRIPE_CONFIG.plans.map(plan => ({
   ),
   features: plan.features,
   highlight: plan.highlight,
-  badge: plan.badge,
 }))
 
 export default function Home() {

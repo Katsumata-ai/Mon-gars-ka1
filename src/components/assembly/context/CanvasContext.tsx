@@ -1,8 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, ReactNode } from 'react'
-import { Application } from 'pixi.js'
-import { AssemblyElement, LayerType, PageState, PixiConfig, BubbleType } from '../types/assembly.types'
+import { AssemblyElement, LayerType, PageState, BubbleType } from '../types/assembly.types'
 
 // Service fonctionnel pour voir les vrais changements
 class SimplePanelContentService {
@@ -95,7 +94,7 @@ class SimplePanelContentService {
   removeImageFromPanel(panelId: string, imageId: string): void {
     const existing = this.associations.get(panelId)
     if (existing) {
-      existing.imageIds = existing.imageIds.filter(id => id !== imageId)
+      existing.imageIds = existing.imageIds.filter((id: string) => id !== imageId)
       if (existing.imageIds.length === 0) {
         this.associations.delete(panelId)
       }
@@ -147,10 +146,10 @@ class SimplePanelContentService {
 const panelContentService = new SimplePanelContentService()
 
 // Configuration par défaut optimisée pour les performances
-export const OPTIMIZED_PIXI_CONFIG: PixiConfig = {
+export const OPTIMIZED_CANVAS_CONFIG = {
   width: 1200,
   height: 1600,
-  backgroundColor: 0xF8F8F8,
+  backgroundColor: '#F8F8F8',
   resolution: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
   antialias: true,
   powerPreference: 'high-performance',
@@ -159,8 +158,8 @@ export const OPTIMIZED_PIXI_CONFIG: PixiConfig = {
 
 // Interface pour l'état du canvas optimisé
 interface CanvasState {
-  // Application PixiJS
-  pixiApp: Application | null
+  // Application Canvas (pas de PIXI.js)
+  canvasApp: HTMLCanvasElement | null
   
   // État des pages
   currentPageId: string | null
@@ -213,7 +212,7 @@ interface CanvasState {
 // Interface pour les actions du canvas
 interface CanvasActions {
   // Initialisation
-  initializePixiApp: (app: Application) => void
+  initializeCanvasApp: (canvas: HTMLCanvasElement) => void
 
   // Gestion des éléments
   addElement: (element: AssemblyElement) => void
@@ -224,7 +223,7 @@ interface CanvasActions {
   // ✅ SUPPRIMÉ : Sélection - maintenant gérée par SimpleCanvasEditor
 
   // Détection des bulles DOM pour le SelectTool
-  findBubbleAtPosition: (x: number, y: number) => DialogueElement | null
+  findBubbleAtPosition: (x: number, y: number) => AssemblyElement | null
 
   // Outils
   setActiveTool: (tool: CanvasState['activeTool']) => void
@@ -279,7 +278,7 @@ const initialLayers: CanvasState['layers'] = {
 
 // État initial optimisé avec zoom par défaut à 25%
 const initialState: CanvasState = {
-  pixiApp: null,
+  canvasApp: null,
   currentPageId: null,
   pages: new Map(),
   elements: [],
@@ -326,7 +325,7 @@ export const useCanvasContext = () => {
     return {
       ...initialState,
       // Actions vides pour éviter les erreurs
-      initializePixiApp: () => {},
+      initializeCanvasApp: () => {},
       addElement: () => {},
       updateElement: () => {},
       removeElement: () => {},
@@ -350,7 +349,16 @@ export const useCanvasContext = () => {
       markDirty: () => {},
       markClean: () => {},
       setSaveLoading: () => {},
-      setLastSaved: () => {}
+      setLastSaved: () => {},
+      panelContentService: new SimplePanelContentService(),
+      toggleBubbleTypeModal: () => {},
+      closeBubbleTypeModal: () => {},
+      setBubbleCreationPosition: () => {},
+      setBubbleTypeAndCreate: () => {},
+      startBubblePlacement: () => {},
+      placeBubbleAtPosition: () => {},
+      cancelBubblePlacement: () => {},
+      saveState: { isDirty: false, isLoading: false, lastSaved: null, autoSaveEnabled: false }
     } as CanvasContextType
   }
   return context
@@ -380,8 +388,8 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   const [state, setState] = useState<CanvasState>(initialState)
 
   // Actions optimisées avec useCallback (définies séparément pour éviter les erreurs de hooks)
-  const initializePixiApp = useCallback((app: Application) => {
-    setState(prev => ({ ...prev, pixiApp: app }))
+  const initializeCanvasApp = useCallback((canvas: HTMLCanvasElement) => {
+    setState(prev => ({ ...prev, canvasApp: canvas }))
   }, [])
 
   const addElement = useCallback((element: AssemblyElement) => {
@@ -406,7 +414,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   const updateElement = useCallback((id: string, updates: Partial<AssemblyElement>) => {
     console.log('🔄 CanvasContext updateElement appelé:', id, updates)
     setState(prev => {
-      const newElements = prev.elements.map(el =>
+      const newElements = prev.elements.map((el: any) =>
         el.id === id ? { ...el, ...updates } : el
       )
       console.log('🔄 CanvasContext éléments mis à jour:', newElements.length)
@@ -478,8 +486,8 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   // ✅ SUPPRIMÉ : Fonctions de sélection - maintenant gérées par SimpleCanvasEditor
 
   // ✅ DÉTECTION DES BULLES DOM POUR LE SELECTTOOL
-  const findBubbleAtPosition = useCallback((x: number, y: number): DialogueElement | null => {
-    const bubbles = state.elements.filter((el): el is DialogueElement => el.type === 'dialogue')
+  const findBubbleAtPosition = useCallback((x: number, y: number): AssemblyElement | null => {
+    const bubbles = state.elements.filter((el: any) => el.type === 'dialogue')
 
     // Parcourir les bulles par z-index décroissant
     const sortedBubbles = [...bubbles].sort((a, b) => b.transform.zIndex - a.transform.zIndex)
@@ -677,27 +685,29 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
         width: 150,
         height: 80
       },
-      bubbleStyle: {
+      dialogueStyle: {
         type: type,
         backgroundColor: 0xffffff,
         outlineColor: 0x000000,
+        outlineWidth: 2,
         textColor: 0x000000,
         dashedOutline: type === 'whisper',
         tailPosition: 'bottom-left',
         fontSize: 14,
         fontFamily: 'Arial',
         textAlign: 'center',
-
-        // ✅ NOUVELLES PROPRIÉTÉS AVANCÉES AVEC VALEURS OPTIMISÉES
-        tailPositionPercent: 0.25,     // Position à 25% (inspiré des articles CSS)
-        tailOffset: 0,                 // Pas de décalage par défaut
-        tailAngle: type === 'shout' ? 60 : 90,  // Angle adapté au type
-        borderWidth: type === 'shout' ? 4 :
-                     type === 'whisper' ? 2 : 3,
-        borderRadius: type === 'thought' ? 50 :
-                      type === 'whisper' ? 18 : 12,
-        hasGradient: false,            // Gradients désactivés pour l'instant
-        shadowEnabled: false           // Ombres désactivées pour l'instant
+        queue: {
+          angle: 225,
+          length: 40,
+          thickness: 20,
+          style: 'triangle',
+          seamlessConnection: true,
+          isManipulating: false,
+          showHandles: false,
+          snapToCardinal: false,
+          curvature: 0,
+          tapering: 0.2
+        }
       },
       properties: {
         name: `Bulle ${type}`,
@@ -765,7 +775,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     console.log('💬 Placement bulle HTML SIMPLE:', typeToUse, 'à position directe:', { x, y })
 
     // ✅ MIGRATION : Créer une bulle HTML avec coordonnées DOM
-    const bubble: DialogueElement = {
+    const bubble: any = {
       id: generateElementId(),
       type: 'dialogue',
       layerType: 'dialogue',
@@ -874,7 +884,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   // Valeur du contexte optimisée
   const contextValue = useMemo<CanvasContextType>(() => ({
     ...state,
-    initializePixiApp,
+    initializeCanvasApp,
     addElement,
     updateElement,
     removeElement,
@@ -909,7 +919,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     panelContentService
   }), [
     state,
-    initializePixiApp,
+    initializeCanvasApp,
     addElement,
     updateElement,
     removeElement,

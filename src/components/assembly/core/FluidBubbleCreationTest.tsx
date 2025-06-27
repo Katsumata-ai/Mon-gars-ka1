@@ -64,13 +64,14 @@ export default function FluidBubbleCreationTest() {
         let bubbleCreationEventReceived = false
         let elementSelectionBlocked = false
 
-        const bubbleCreationHandler = (event: CustomEvent) => {
-          if (event.detail.bubbleType) {
+        const bubbleCreationHandler = (event: Event) => {
+          const customEvent = event as CustomEvent
+          if (customEvent.detail.bubbleType) {
             bubbleCreationEventReceived = true
           }
         }
 
-        const elementSelectionHandler = (event: CustomEvent) => {
+        const elementSelectionHandler = (event: Event) => {
           // Si on reçoit une sélection d'élément pendant que l'outil bulle est actif,
           // c'est un échec du système de priorité
           if (bubbleCreationMode && bubbleTypeToCreate) {

@@ -26,7 +26,7 @@ export default function SignupPage() {
 
   // Récupérer le paramètre de redirection au chargement
   useEffect(() => {
-    const redirect = searchParams.get('redirect')
+    const redirect = searchParams?.get('redirect')
     if (redirect) {
       setRedirectUrl(decodeURIComponent(redirect))
     }

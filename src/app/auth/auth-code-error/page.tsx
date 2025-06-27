@@ -1,15 +1,18 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useSearchParams } from 'next/navigation'
 import { AlertCircle, ArrowLeft, Mail } from 'lucide-react'
 import Link from 'next/link'
 import Navigation from '@/components/navigation/Navigation'
+import { Suspense } from 'react'
 
-export default function AuthCodeErrorPage() {
+function AuthCodeErrorContent() {
   const searchParams = useSearchParams()
-  const error = searchParams.get('error')
-  const errorCode = searchParams.get('error_code')
-  const errorDescription = searchParams.get('error_description')
+  const error = searchParams?.get('error')
+  const errorCode = searchParams?.get('error_code')
+  const errorDescription = searchParams?.get('error_description')
 
   const getErrorMessage = () => {
     if (errorCode === 'otp_expired') {
@@ -101,5 +104,13 @@ export default function AuthCodeErrorPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AuthCodeErrorPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AuthCodeErrorContent />
+    </Suspense>
   )
 }

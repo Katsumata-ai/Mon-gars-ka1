@@ -25,7 +25,7 @@ export async function PUT(
       )
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Vérifier que l'utilisateur a accès au projet
     const { data: project, error: projectError } = await supabase
@@ -138,7 +138,7 @@ export async function POST(
       }
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Vérifier que l'utilisateur a accès au projet
     const { data: project, error: projectError } = await supabase
@@ -219,7 +219,7 @@ export async function GET(
     const resolvedParams = await params
     const projectId = resolvedParams.id
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // Vérifier que l'utilisateur a accès au projet
     const { data: project, error: projectError } = await supabase
