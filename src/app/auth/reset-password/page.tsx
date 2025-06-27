@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Lock, CheckCircle, AlertCircle } from 'lucide-react'
 import Navigation from '@/components/navigation/Navigation'
@@ -18,7 +18,7 @@ interface FormState {
   isSuccess: boolean
 }
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const [formState, setFormState] = useState<FormState>({
     password: '',
     confirmPassword: '',
@@ -282,5 +282,13 @@ export default function ResetPasswordPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ResetPasswordContent />
+    </Suspense>
   )
 }

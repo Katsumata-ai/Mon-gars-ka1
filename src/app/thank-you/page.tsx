@@ -2,12 +2,12 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 
-export default function ThankYouPage() {
+function ThankYouContent() {
   const searchParams = useSearchParams()
   const [sessionId, setSessionId] = useState<string | null>(null)
 
@@ -80,5 +80,13 @@ export default function ThankYouPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ThankYouContent />
+    </Suspense>
   )
 }
