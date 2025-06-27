@@ -395,6 +395,6 @@ export class UnifiedSelectionManager {
     this.state.isEditing = false
     this.state.editingElementId = null
     
-    console.log(]'🧹 UnifiedSelectionManager cleaned up')
+    console.log('🧹 UnifiedSelectionManager cleaned up')
   }
 }

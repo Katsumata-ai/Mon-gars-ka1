@@ -4,10 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 // PUT /api/projects/[id]/pages/renumber - Renuméroter une page spécifique
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const projectId = params.id
+    const resolvedParams = await params
+    const projectId = resolvedParams.id
     const { pageId, newPageNumber } = await request.json()
 
     if (!pageId || !newPageNumber) {
@@ -113,10 +114,11 @@ export async function PUT(
 // POST /api/projects/[id]/pages/renumber - Renumérotation en lot
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const projectId = params.id
+    const resolvedParams = await params
+    const projectId = resolvedParams.id
     const { updates } = await request.json()
 
     if (!updates || !Array.isArray(updates)) {
@@ -211,10 +213,11 @@ export async function POST(
 // GET /api/projects/[id]/pages/renumber/validate - Valider la numérotation
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const projectId = params.id
+    const resolvedParams = await params
+    const projectId = resolvedParams.id
 
     const supabase = createClient()
 

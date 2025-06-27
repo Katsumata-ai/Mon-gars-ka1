@@ -405,7 +405,7 @@ export default function ScriptExporter({ scriptData, onClose }: ScriptExporterPr
           currentUsage={exportLimitInfo ? {
             used: exportLimitInfo.current,
             limit: exportLimitInfo.limit as number,
-            type:]'exports'
+            type: 'exports'
           } : undefined}
         />
       </div>
