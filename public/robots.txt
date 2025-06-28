@@ -1,0 +1,35 @@
+# MANGAKA AI - Robots.txt
+# https://ai-manga-generator.com
+
+User-agent: *
+Allow: /
+
+# Pages importantes à indexer
+Allow: /
+Allow: /pricing
+Allow: /privacy
+Allow: /terms
+
+# Pages à ne pas indexer (privées/authentifiées)
+Disallow: /dashboard
+Disallow: /project/
+Disallow: /settings
+Disallow: /api/
+Disallow: /login
+Disallow: /signup
+
+# Fichiers statiques autorisés
+Allow: /*.css
+Allow: /*.js
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.jpeg
+Allow: /*.gif
+Allow: /*.webp
+Allow: /*.svg
+
+# Sitemap
+Sitemap: https://ai-manga-generator.com/sitemap.xml
+
+# Crawl-delay pour éviter la surcharge
+Crawl-delay: 1

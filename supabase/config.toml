@@ -12,8 +12,8 @@ max_rows = 1000
 [auth]
 enabled = true
 port = 54324
-site_url = "http://localhost:3001"
-additional_redirect_urls = ["https://mangaka-ai.vercel.app"]
+site_url = "https://ai-manga-generator.com"
+additional_redirect_urls = ["http://localhost:3001", "https://mangaka-ai.vercel.app"]
 jwt_expiry = 3600
 refresh_token_rotation_enabled = true
 security_update_password_require_reauthentication = true

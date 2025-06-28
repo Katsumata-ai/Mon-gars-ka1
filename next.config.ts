@@ -23,12 +23,34 @@ const nextConfig: NextConfig = {
   // Désactiver le prerendering pour éviter les erreurs useSearchParams
   experimental: {
     missingSuspenseWithCSRBailout: false,
-  },
-  experimental: {
     optimizePackageImports: ['lucide-react', '@tiptap/react', '@tiptap/starter-kit'],
   },
   // Optimisations de performance
   output: 'standalone',
+  // SEO optimizations
+  trailingSlash: false,
+  async redirects() {
+    return [
+      {
+        source: '/home',
+        destination: '/',
+        permanent: true,
+      },
+    ]
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Robots-Tag',
+            value: 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+          },
+        ],
+      },
+    ]
+  },
 };
 
 export default nextConfig;

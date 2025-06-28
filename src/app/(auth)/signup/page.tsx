@@ -110,7 +110,7 @@ export default function SignupPage() {
             </p>
             <Link
               href="/login"
-              className="inline-block bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              className="inline-block bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-medium transition-colors !text-white"
             >
               Retour à la connexion
             </Link>
