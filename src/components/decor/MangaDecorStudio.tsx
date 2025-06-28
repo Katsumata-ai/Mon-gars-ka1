@@ -261,7 +261,7 @@ export default function MangaDecorStudio({
 
   const handleCopyPrompt = (decor: Decor) => {
     navigator.clipboard.writeText(decor.prompt)
-    toast.success('Prompt copié dans le presse-papiers')
+    toast.success('Prompt copied to clipboard')
   }
 
   return (

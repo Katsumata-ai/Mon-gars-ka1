@@ -14,6 +14,7 @@ export const STRIPE_CONFIG = {
 
   prices: {
     monthly: {
+      // Utiliser les prix de production (clés live configurées)
       id: 'price_1Rdew8CAB3oSopcY1szsdUj5',
       amount: 2500, // 25€ in cents
       currency: 'eur',
@@ -21,6 +22,7 @@ export const STRIPE_CONFIG = {
       type: 'recurring'
     },
     yearly: {
+      // Utiliser les prix de production (clés live configurées)
       id: 'price_1RdewLCAB3oSopcYc8MkOUR2',
       amount: 8000, // 80€ in cents (with -220€ promotion)
       currency: 'eur',
@@ -43,12 +45,12 @@ export const STRIPE_CONFIG = {
       price: { monthly: 0, yearly: 0 },
       description: 'Perfect for discovering manga creation',
       features: [
-        { name: 'Limited characters', included: true },
-        { name: 'Limited backgrounds', included: true },
-        { name: 'Limited scenes', included: true },
-        { name: 'Limited pages', included: true },
-        { name: 'Limited projects', included: true },
-        { name: 'Limited export', included: true }
+        { name: '2 characters', included: true },
+        { name: '2 backgrounds', included: true },
+        { name: '1 scene', included: true },
+        { name: '1 page', included: true },
+        { name: '1 export', included: true },
+        { name: '1 project', included: true }
       ],
       highlight: false,
       paymentLinks: null

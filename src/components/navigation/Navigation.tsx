@@ -18,9 +18,10 @@ const PremiumUpgradeModal = dynamic(
 interface NavigationProps {
   variant?: 'landing' | 'app'
   currentPage?: string
+  hideAnchors?: boolean
 }
 
-export default function Navigation({ variant = 'landing', currentPage }: NavigationProps) {
+export default function Navigation({ variant = 'landing', currentPage, hideAnchors = false }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
@@ -45,17 +46,19 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
             </div>
 
             {/* Desktop Navigation - Centered anchor links */}
-            <div className="hidden md:flex items-center space-x-8 absolute left-1/2 transform -translate-x-1/2" suppressHydrationWarning>
-              <Link href="#features" className="text-dark-200 hover:text-primary-500 transition-colors">
-                Features
-              </Link>
-              <Link href="#pricing" className="text-dark-200 hover:text-primary-500 transition-colors">
-                Pricing
-              </Link>
-              <Link href="#faq" className="text-dark-200 hover:text-primary-500 transition-colors">
-                FAQ
-              </Link>
-            </div>
+            {!hideAnchors && (
+              <div className="hidden md:flex items-center space-x-8 absolute left-1/2 transform -translate-x-1/2" suppressHydrationWarning>
+                <Link href="#features" className="text-dark-200 hover:text-primary-500 transition-colors">
+                  Features
+                </Link>
+                <Link href="#pricing" className="text-dark-200 hover:text-primary-500 transition-colors">
+                  Pricing
+                </Link>
+                <Link href="#faq" className="text-dark-200 hover:text-primary-500 transition-colors">
+                  FAQ
+                </Link>
+              </div>
+            )}
 
             {/* Desktop Auth/User Menu */}
             <div className="hidden md:flex items-center space-x-8" suppressHydrationWarning>
@@ -120,7 +123,7 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
                 </div>
               ) : (
                 // Non-authenticated user navigation
-                <>
+                <div className="flex items-center space-x-4">
                   <Link href="/login" className="text-dark-200 hover:text-primary-500 transition-colors">
                     Login
                   </Link>
@@ -130,7 +133,7 @@ export default function Navigation({ variant = 'landing', currentPage }: Navigat
                   >
                     Start Free
                   </Link>
-                </>
+                </div>
               )}
               </AuthSafeWrapper>
             </div>

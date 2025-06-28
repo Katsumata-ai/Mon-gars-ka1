@@ -59,8 +59,8 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
       setAvailablePages(pages)
       setSelectedPages(pages.map(p => p.id)) // Sélectionner toutes par défaut
     } catch (error) {
-      console.error('Erreur chargement pages:', error)
-      toast.error('Erreur lors du chargement des pages')
+      console.error('Error loading pages:', error)
+      toast.error('Error loading pages')
     } finally {
       setIsLoading(false)
     }
@@ -68,13 +68,13 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
 
   const handleExport = async () => {
     if (selectedPages.length === 0) {
-      toast.error('Veuillez sélectionner au moins une page')
+      toast.error('Please select at least one page')
       return
     }
 
     // Validation pour PNG (une seule page)
     if (format === 'png' && selectedPages.length > 1) {
-      toast.error('L\'export PNG ne supporte qu\'une seule page à la fois')
+      toast.error('PNG export only supports one page at a time')
       return
     }
 
@@ -241,7 +241,7 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-500"></div>
-                <span className="ml-2 text-dark-300">Chargement des pages...</span>
+                <span className="ml-2 text-dark-300">Loading pages...</span>
               </div>
             ) : (
               <div className="max-h-40 overflow-y-auto border border-dark-600 rounded-lg p-3 space-y-2 bg-dark-700">
@@ -280,7 +280,7 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
             <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-slate-300">
-                  📤 Exports disponibles
+                  📤 Available exports
                 </span>
                 <span className={`text-sm font-bold ${
                   exportLimitInfo.isReached ? 'text-red-400' : 'text-green-400'
@@ -300,7 +300,7 @@ export default function ExportModal({ projectId, isOpen, onClose }: ExportModalP
 
               {exportLimitInfo.isReached && (
                 <div className="mt-2 text-xs text-red-400">
-                  ⚠️ Vous avez utilisé votre export gratuit
+                  ⚠️ You have used your free export
                 </div>
               )}
             </div>

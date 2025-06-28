@@ -209,7 +209,7 @@ export const useProjectStore = create<ProjectState>()(
             draft.isSaving = false
           })
 
-          toast.success('Sauvegarde réussie !', {
+          toast.success('Save successful!', {
             icon: '✅',
             duration: 2000
           })
@@ -220,7 +220,7 @@ export const useProjectStore = create<ProjectState>()(
             draft.isSaving = false
           })
 
-          toast.error('Erreur lors de la sauvegarde', {
+          toast.error('Save error', {
             icon: '❌',
             duration: 4000
           })

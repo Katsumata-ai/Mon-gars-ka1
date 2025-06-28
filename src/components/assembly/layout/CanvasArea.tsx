@@ -406,7 +406,7 @@ export default function CanvasArea({
 
     // Créer le texte
     const text = new Text({
-      text: hasImage ? 'Remplacer' : 'Ajouter',
+      text: hasImage ? 'Replace image' : 'Add image',
       style: new TextStyle({
         fontSize: 14,
         fontFamily: 'Arial',

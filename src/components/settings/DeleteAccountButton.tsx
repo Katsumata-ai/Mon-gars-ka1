@@ -51,7 +51,7 @@ export default function DeleteAccountButton({ className }: DeleteAccountButtonPr
 
     } catch (error: any) {
       console.error('Erreur lors de la suppression du compte:', error)
-      toast.error('Erreur lors de la suppression du compte. Veuillez réessayer.')
+      toast.error('Error deleting account. Please try again.')
     } finally {
       setIsDeleting(false)
     }

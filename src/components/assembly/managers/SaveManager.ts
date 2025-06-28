@@ -107,12 +107,12 @@ export class DeferredSaveManager {
       store.setLastSaved(new Date())
       store.markClean()
 
-      toast.success('Page sauvegardée avec succès')
+      toast.success('Page saved successfully')
       return true
 
     } catch (error) {
       console.error('Erreur sauvegarde:', error)
-      toast.error('Erreur lors de la sauvegarde')
+      toast.error('Save error')
       return false
     } finally {
       store.setSaveLoading(false)

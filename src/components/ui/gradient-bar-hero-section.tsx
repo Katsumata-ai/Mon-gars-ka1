@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import ClientOnly from '@/components/common/ClientOnly';
-import CheckoutButton from '@/components/stripe/CheckoutButton';
+import DashboardButton from '@/components/ui/DashboardButton';
 
 type AvatarProps = {
   imageSrc: string;
@@ -93,18 +93,17 @@ const CTAButtons: React.FC = () => {
       ) : (
         // Non-connected user - Start and View demo
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full">
-          <CheckoutButton
-            planId="senior"
-            planName="Mangaka Senior"
-            price={25}
+          <DashboardButton
             variant="highlight"
-            className="w-full sm:w-auto px-10 py-5 sm:px-8 sm:py-4 rounded-full text-lg sm:text-base"
+            className="w-full sm:w-auto px-8 py-4 rounded-full text-base transition-all duration-300 hover:scale-105"
           >
             Get Started
-          </CheckoutButton>
+          </DashboardButton>
           <Link
-            href="#features"
-            className="w-full sm:w-auto px-10 py-5 sm:px-8 sm:py-4 rounded-full bg-dark-800/80 border-2 border-primary-500 hover:bg-primary-500/10 text-white transition-all duration-300 text-lg sm:text-base font-comic text-center hover:border-primary-400"
+            href="https://www.youtube.com/watch?v=_WyL1hdgAPo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto px-8 py-4 rounded-full bg-dark-800/80 border-2 border-primary-500 hover:bg-primary-500/10 text-white transition-all duration-300 text-base font-comic text-center hover:border-primary-400 hover:scale-105"
           >
             View demo
           </Link>
@@ -150,14 +149,14 @@ export const MangakaHeroSection: React.FC = () => {
         </div>
 
         <div className="flex justify-center space-x-8">
-          <a href="https://x.com/TryMangakaAi" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary-500 transition-colors duration-300">
+          <a href="https://x.com/try_mangaka_ai" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary-500 transition-colors duration-300">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 512 462.799" fill="currentColor" className="w-6 h-6 sm:w-[22px] sm:h-[22px]">
               <path fillRule="nonzero" d="M403.229 0h78.506L310.219 196.04 512 462.799H354.002L230.261 301.007 88.669 462.799h-78.56l183.455-209.683L0 0h161.999l111.856 147.88L403.229 0zm-27.556 415.805h43.505L138.363 44.527h-46.68l283.99 371.278z"/>
             </svg>
           </a>
           <a href="https://discord.gg/9jxTRpmK" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-primary-500 transition-colors duration-300">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 sm:w-[22px] sm:h-[22px]">
-              <path d="M18.8943 4.34399C17.5183 3.71467 16.057 3.256 14.5317 3C14.3396 3.33067 14.1263 3.77866 13.977 4.13067C12.3546 3.89599 10.7439 3.89599 9.14391 4.13067C8.99457 3.77866 8.77056 3.33067 8.58922 3C7.05325 3.256 5.59191 3.71467 4.22552 4.34399C1.46286 8.41865 0.716188 12.3973 1.08952 16.3226C2.92418 17.6559 4.69486 18.4666 6.4346 19C6.86126 18.424 7.24527 17.8053 7.57594 17.1546C6.9466 16.92 6.34927 16.632 5.77327 16.2906C5.9226 16.184 6.07194 16.0667 6.21061 15.9493C9.68793 17.5387 13.4543 17.5387 16.889 15.9493C17.0383 16.0667 17.177 16.184 17.3263 16.2906C16.7503 16.632 16.153 16.92 15.5236 17.1546C15.8543 17.8053 16.2383 18.424 16.665 19C18.4036 18.4666 20.185 17.6559 22.01 16.3226C22.4687 11.7787 21.2836 7.83202 18.8943 4.34399ZM8.05593 13.9013C7.01058 13.9013 6.15725 12.952 6.15725 11.7893C6.15725 10.6267 6.98925 9.67731 8.05593 9.67731C9.11191 9.67731 9.97588 10.6267 9.95454 11.7893C9.95454 12.952 9.11191 13.9013 8.05593 13.9013ZM15.065 13.9013C14.0196 13.9013 13.1652 12.952 13.1652 11.7893C13.1652 10.6267 13.9983 9.67731 15.065 9.67731C16.121 9.67731 16.985 10.6267 16.9636 11.7893C16.9636 12.952 16.1317 13.9013 15.065 13.9013Z" fill="currentColor"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 sm:w-[22px] sm:h-[22px]">
+              <path d="M18.8943 4.34399C17.5183 3.71467 16.057 3.256 14.5317 3C14.3396 3.33067 14.1263 3.77866 13.977 4.13067C12.3546 3.89599 10.7439 3.89599 9.14391 4.13067C8.99457 3.77866 8.77056 3.33067 8.58922 3C7.05325 3.256 5.59191 3.71467 4.22552 4.34399C1.46286 8.41865 0.716188 12.3973 1.08952 16.3226C2.92418 17.6559 4.69486 18.4666 6.4346 19C6.86126 18.424 7.24527 17.8053 7.57594 17.1546C6.9466 16.92 6.34927 16.632 5.77327 16.2906C5.9226 16.184 6.07194 16.0667 6.21061 15.9493C9.68793 17.5387 13.4543 17.5387 16.889 15.9493C17.0383 16.0667 17.177 16.184 17.3263 16.2906C16.7503 16.632 16.153 16.92 15.5236 17.1546C15.8543 17.8053 16.2383 18.424 16.665 19C18.4036 18.4666 20.185 17.6559 22.01 16.3226C22.4687 11.7787 21.2836 7.83202 18.8943 4.34399ZM8.05593 13.9013C6.5 13.9013 5.5 12.952 5.5 11.7893C5.5 10.6267 6.5 9.67731 8.05593 9.67731C9.6 9.67731 10.6 10.6267 10.6 11.7893C10.6 12.952 9.6 13.9013 8.05593 13.9013ZM15.065 13.9013C13.5 13.9013 12.5 12.952 12.5 11.7893C12.5 10.6267 13.5 9.67731 15.065 9.67731C16.6 9.67731 17.6 10.6267 17.6 11.7893C17.6 12.952 16.6 13.9013 15.065 13.9013Z" fill="currentColor"/>
             </svg>
           </a>
         </div>
