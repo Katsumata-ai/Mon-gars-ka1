@@ -39,6 +39,14 @@ export async function middleware(request: NextRequest) {
   // Refresh session if expired - required for Server Components
   await supabase.auth.getUser()
 
+  // Rediriger les anciennes URLs avec canceled=true vers la nouvelle page
+  if (request.nextUrl.searchParams.get('canceled') === 'true') {
+    const currentPath = request.nextUrl.pathname
+    const redirectUrl = new URL('/payment-canceled', request.url)
+    redirectUrl.searchParams.set('return_url', currentPath)
+    return NextResponse.redirect(redirectUrl)
+  }
+
   // Protected routes
   const protectedPaths = ['/dashboard', '/generate', '/projects', '/settings']
   const isProtectedPath = protectedPaths.some(path =>

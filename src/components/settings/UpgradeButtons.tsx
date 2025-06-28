@@ -10,14 +10,20 @@ export default function UpgradeButtons({ className = '' }: UpgradeButtonsProps) 
   const handleMonthlyUpgrade = () => {
     const link = STRIPE_CONFIG.paymentLinks.monthly
     if (link) {
-      window.open(link, '_blank')
+      // Ajouter l'URL de retour actuelle
+      const currentPath = window.location.pathname
+      const returnUrl = encodeURIComponent(currentPath)
+      window.open(`${link}&return_url=${returnUrl}`, '_blank')
     }
   }
 
   const handleAnnualUpgrade = () => {
     const link = STRIPE_CONFIG.paymentLinks.yearly
     if (link) {
-      window.open(link, '_blank')
+      // Ajouter l'URL de retour actuelle
+      const currentPath = window.location.pathname
+      const returnUrl = encodeURIComponent(currentPath)
+      window.open(`${link}&return_url=${returnUrl}`, '_blank')
     }
   }
 

@@ -45,7 +45,11 @@ export function CheckoutButton({
     if (!user) {
       const plan = STRIPE_CONFIG.plans.find(p => p.id === planId)
       if (plan?.paymentLinks?.monthly) {
-        const encodedLink = encodeURIComponent(plan.paymentLinks.monthly)
+        // Ajouter l'URL de retour actuelle au lien de paiement
+        const currentPath = window.location.pathname
+        const returnUrl = encodeURIComponent(currentPath)
+        const fullPaymentLink = `${plan.paymentLinks.monthly}&return_url=${returnUrl}`
+        const encodedLink = encodeURIComponent(fullPaymentLink)
         window.location.href = `/signup?redirect=${encodedLink}`
       } else {
         window.location.href = '/signup'
@@ -59,10 +63,13 @@ export function CheckoutButton({
       return
     }
 
-    // Use direct Stripe checkout links
+    // Use direct Stripe checkout links with return URL
     const paymentLink = STRIPE_CONFIG.paymentLinks.monthly
     if (paymentLink) {
-      window.location.href = paymentLink
+      // Ajouter l'URL de retour actuelle
+      const currentPath = window.location.pathname
+      const returnUrl = encodeURIComponent(currentPath)
+      window.location.href = `${paymentLink}&return_url=${returnUrl}`
     }
   }
 

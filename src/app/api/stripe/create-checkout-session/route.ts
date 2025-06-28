@@ -14,17 +14,22 @@ export async function GET(request: NextRequest) {
     // Récupérer les paramètres de l'URL
     const { searchParams } = new URL(request.url)
     const plan = searchParams.get('plan') || 'yearly'
+    const returnUrl = searchParams.get('return_url') || '/dashboard'
     console.log('📋 Plan demandé:', plan)
+    console.log('🔙 URL de retour:', returnUrl)
 
     // Vérifier les clés Stripe
     console.log('🔑 Clé Stripe disponible:', !!process.env.STRIPE_SECRET_KEY)
     console.log('🔑 Clé publique disponible:', !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 
-    // Vérifier l'authentification et récupérer l'utilisateur
+    // Vérifier l'authentification et récupérer l'utilisateur (optionnel en développement)
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    if (authError || !user) {
+    // En développement, permettre les tests sans authentification
+    const isDevelopment = process.env.NODE_ENV === 'development'
+
+    if (!isDevelopment && (authError || !user)) {
       console.log('❌ Erreur d\'authentification:', authError)
       return NextResponse.json(
         { error: 'Unauthorized - User must be logged in' },
@@ -32,7 +37,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    console.log('✅ Utilisateur authentifié:', user.email)
+    console.log('✅ Utilisateur authentifié:', user?.email || 'test-user@localhost')
 
     // Utiliser les prix configurés de production
     const priceId = plan === 'monthly'
@@ -60,15 +65,15 @@ export async function GET(request: NextRequest) {
         },
       ],
       mode: 'subscription',
-      success_url: `${request.headers.get('origin') || 'https://mangaka-ai.vercel.app'}/thank-you?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
-      cancel_url: `${request.headers.get('origin') || 'https://mangaka-ai.vercel.app'}/dashboard?canceled=true`,
+      success_url: `${request.headers.get('origin') || 'https://ai-manga-generator.com'}/thank-you?session_id={CHECKOUT_SESSION_ID}&plan=${plan}`,
+      cancel_url: `${request.headers.get('origin') || 'https://ai-manga-generator.com'}/payment-canceled?return_url=${encodeURIComponent(returnUrl)}`,
       metadata: {
-        mode: 'production',
+        mode: isDevelopment ? 'development' : 'production',
         plan: plan,
-        user_id: user.id, // IMPORTANT: Add user ID for webhooks
+        user_id: user?.id || 'test-user-localhost', // IMPORTANT: Add user ID for webhooks
       },
-      // Use logged-in user's email
-      customer_email: user.email || 'test@mangaka-ai.com',
+      // Use logged-in user's email or test email
+      customer_email: user?.email || 'test@mangaka-ai.com',
       allow_promotion_codes: true,
     })
 

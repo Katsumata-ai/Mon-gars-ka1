@@ -84,8 +84,12 @@ function PricingSection({ tiers, className }: PricingSectionProps) {
     const interval = plan === 'yearly' ? 'yearly' : 'monthly'
     const paymentLink = STRIPE_CONFIG.paymentLinks[interval]
 
+    // Ajouter l'URL de retour actuelle
+    const currentPath = window.location.pathname
+    const returnUrl = encodeURIComponent(currentPath)
+
     if (paymentLink) {
-      window.location.href = paymentLink
+      window.location.href = `${paymentLink}&return_url=${returnUrl}`
     }
   }
 
@@ -102,8 +106,19 @@ function PricingSection({ tiers, className }: PricingSectionProps) {
 
     // For paid plans, check authentication
     if (!user) {
-      // If user is not logged in, redirect to signup
-      window.location.href = '/signup'
+      // If user is not logged in, redirect to signup with plan info
+      const plan = isYearly ? 'yearly' : 'monthly'
+      const paymentLink = STRIPE_CONFIG.paymentLinks[plan]
+      if (paymentLink) {
+        // Ajouter l'URL de retour actuelle au lien de paiement
+        const currentPath = window.location.pathname
+        const returnUrl = encodeURIComponent(currentPath)
+        const fullPaymentLink = `${paymentLink}&return_url=${returnUrl}`
+        const encodedLink = encodeURIComponent(fullPaymentLink)
+        window.location.href = `/signup?redirect=${encodedLink}`
+      } else {
+        window.location.href = '/signup'
+      }
       return
     }
 
