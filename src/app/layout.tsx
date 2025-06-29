@@ -71,13 +71,6 @@ export const metadata: Metadata = {
     description: 'The AI that transforms your ideas into professional manga stories. Generate characters, backgrounds and scenes with just a few clicks.',
     images: [
       {
-        url: 'https://ai-manga-generator.com/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'MANGAKA AI - Manga Creation Platform',
-        type: 'image/png',
-      },
-      {
         url: 'https://ai-manga-generator.com/og-image.svg',
         width: 1200,
         height: 630,
@@ -93,7 +86,7 @@ export const metadata: Metadata = {
     title: 'MANGAKA AI - Create manga without knowing how to draw',
     description: 'The AI that transforms your ideas into professional manga stories. Generate characters, backgrounds and scenes with just a few clicks.',
     images: {
-      url: 'https://ai-manga-generator.com/og-image.png',
+      url: 'https://ai-manga-generator.com/og-image.svg',
       alt: 'MANGAKA AI - Manga Creation Platform',
       width: 1200,
       height: 630,
