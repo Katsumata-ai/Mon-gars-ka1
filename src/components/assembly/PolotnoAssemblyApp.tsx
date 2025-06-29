@@ -324,7 +324,7 @@ const PolotnoAssemblyAppContent: React.FC<PolotnoAssemblyAppProps> = ({
   )
 }
 
-// [FR-UNTRANSLATED: Composant principal avec Providers]
+// Main component with Providers
 const PolotnoAssemblyApp: React.FC<PolotnoAssemblyAppProps> = (props) => {
   return (
     <PolotnoProvider>

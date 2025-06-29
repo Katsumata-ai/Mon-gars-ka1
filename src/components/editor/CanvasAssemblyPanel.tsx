@@ -57,11 +57,11 @@ const BUBBLE_TYPES = [
 ]
 
 const TOOLS = [
-  { id: 'select', name: 'Sélection', icon: MousePointer },
-  { id: 'pan', name: 'Déplacer', icon: Hand },
+  { id: 'select', name: 'Select', icon: MousePointer },
+  { id: 'pan', name: 'Pan', icon: Hand },
   { id: 'panel', name: 'Panel', icon: Square },
-  { id: 'text', name: 'Texte', icon: Type },
-  { id: 'bubble', name: 'Bulle', icon: Circle },
+  { id: 'text', name: 'Text', icon: Type },
+  { id: 'bubble', name: 'Bubble', icon: Circle },
   { id: 'image', name: 'Image', icon: ImageIcon }
 ]
 

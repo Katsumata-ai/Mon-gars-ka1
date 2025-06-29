@@ -301,7 +301,7 @@ export default function SimpleFreeText({
           style={textStyle}
         >
           {textValue || (
-            // [FR-UNTRANSLATED: ✅ CORRIGÉ : Placeholder seulement visible en mode manipulating (quand sélectionné)]
+            // ✅ FIXED: Placeholder only visible in manipulating mode (when selected)
             mode === 'manipulating' && (
               <span style={{ opacity: 0.5, fontStyle: 'italic' }}>
                 Type your text...

@@ -219,20 +219,20 @@ export const ShortcutUtils = {
    */
   getShortcutList() {
     return [
-      { tool: 'Sélection', shortcut: 'V', description: 'Outil de sélection' },
-      { tool: 'Panel', shortcut: 'P', description: 'Créer des panels' },
-      { tool: 'Bulle', shortcut: 'B', description: 'Ajouter des bulles de dialogue' },
-      { tool: 'Texte', shortcut: 'T', description: 'Ajouter du texte' },
-      { tool: 'Grille', shortcut: 'G', description: 'Afficher/masquer la grille' },
-      { tool: 'Zoom avant', shortcut: '+', description: 'Augmenter le zoom' },
-      { tool: 'Zoom arrière', shortcut: '-', description: 'Diminuer le zoom' },
-      { tool: 'Zoom 100%', shortcut: '0', description: 'Réinitialiser le zoom' },
-      { tool: 'Déplacement', shortcut: 'H', description: 'Déplacer la vue' },
-      { tool: 'Annuler', shortcut: 'Ctrl+Z', description: 'Annuler la dernière action' },
-      { tool: 'Rétablir', shortcut: 'Ctrl+Y', description: 'Rétablir l\'action annulée' },
-      { tool: 'Tout sélectionner', shortcut: 'Ctrl+A', description: 'Sélectionner tous les éléments' },
-      { tool: 'Désélectionner', shortcut: 'Ctrl+D', description: 'Désélectionner tout' },
-      { tool: 'Échapper', shortcut: 'Esc', description: '[FR-UNTRANSLATED: Retour à l\'outil de sélection]' }
+      { tool: 'Select', shortcut: 'V', description: 'Selection tool' },
+      { tool: 'Panel', shortcut: 'P', description: 'Create panels' },
+      { tool: 'Bubble', shortcut: 'B', description: 'Add dialogue bubbles' },
+      { tool: 'Text', shortcut: 'T', description: 'Add text' },
+      { tool: 'Grid', shortcut: 'G', description: 'Show/hide grid' },
+      { tool: 'Zoom in', shortcut: '+', description: 'Increase zoom' },
+      { tool: 'Zoom out', shortcut: '-', description: 'Decrease zoom' },
+      { tool: 'Zoom 100%', shortcut: '0', description: 'Reset zoom' },
+      { tool: 'Pan', shortcut: 'H', description: 'Move view' },
+      { tool: 'Undo', shortcut: 'Ctrl+Z', description: 'Undo last action' },
+      { tool: 'Redo', shortcut: 'Ctrl+Y', description: 'Redo undone action' },
+      { tool: 'Select All', shortcut: 'Ctrl+A', description: 'Select all elements' },
+      { tool: 'Deselect', shortcut: 'Ctrl+D', description: 'Deselect all' },
+      { tool: 'Escape', shortcut: 'Esc', description: 'Return to selection tool' }
     ]
   }
 }

@@ -451,7 +451,7 @@ export default function CanvasArea({
 
       if (newHoveredPanelId) {
         const hasImage = panelHasImage(newHoveredPanelId)
-        console.log('🎯 Panel survolé:', newHoveredPanelId, hasImage ? '(remplacer)' : '(ajouter)')
+        console.log('🎯 Panel hovered:', newHoveredPanelId, hasImage ? '(replace)' : '(add)')
 
         // 🎯 CRÉER LE FEEDBACK DANS PIXI.JS
         createDragFeedback(newHoveredPanelId, hasImage)

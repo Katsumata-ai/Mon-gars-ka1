@@ -20,10 +20,10 @@ interface ImageLibraryProps {
 }
 
 const IMAGE_TYPE_FILTERS = [
-  { value: 'all', label: 'Tous', icon: '🎨' },
-  { value: 'character', label: 'Personnages', icon: '👤' },
-  { value: 'background', label: 'Décors', icon: '🏞️' },
-  { value: 'scene', label: 'Scènes', icon: '🎬' }
+  { value: 'all', label: 'All', icon: '🎨' },
+  { value: 'character', label: 'Characters', icon: '👤' },
+  { value: 'background', label: 'Backgrounds', icon: '🏞️' },
+  { value: 'scene', label: 'Scenes', icon: '🎬' }
 ]
 
 export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps) {
@@ -64,7 +64,7 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
 
       setImages(data || [])
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur lors du chargement des images')
+      setError(err instanceof Error ? err.message : 'Error loading images')
     } finally {
       setLoading(false)
     }
@@ -175,11 +175,11 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
         ) : filteredImages.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-dark-400 text-sm mb-2">
-              {searchQuery ? 'Aucune image trouvée' : 'Aucune image disponible'}
+              {searchQuery ? 'No images found' : 'No images available'}
             </p>
             {!searchQuery && (
               <p className="text-dark-500 text-xs">
-                Générez des images d'abord
+                Generate images first
               </p>
             )}
           </div>
@@ -213,7 +213,7 @@ export default function ImageLibrary({ canvas, onImageAdded }: ImageLibraryProps
                       }
                     </p>
                     <p className="text-dark-300 text-xs">
-                      Cliquer pour ajouter
+                      Click to add
                     </p>
                   </div>
                 </div>

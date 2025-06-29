@@ -136,20 +136,20 @@ export default function AutoSelectionSyncTest() {
       // Test 4: Vérifier que le panneau Settings peut détecter la sélection
       try {
         const settingsPanel = document.querySelector('[data-testid="settings-panel"]') as HTMLElement
-        const hasSettingsContent = settingsPanel && !settingsPanel.textContent?.includes('Sélectionner un élément')
+        const hasSettingsContent = settingsPanel && !settingsPanel.textContent?.includes('Select an element')
         
         addTestResult(
-          'Détection par Settings Panel',
+          'Settings Panel Detection',
           selectedElementIds.length === 0 || hasSettingsContent,
-          selectedElementIds.length > 0 
-            ? (hasSettingsContent ? 'Settings Panel affiche les contrôles d\'élément' : 'Settings Panel n\'affiche pas les contrôles')
-            : 'Aucune sélection à tester'
+          selectedElementIds.length > 0
+            ? (hasSettingsContent ? 'Settings Panel shows element controls' : 'Settings Panel does not show controls')
+            : 'No selection to test'
         )
       } catch (error) {
         addTestResult(
-          'Détection par Settings Panel',
+          'Settings Panel Detection',
           false,
-          `Erreur: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
+          `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
         )
       }
 

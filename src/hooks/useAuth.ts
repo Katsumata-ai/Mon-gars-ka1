@@ -24,9 +24,37 @@ export function useAuth() {
       // Attendre un tick pour éviter les problèmes d'hydratation
       await new Promise(resolve => setTimeout(resolve, 0))
 
+      // D'abord vérifier s'il y a une session active
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        // Ignorer les erreurs de token invalide pour les utilisateurs non connectés
+        if (sessionError.message?.includes('Invalid Refresh Token') ||
+            sessionError.message?.includes('Refresh Token Not Found') ||
+            sessionError.name === 'AuthSessionMissingError') {
+          setAuthState({
+            user: null,
+            loading: false,
+            initialized: true
+          })
+          return
+        }
+        console.error('Session error:', sessionError)
+      }
+
+      // Si pas de session, pas besoin d'appeler getUser
+      if (!session) {
+        setAuthState({
+          user: null,
+          loading: false,
+          initialized: true
+        })
+        return
+      }
+
+      // Si session valide, récupérer les infos utilisateur
       const { data: { user }, error } = await supabase.auth.getUser()
 
-      // Ne pas logger l'erreur AuthSessionMissingError car c'est normal quand l'utilisateur n'est pas connecté
       if (error && error.name !== 'AuthSessionMissingError') {
         console.error('Error getting user:', error)
       }
@@ -37,10 +65,18 @@ export function useAuth() {
         initialized: true
       })
     } catch (error: any) {
-      // Ne pas logger l'erreur AuthSessionMissingError car c'est normal quand l'utilisateur n'est pas connecté
-      if (error?.name !== 'AuthSessionMissingError') {
-        console.error('Auth initialization error:', error)
+      // Ignorer les erreurs de token pour les utilisateurs non connectés
+      if (error?.message?.includes('Invalid Refresh Token') ||
+          error?.message?.includes('Refresh Token Not Found') ||
+          error?.name === 'AuthSessionMissingError') {
+        setAuthState({
+          user: null,
+          loading: false,
+          initialized: true
+        })
+        return
       }
+      console.error('Auth initialization error:', error)
       setAuthState({
         user: null,
         loading: false,

@@ -106,7 +106,7 @@ export default function RightPanel({
 
         setImageCategories(newCategories)
       } catch (error) {
-        console.error('Erreur lors du chargement des images:', error)
+        console.error('Error loading images:', error)
       } finally {
         setLoading(false)
       }
@@ -353,7 +353,7 @@ function ImagesMode({
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-400">Chargement des images...</p>
+          <p className="text-gray-400">Loading images...</p>
         </div>
       </div>
     )
@@ -361,6 +361,16 @@ function ImagesMode({
 
   return (
     <div className="h-full overflow-y-auto p-4">
+      {/* Instructions d'utilisation */}
+      <div className="mb-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+        <div className="flex items-center text-blue-300 text-sm">
+          <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Drag and drop images into panels on the canvas</span>
+        </div>
+      </div>
+
       <div className="space-y-6">
         {categories.map((category) => (
           <div key={category.name}>
@@ -428,9 +438,9 @@ function ImagesMode({
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                <p>[FR-UNTRANSLATED: Aucune image dans cette catégorie]</p>
+                <p>No images in this category</p>
                 <p className="text-sm mt-1">
-                  Créez des {category.name.toLowerCase()} dans les menus correspondants
+                  Create {category.name.toLowerCase()} in the corresponding menus
                 </p>
               </div>
             )}

@@ -104,12 +104,7 @@ export function AllGenerationLimits({ className = '' }: { className?: string }) 
           </span>
         </div>
         
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Panneaux BD :</span>
-          <span className={credits.comic_panels_used >= credits.comic_panels_limit ? 'text-red-600 font-medium' : 'text-gray-800'}>
-            {credits.comic_panels_used}/{credits.comic_panels_limit}
-          </span>
-        </div>
+        {/* SUPPRIMÉ: Système obsolète des "Panneaux BD" - remplacé par le système de limites unifié */}
         
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Générations mensuelles :</span>

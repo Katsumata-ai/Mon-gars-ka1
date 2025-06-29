@@ -176,7 +176,7 @@ export function AssemblyPersistenceIndicator() {
     <div className="fixed bottom-4 right-4 bg-dark-800 text-white px-3 py-2 rounded-lg shadow-lg text-sm z-50">
       <div className="flex items-center space-x-2">
         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-        <span>[FR-UNTRANSLATED: État sauvegardé]</span>
+        <span>State saved</span>
         {lastSavedDate && (
           <span className="text-gray-400">
             {lastSavedDate.toLocaleTimeString()}

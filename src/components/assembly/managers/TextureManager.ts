@@ -67,8 +67,8 @@ export class TextureManager {
 
       return texture
     } catch (error) {
-      console.error(`Erreur chargement texture ${id}:`, error)
-      toast.error(`Erreur de chargement: ${imageMetadata.name}`)
+      console.error(`Texture loading error ${id}:`, error)
+      toast.error(`Loading error: ${imageMetadata.name}`)
       return null
     } finally {
       this.loadingPromises.delete(id)
@@ -86,7 +86,7 @@ export class TextureManager {
       })
 
       if (!texture) {
-        throw new Error('Texture non chargée')
+        throw new Error('Texture not loaded')
       }
 
       return texture
@@ -108,7 +108,7 @@ export class TextureManager {
         }
         
         img.onerror = () => {
-          reject(new Error(`Impossible de charger l'image: ${url}`))
+          reject(new Error(`Unable to load image: ${url}`))
         }
         
         img.src = url
@@ -195,7 +195,7 @@ export class TextureManager {
               id: `character_${char.id}`,
               url: char.image_url,
               type: 'character',
-              name: char.name || 'Personnage'
+              name: char.name || 'Character'
             })
           }
         })
@@ -211,7 +211,7 @@ export class TextureManager {
               id: `decor_${decor.id}`,
               url: decor.image_url,
               type: 'decor',
-              name: decor.name || 'Décor'
+              name: decor.name || 'Background'
             })
           }
         })
@@ -227,18 +227,18 @@ export class TextureManager {
               id: `scene_${scene.id}`,
               url: scene.image_url,
               type: 'scene',
-              name: scene.name || 'Scène'
+              name: scene.name || 'Scene'
             })
           }
         })
       }
 
-      console.log(`${images.length} images chargées depuis les galeries`)
+      console.log(`${images.length} images loaded from galleries`)
       return images
 
     } catch (error) {
-      console.error('Erreur chargement galeries:', error)
-      toast.error('Erreur lors du chargement des images')
+      console.error('Gallery loading error:', error)
+      toast.error('Error loading images')
       return []
     }
   }

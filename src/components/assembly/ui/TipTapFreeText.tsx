@@ -288,7 +288,7 @@ export function TipTapFreeText({
           style={{
             width: '100%',
             height: 'auto',
-            fontSize: `${Math.max(element.textStyle.fontSize, 12)}px`, // [FR-UNTRANSLATED: ✅ STYLE INLINE DIRECT COMME LES BULLES]
+            fontSize: `${Math.max(element.textStyle.fontSize, 12)}px`, // ✅ DIRECT INLINE STYLE LIKE BUBBLES
             fontFamily: 'Comic Sans MS, Bangers, Roboto, system-ui, sans-serif',
             fontWeight: '700',
             color: '#000000',

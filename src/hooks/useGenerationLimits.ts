@@ -10,7 +10,7 @@ type GenerationType = 'characters' | 'decors' | 'scenes'
 
 export function useGenerationLimits() {
   const { credits, refreshCredits, user } = useUserCredits()
-  const { hasActiveSubscription, checkCharacterImageLimit, checkDecorImageLimit, checkSceneImageLimit } = useUpsellContext()
+  const { hasActiveSubscription, checkCharacterImageLimit, checkDecorImageLimit, checkSceneGenerationLimit } = useUpsellContext()
   const supabase = createClient()
 
   // Vérifier si une génération est possible (côté serveur)
@@ -33,9 +33,20 @@ export function useGenerationLimits() {
         body: JSON.stringify({ type })
       })
 
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.error('API check-generation-limits not found')
+          return { allowed: false, reason: 'Service de vérification indisponible' }
+        }
+
+        const errorText = await response.text()
+        console.error('Response error:', errorText)
+        return { allowed: false, reason: 'Erreur lors de la vérification des limites' }
+      }
+
       const data = await response.json()
 
-      if (!response.ok) {
+      if (!data.success) {
         return { allowed: false, reason: data.error || 'Erreur lors de la vérification' }
       }
 
@@ -121,7 +132,7 @@ export function useGenerationLimits() {
           checkDecorImageLimit()
           break
         case 'scenes':
-          checkSceneImageLimit()
+          checkSceneGenerationLimit()
           break
       }
 
@@ -129,7 +140,7 @@ export function useGenerationLimits() {
     }
 
     return true
-  }, [canGenerate, checkCharacterImageLimit, checkDecorImageLimit, checkSceneImageLimit])
+  }, [canGenerate, checkCharacterImageLimit, checkDecorImageLimit, checkSceneGenerationLimit])
 
   // Get statistics for a type
   const getTypeStats = useCallback((type: GenerationType) => {

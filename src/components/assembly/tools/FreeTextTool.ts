@@ -152,12 +152,12 @@ export class FreeTextTool {
   destroy(): void {
     this.deactivate()
     this.onTextCreated = undefined
-    console.log('🗑️ FreeTextTool: Détruit')
+    console.log('🗑️ FreeTextTool: Destroyed')
   }
 }
 
-/*[FR-UNTRANSLATED: *
- * Hook pour utiliser FreeTextTool]
+/**
+ * Hook to use FreeTextTool
  */
 export function useFreeTextTool(onTextCreated?: (text: TextElement) => void) {
   const tool = new FreeTextTool(onTextCreated)

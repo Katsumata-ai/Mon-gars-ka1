@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useUserCredits } from '@/hooks/useUserCredits'
 import { ImageGenerationLimits } from '@/components/credits/ImageGenerationLimits'
-import { useGenerationLimits } from '@/hooks/useGenerationLimits'
+import { useUpsellContext } from '@/components/upselling'
+import { useUserLimitsSimple } from '@/hooks/useUserLimitsSimple'
+
 import { createClient } from '@/lib/supabase/client'
 import { Camera, Lightbulb, Palette, Plus, X, Loader2, Users, MapPin, Settings } from 'lucide-react'
 import ImprovedSceneGallery from '@/components/scene/ImprovedSceneGallery'
@@ -164,8 +165,13 @@ export default function ImprovedSceneCreator({
   const [success, setSuccess] = useState('')
   const [result, setResult] = useState<SceneResult | null>(null)
 
-  const { credits, loading: creditsLoading, user, refreshCredits } = useUserCredits()
-  const { canGenerate, incrementGeneration, checkLimitsAndShowUpsell } = useGenerationLimits()
+  // SUPPRIMÉ: useAuth() - Vérification d'authentification redondante car l'utilisateur est déjà connecté pour accéder à cette page
+
+  // Hook d'upselling pour gérer les limites de scènes (copié du système personnages/décors)
+  const { checkSceneGenerationLimit, getLimitStatus, hasActiveSubscription } = useUpsellContext()
+  const sceneLimitStatus = getLimitStatus('scene_generation')
+  const { usage, limits, isLimitReached, refreshData } = useUserLimitsSimple()
+
   const supabase = createClient()
 
   // Utiliser les données en cache (filtrées par project_id) au lieu de faire des requêtes directes
@@ -267,11 +273,6 @@ export default function ImprovedSceneCreator({
   }
 
   const handleGenerateScene = async () => {
-    // Vérifier les limites avant toute validation
-    if (!(await checkLimitsAndShowUpsell('scenes'))) {
-      return
-    }
-
     // Validation with toast notifications
     if (selectedCharacters.length === 0) {
       const errorMsg = 'Please select at least one character'
@@ -294,19 +295,24 @@ export default function ImprovedSceneCreator({
       return
     }
 
-    if (!user) {
-      const errorMsg = 'Vous devez être connecté pour créer des scènes'
-      setError(errorMsg)
-      toast.error(`❌ ${errorMsg}`, { duration: 4000 })
-      return
+    // SUPPRIMÉ: Vérification d'authentification redondante
+    // L'utilisateur est déjà authentifié pour accéder à la page d'édition
+
+    // Vérifier les limites avant de générer (système unifié)
+    if (usage && limits && !hasActiveSubscription) {
+      if (usage.scene_generation >= limits.scene_generation && limits.scene_generation !== -1) {
+        toast.error(`Scene limit reached (${usage.scene_generation}/${limits.scene_generation})`)
+        return
+      }
+      if (usage.monthly_generations >= limits.monthly_generations && limits.monthly_generations !== -1) {
+        toast.error(`Monthly limit reached (${usage.monthly_generations}/${limits.monthly_generations})`)
+        return
+      }
     }
 
-    if (!credits || (credits.comic_panels_limit - credits.comic_panels_used) < 3) {
-      const errorMsg = 'Insufficient credits. Scene creation costs 3 panels.'
-      setError(errorMsg)
-      toast.error(`❌ ${errorMsg}`, { duration: 4000 })
-      return
-    }
+    // SUPPRIMÉ: Vérification obsolète des "comic panels"
+    // Les utilisateurs premium ont un accès illimité aux scènes
+    // La vérification des limites se fait maintenant uniquement via le système unifié ci-dessus
 
     setLoading(true)
     setError('')
@@ -353,7 +359,9 @@ export default function ImprovedSceneCreator({
         })
 
         setResult(data.data)
-        await refreshCredits()
+
+        // Rafraîchir les limites pour refléter la nouvelle utilisation
+        await refreshData()
 
         // Créer la nouvelle scène pour l'affichage immédiat
         const newScene: Scene = {
@@ -417,8 +425,12 @@ export default function ImprovedSceneCreator({
   const selectedCharacterData = characters.filter(char => selectedCharacters.includes(char.id))
   const selectedDecorData = decors.find(decor => decor.id === selectedDecor)
 
-  // État du bouton de génération
-  const isButtonDisabled = loading || selectedCharacters.length === 0 || !selectedDecor || !sceneDescription.trim()
+  // État du bouton de génération (copié du système personnages/décors)
+  const isButtonDisabled = loading ||
+    selectedCharacters.length === 0 ||
+    !selectedDecor ||
+    !sceneDescription.trim() ||
+    (!hasActiveSubscription && sceneLimitStatus?.isReached)
 
   return (
     <div className="flex h-screen bg-dark-900">
@@ -698,6 +710,7 @@ export default function ImprovedSceneCreator({
                 {selectedCharacters.length === 0 && "Select characters"}
                 {selectedCharacters.length > 0 && !selectedDecor && "Select a background"}
                 {selectedCharacters.length > 0 && selectedDecor && !sceneDescription.trim() && "Describe the scene"}
+                {(!hasActiveSubscription && sceneLimitStatus?.isReached) && "Limit reached - Upgrade to Senior plan"}
               </div>
             </div>
           )}
@@ -712,13 +725,17 @@ export default function ImprovedSceneCreator({
               {loading ? (
                 <div className="flex items-center justify-center">
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  <span>Génération...</span>
+                  <span>Génération (~30 sec)...</span>
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-lg">🎨</span>
-                  <span>Generate Scene</span>
-                  <span className="bg-white/20 px-1.5 py-0.5 rounded text-xs font-bold">3 panels</span>
+                  <span>
+                    {(!hasActiveSubscription && sceneLimitStatus?.isReached)
+                      ? 'Limit reached - Upgrade to Senior plan'
+                      : 'Generate Scene'
+                    }
+                  </span>
                 </div>
               )}
             </button>

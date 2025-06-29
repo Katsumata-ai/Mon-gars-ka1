@@ -14,17 +14,17 @@ export const STRIPE_CONFIG = {
 
   prices: {
     monthly: {
-      // Utiliser les prix de production (clés live configurées)
-      id: 'price_1Rdew8CAB3oSopcY1szsdUj5',
-      amount: 2500, // 25€ in cents
+      // Nouveaux prix 2025 - Mensuel 5€
+      id: 'price_1Rf5ydCAB3oSopcYe8Sp9Jok',
+      amount: 500, // 5€ in cents
       currency: 'eur',
       interval: 'month',
       type: 'recurring'
     },
     yearly: {
-      // Utiliser les prix de production (clés live configurées)
-      id: 'price_1RdewLCAB3oSopcYc8MkOUR2',
-      amount: 8000, // 80€ in cents (with -220€ promotion)
+      // Nouveaux prix 2025 - Annuel 30€ (50% de réduction vs mensuel)
+      id: 'price_1Rf5zZCAB3oSopcYoyVx9aY8',
+      amount: 3000, // 30€ in cents (save 30€/year vs monthly)
       currency: 'eur',
       interval: 'year',
       type: 'recurring'
@@ -58,7 +58,7 @@ export const STRIPE_CONFIG = {
     {
       id: 'senior',
       name: 'Mangaka Senior',
-      price: { monthly: 25, yearly: 80 },
+      price: { monthly: 5, yearly: 30 },
       description: 'For serious manga creators',
       features: [
         { name: 'Unlimited characters', included: true, highlight: 'unlimited' },

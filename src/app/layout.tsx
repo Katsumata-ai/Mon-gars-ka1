@@ -33,6 +33,17 @@ export const metadata: Metadata = {
   authors: [{ name: "MANGAKA AI Team" }],
   creator: "MANGAKA AI",
   publisher: "MANGAKA AI",
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '16x16', type: 'image/x-icon' },
+      { url: '/favicon.svg', type: 'image/svg+xml' }
+    ],
+    apple: [
+      { url: '/favicon.svg', sizes: '180x180', type: 'image/svg+xml' }
+    ]
+  },
+  manifest: '/manifest.json',
+  themeColor: '#DC2626',
   robots: {
     index: true,
     follow: true,
@@ -53,7 +64,7 @@ export const metadata: Metadata = {
     description: 'The AI that transforms your ideas into professional manga stories. Generate characters, backgrounds and scenes with just a few clicks.',
     images: [
       {
-        url: 'https://ai-manga-generator.com/og-image.png',
+        url: 'https://ai-manga-generator.com/og-image.svg',
         width: 1200,
         height: 630,
         alt: 'MANGAKA AI - Manga Creation Platform',
@@ -64,7 +75,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'MANGAKA AI - Create manga without knowing how to draw',
     description: 'The AI that transforms your ideas into professional manga stories. Generate characters, backgrounds and scenes with just a few clicks.',
-    images: ['https://ai-manga-generator.com/og-image.png'],
+    images: ['https://ai-manga-generator.com/og-image.svg'],
     creator: '@mangaka_ai',
   },
   verification: {

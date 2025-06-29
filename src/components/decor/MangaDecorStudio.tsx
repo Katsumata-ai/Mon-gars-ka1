@@ -20,7 +20,9 @@ import { cn } from '@/lib/utils'
 import MangaButton from '@/components/ui/MangaButton'
 import ImprovedDecorGallery from './ImprovedDecorGallery'
 import { ImageGenerationLimits } from '@/components/credits/ImageGenerationLimits'
-import { useGenerationLimits } from '@/hooks/useGenerationLimits'
+import { useUpsellContext } from '@/components/upselling'
+import { useUserCredits } from '@/hooks/useUserCredits'
+import { useUserLimitsSimple } from '@/hooks/useUserLimitsSimple'
 import toast from 'react-hot-toast'
 
 interface Decor {
@@ -102,8 +104,11 @@ export default function MangaDecorStudio({
   const [decors, setDecors] = useState<Decor[]>([])
   const [selectedDecor, setSelectedDecor] = useState<string>()
 
-  // Hook to manage generation limits
-  const { canGenerate, incrementGeneration, checkLimitsAndShowUpsell } = useGenerationLimits()
+  // Hook d'upselling pour gérer les limites de décors (copié du système personnages)
+  const { checkDecorImageLimit, getLimitStatus, hasActiveSubscription } = useUpsellContext()
+  const decorLimitStatus = getLimitStatus('decor_images')
+  const { refreshCredits } = useUserCredits()
+  const { usage, limits, isLimitReached, refreshData } = useUserLimitsSimple()
 
   // Corriger automatiquement les problèmes d'accessibilité
   useFormAccessibility()
@@ -131,13 +136,20 @@ export default function MangaDecorStudio({
 
   const generateDecor = async () => {
     if (!decorName.trim() || !decorDescription.trim()) {
-      toast.error('Veuillez remplir le nom et la description du décor')
+      toast.error('Please fill in the background name and description')
       return
     }
 
-    // Check limits before generation
-    if (!(await checkLimitsAndShowUpsell('decors'))) {
-      return
+    // Vérifier les limites avant de générer (copié du système personnages)
+    if (usage && limits && !hasActiveSubscription) {
+      if (usage.decor_images >= limits.decor_images && limits.decor_images !== -1) {
+        toast.error(`Background limit reached (${usage.decor_images}/${limits.decor_images})`)
+        return
+      }
+      if (usage.monthly_generations >= limits.monthly_generations && limits.monthly_generations !== -1) {
+        toast.error(`Monthly limit reached (${usage.monthly_generations}/${limits.monthly_generations})`)
+        return
+      }
     }
 
     setIsGenerating(true)
@@ -177,6 +189,10 @@ export default function MangaDecorStudio({
 
       if (result.success) {
         toast.success('Background generated successfully!')
+
+        // Rafraîchir les crédits et limites pour refléter la nouvelle utilisation (copié du système personnages)
+        await refreshCredits()
+        await refreshData()
 
         // Ajouter le nouveau décor à la liste
         const newDecor: Decor = {
@@ -400,9 +416,18 @@ export default function MangaDecorStudio({
                 gradient
                 icon={<Zap className="w-4 h-4" />}
                 className="px-6 py-2"
-                disabled={!decorName.trim() || !decorDescription.trim()}
+                disabled={
+                  !decorName.trim() ||
+                  !decorDescription.trim() ||
+                  (!hasActiveSubscription && decorLimitStatus?.isReached)
+                }
               >
-                {isGenerating ? 'Generating...' : 'Generate background'}
+                {isGenerating
+                  ? 'Generating (~30 sec)...'
+                  : (!hasActiveSubscription && decorLimitStatus?.isReached)
+                    ? 'Limit reached - Upgrade to Senior plan'
+                    : 'Generate background'
+                }
               </MangaButton>
             </div>
           </div>

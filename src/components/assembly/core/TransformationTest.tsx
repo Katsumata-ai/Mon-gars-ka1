@@ -173,7 +173,7 @@ export default function TransformationTest({ onTestResult }: TransformationTestP
       maxWidth: 300,
       zIndex: 9999
     }}>
-      <h4>[FR-UNTRANSLATED: 🧪 Tests de Synchronisation]</h4>
+      <h4>🧪 Synchronization Tests</h4>
       {testResults.map((result, index) => (
         <div key={index} style={{ 
           margin: '5px 0', 
@@ -184,7 +184,7 @@ export default function TransformationTest({ onTestResult }: TransformationTestP
         </div>
       ))}
       {testResults.length < 3 && (
-        <div style={{ color: '#fbbf24' }}>⏳ Tests en cours...</div>
+        <div style={{ color: '#fbbf24' }}>⏳ Tests in progress...</div>
       )}
     </div>
   )

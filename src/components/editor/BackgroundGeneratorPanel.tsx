@@ -131,10 +131,12 @@ export default function BackgroundGeneratorPanel({
       return
     }
 
-    if (!user || !credits || (credits.monthly_generations_limit - credits.monthly_generations_used) < 1) {
-      alert('Générations insuffisantes. Passez au plan Pro pour continuer.')
+    if (!user) {
+      alert('Vous devez être connecté pour générer des décors.')
       return
     }
+
+    // SUPPRIMÉ: Vérification obsolète des crédits - remplacée par le système de limites unifié
 
     setGenerating(true)
 
@@ -382,7 +384,7 @@ export default function BackgroundGeneratorPanel({
             icon={<Palette className="w-5 h-5" />}
             gradient
           >
-            {generating ? 'Génération en cours...' : 'Générer le Décor'}
+            {generating ? 'Génération en cours (~30 sec)...' : 'Générer le Décor'}
           </MangaButton>
         </div>
       </div>

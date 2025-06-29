@@ -437,7 +437,7 @@ export default function MangaCharacterStudio({
                 }
               >
                 {isGenerating
-                  ? 'Generating...'
+                  ? 'Generating (~30 sec)...'
                   : (!hasActiveSubscription && characterLimitStatus?.isReached)
                     ? 'Limit reached - Upgrade to Senior plan'
                     : 'Generate character'

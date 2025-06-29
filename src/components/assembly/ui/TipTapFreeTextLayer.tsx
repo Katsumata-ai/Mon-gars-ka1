@@ -312,7 +312,7 @@ export function TipTapFreeTextLayer({
 
         return (
           <SimpleFreeText
-            key={text.id} // [FR-UNTRANSLATED: ✅ PLUS BESOIN DE FORCER RE-RENDU - SimpleFreeText gère le redimensionnement]
+            key={text.id} // ✅ NO NEED TO FORCE RE-RENDER - SimpleFreeText handles resizing
             element={text}
             mode={mode}
             onUpdate={handleTextUpdate}

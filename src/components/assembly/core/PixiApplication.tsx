@@ -2342,14 +2342,14 @@ function createImageElement(element: AssemblyElement): Container {
       container.removeChild(loadingText)
       container.addChild(sprite)
 
-      console.log('✅ Image chargée avec succès:', {
+      console.log('✅ Image loaded successfully:', {
         id: imageElement.id,
         spriteSize: { width: sprite.width, height: sprite.height },
         originalSize: { width: img.naturalWidth, height: img.naturalHeight }
       })
 
     } catch (error) {
-      console.error('❌ Erreur lors du chargement de l\'image:', error)
+      console.error('❌ Image loading error:', error)
 
       // Afficher un placeholder d'erreur
       placeholder.clear()
@@ -2357,7 +2357,7 @@ function createImageElement(element: AssemblyElement): Container {
       placeholder.fill({ color: 0xfef2f2, alpha: 0.8 })
       placeholder.stroke({ width: 2, color: 0xfca5a5 })
 
-      loadingText.text = 'Erreur de chargement'
+      loadingText.text = 'Loading error'
       loadingText.style.fill = 0xdc2626
       loadingText.x = imageElement.transform.width / 2 - loadingText.width / 2
     }

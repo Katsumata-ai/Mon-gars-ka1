@@ -38,13 +38,13 @@ export default function SignupPage() {
     setError('')
 
     if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas')
+      setError('Passwords do not match')
       setLoading(false)
       return
     }
 
     if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères')
+      setError('Password must contain at least 6 characters')
       setLoading(false)
       return
     }
@@ -103,16 +103,16 @@ export default function SignupPage() {
             <div className="w-16 h-16 bg-success/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <span className="text-2xl">✓</span>
             </div>
-            <h1 className="text-2xl font-bold mb-4">Vérifiez votre email</h1>
+            <h1 className="text-2xl font-bold mb-4">Verify your email</h1>
             <p className="text-dark-200 mb-6">
-              Nous avons envoyé un lien de confirmation à <strong>{email}</strong>.
-              Cliquez sur le lien pour activer votre compte.
+              We have sent a confirmation link to <strong>{email}</strong>.
+              Click on the link to activate your account.
             </p>
             <Link
               href="/login"
               className="inline-block bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-medium transition-colors !text-white"
             >
-              Retour à la connexion
+              Back to login
             </Link>
           </div>
         </div>

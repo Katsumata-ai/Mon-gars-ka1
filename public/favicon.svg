@@ -1,0 +1,11 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="16" fill="#DC2626"/>
+  
+  <!-- Letter M in white -->
+  <path d="M8 24V8h3.5l2.5 8.5L16.5 8H20v16h-2.5V12.5L15 20h-1.5L11 12.5V24H8z" fill="white"/>
+  
+  <!-- Small manga-style accent -->
+  <circle cx="24" cy="8" r="3" fill="#EF4444"/>
+  <circle cx="24" cy="8" r="1.5" fill="white"/>
+</svg>

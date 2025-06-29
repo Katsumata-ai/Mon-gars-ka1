@@ -114,23 +114,23 @@ export default function ShortcutsHelp({ className = '' }: ShortcutsHelpProps) {
                   
                   <div className="space-y-3 text-gray-300">
                     <div className="p-3 bg-dark-700/30 rounded">
-                      <div className="font-medium text-white mb-2">1. Créer des panels</div>
+                      <div className="font-medium text-white mb-2">1. Create panels</div>
                       <div className="text-sm">
-                        Sélectionnez l'outil Panel (P) puis cliquez-glissez pour dessiner des rectangles
+                        Select the Panel tool (P) then click-drag to draw rectangles
                       </div>
                     </div>
-                    
+
                     <div className="p-3 bg-dark-700/30 rounded">
-                      <div className="font-medium text-white mb-2">2. Ajouter des images</div>
+                      <div className="font-medium text-white mb-2">2. Add images</div>
                       <div className="text-sm">
-                        Glissez-déposez des images depuis le panneau droit vers les panels
+                        Drag and drop images from the right panel to the panels
                       </div>
                     </div>
-                    
+
                     <div className="p-3 bg-dark-700/30 rounded">
-                      <div className="font-medium text-white mb-2">3. Ajouter des bulles</div>
+                      <div className="font-medium text-white mb-2">3. Add bubbles</div>
                       <div className="text-sm">
-                        Sélectionnez l'outil Bulle (B) puis cliquez pour placer des dialogues
+                        Select the Bubble tool (B) then click to place dialogues
                       </div>
                     </div>
                   </div>

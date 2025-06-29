@@ -2,6 +2,102 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { uploadImageWithRetry } from '@/lib/storage/imageUpload'
 
+// Fonction pour valider et corriger les URLs d'images
+async function validateAndFixImageUrl(url: string): Promise<string | null> {
+  const possibleUrls = [
+    url, // URL originale
+    url.startsWith('/') ? `https://lqpqfmwfvtxofeaucwqw.supabase.co${url}` : url,
+    !url.startsWith('http') ? `https://${url}` : url,
+    // Essayer avec différents formats
+    url.replace('/storage/v1/object/public/', '/storage/v1/object/public/'),
+    url.replace('supabase.co/', 'supabase.co/storage/v1/object/public/')
+  ]
+
+  for (const testUrl of possibleUrls) {
+    try {
+      const response = await fetch(testUrl, { method: 'HEAD' })
+      if (response.ok) {
+        console.log(`✅ URL valide trouvée: ${testUrl}`)
+        return testUrl
+      }
+    } catch (error) {
+      // Continuer avec l'URL suivante
+    }
+  }
+
+  console.error(`❌ Aucune URL valide trouvée pour: ${url}`)
+  return null
+}
+
+// Fonction pour télécharger l'image depuis Supabase et la convertir en base64
+async function downloadAndConvertToBase64(imageUrl: string, supabase: any): Promise<string | null> {
+  try {
+    console.log('🔄 Téléchargement depuis Supabase:', imageUrl)
+
+    // Extraire le chemin de l'image depuis l'URL
+    const urlParts = imageUrl.split('/storage/v1/object/public/images/')
+    if (urlParts.length !== 2) {
+      throw new Error('Format d\'URL invalide')
+    }
+
+    const imagePath = urlParts[1]
+    console.log('📁 Chemin extrait:', imagePath)
+
+    // Télécharger l'image depuis Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('images')
+      .download(imagePath)
+
+    if (error) {
+      console.error('❌ Erreur téléchargement Supabase:', error)
+      throw error
+    }
+
+    if (!data) {
+      throw new Error('Aucune donnée reçue')
+    }
+
+    console.log('✅ Image téléchargée, taille:', data.size, 'bytes')
+
+    // Convertir en ArrayBuffer puis en base64
+    const arrayBuffer = await data.arrayBuffer()
+    const base64 = Buffer.from(arrayBuffer).toString('base64')
+
+    // Déterminer le type MIME
+    const mimeType = data.type || 'image/png'
+    const dataUrl = `data:${mimeType};base64,${base64}`
+
+    console.log('✅ Conversion base64 réussie, taille:', dataUrl.length, 'caractères')
+    return dataUrl
+
+  } catch (error) {
+    console.error('❌ Échec téléchargement/conversion:', error)
+    return null
+  }
+}
+
+// Fonction alternative : convertir l'image en base64 pour Grok-2-Vision (conservée pour compatibilité)
+async function convertImageToBase64(url: string): Promise<string | null> {
+  try {
+    console.log('🔄 Conversion en base64 pour:', url)
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const base64 = Buffer.from(arrayBuffer).toString('base64')
+    const mimeType = response.headers.get('content-type') || 'image/png'
+
+    const dataUrl = `data:${mimeType};base64,${base64}`
+    console.log('✅ Conversion base64 réussie')
+    return dataUrl
+  } catch (error) {
+    console.error('❌ Échec conversion base64:', error)
+    return null
+  }
+}
+
 interface CombineSceneRequest {
   selectedCharacters: string[]  // IDs des personnages (max 3)
   selectedDecor: string         // ID du décor
@@ -55,53 +151,151 @@ const MOOD_TEMPLATES = {
   'comedic': 'comedic scene, lighthearted mood, humorous situation'
 }
 
-// Fonction pour analyser les images avec Grok-2-Vision
+// Fonction pour analyser les images avec Grok-2-Vision (version sophistiquée)
 async function analyzeImagesWithVision(
   characterImages: string[],
   decorImage: string,
   sceneDescription: string,
   cameraAngle: string,
   lighting: string,
-  mood: string
+  mood: string,
+  characterData: any[],
+  decorData: any,
+  additionalDetails?: string,
+  supabase?: any
 ): Promise<string> {
-  const XAI_API_KEY = 'xai-5vp7lvCb89wKcfHfzIOC5IgpAPxTT9ghyK0KoHPgNRwR4vw6Wi6o8RlP89rdGw8ZeRl1fv8GdnM0SwES'
+  // Utiliser la clé spécifique pour l'analyse vision
+  const XAI_VISION_API_KEY = process.env.XAI_VISION_API_KEY
 
-  console.log('🔍 Analyse des images avec Grok-2-Vision...')
+  console.log('🔍 Analyse des images avec Grok-2-Vision-1212...')
 
-  const analysisPrompt = `Tu es un expert en création de manga et storyboard. Analyse ces images et crée un prompt parfait pour générer une scène manga cohérente.
+  if (!XAI_VISION_API_KEY) {
+    console.error('❌ XAI_VISION_API_KEY not configured for vision analysis')
+    throw new Error('XAI_VISION_API_KEY not configured')
+  }
 
-IMAGES À ANALYSER:
-- Personnages: ${characterImages.length} personnage(s)
-- Décor: 1 environnement
+  // Télécharger et convertir les images en base64 pour Grok-2-Vision
+  console.log('🔄 Téléchargement des images depuis Supabase...')
 
-DEMANDE DE L'UTILISATEUR:
-- Description: ${sceneDescription}
-- Plan de caméra: ${cameraAngle}
-- Éclairage: ${lighting}
-- Ambiance: ${mood}
+  const base64CharacterImages: string[] = []
+  for (let i = 0; i < characterImages.length; i++) {
+    console.log(`📥 Téléchargement personnage ${i + 1}:`, characterImages[i])
+    const base64Data = await downloadAndConvertToBase64(characterImages[i], supabase)
+    if (base64Data) {
+      base64CharacterImages.push(base64Data)
+      console.log(`✅ Personnage ${i + 1}: Converti en base64`)
+    } else {
+      console.error(`❌ Personnage ${i + 1}: Échec téléchargement - ${characterImages[i]}`)
+      throw new Error(`Impossible de télécharger l'image du personnage ${i + 1}`)
+    }
+  }
 
-INSTRUCTIONS:
-1. Analyse chaque personnage: apparence, style, couleurs, traits distinctifs
-2. Analyse le décor: environnement, style, couleurs, éléments importants
-3. Crée un prompt détaillé qui:
-   - Préserve fidèlement l'apparence de chaque personnage
-   - Intègre parfaitement le décor
-   - Respecte la demande de l'utilisateur
-   - Utilise le style manga cohérent
-   - Inclut les détails techniques (caméra, éclairage, ambiance)
+  console.log(`📥 Téléchargement décor:`, decorImage)
+  const base64DecorImage = await downloadAndConvertToBase64(decorImage, supabase)
+  if (!base64DecorImage) {
+    console.error(`❌ Décor: Échec téléchargement - ${decorImage}`)
+    throw new Error('Impossible de télécharger l\'image du décor')
+  }
+  console.log('✅ Décor: Converti en base64')
 
-RÉPONDS UNIQUEMENT avec le prompt optimisé, sans explication.`
+  const analysisPrompt = `Tu es un expert en création de manga et storyboard. Tu dois analyser ces images avec une précision extrême et créer un mega-prompt ultra-détaillé pour garantir une fidélité maximale.
+
+🎯 MISSION CRITIQUE: Créer un prompt de 250-300 mots qui reproduit fidèlement chaque détail visuel.
+
+📋 ÉLÉMENTS À ANALYSER:
+- ${characterImages.length} personnage(s) à décrire avec précision photographique
+- 1 décor à analyser en détail complet
+- Action demandée: "${sceneDescription}"
+- Détails additionnels: ${additionalDetails || 'Aucun'}
+- Plan caméra: ${cameraAngle} | Éclairage: ${lighting} | Ambiance: ${mood}
+
+📝 PROMPTS ORIGINAUX DES IMAGES:
+PERSONNAGES:
+${characterData.map((char, index) => `- Personnage ${index + 1}: "${char.original_prompt}"`).join('\n')}
+
+DÉCOR:
+- Décor: "${decorData.original_prompt}"
+
+🧠 COMPRÉHENSION DES RÉFÉRENCES:
+IMPORTANT: Dans l'action "${sceneDescription}", les références comme "il", "elle", "le personnage", ou un nom spécifique font référence au personnage principal (Personnage 1).
+- Si l'action dit "il marche" → c'est le Personnage 1 qui marche
+- Si l'action dit "elle dort" → c'est le Personnage 1 qui dort
+- Si l'action mentionne un nom → c'est le nom du Personnage 1
+- Toujours identifier clairement QUI fait QUOI dans la scène
+
+🔍 ANALYSE ULTRA-DÉTAILLÉE REQUISE:
+
+POUR CHAQUE PERSONNAGE:
+- Visage: forme, traits, expression exacte, couleur des yeux, sourcils
+- Cheveux: couleur précise, coiffure, texture, longueur, mèches
+- Vêtements: chaque pièce, couleurs exactes, motifs, accessoires, chaussures
+- Corpulence: taille, build, posture, gestuelle
+- Style manga: shonen/shoujo/seinen, proportions, design character
+- Traits uniques: cicatrices, bijoux, armes, objets personnels
+
+POUR LE DÉCOR:
+- Architecture/Nature: structures, matériaux, végétation, objets
+- Couleurs: palette exacte, nuances, contrastes
+- Ambiance: luminosité, météo, heure, saison
+- Détails: textures, éléments décoratifs, arrière-plan
+- Style artistique: réalisme, fantastique, urbain, rural
+
+INTÉGRATION SCÈNE:
+- Positionnement des personnages dans l'espace
+- Actions spécifiques: "${sceneDescription}"
+- Interactions entre personnages et environnement
+- Mouvement, dynamisme, émotion
+- Cohérence avec plan caméra (${cameraAngle})
+- Éclairage approprié (${lighting})
+- Ambiance générale (${mood})
+
+🎨 CRÉER UN MEGA-PROMPT FINAL:
+Un seul paragraphe de 250-300 mots décrivant la scène complète avec tous les détails visuels. Le prompt doit:
+- Commencer par "manga style scene"
+- Décrire chaque personnage avec fidélité absolue (utilise les prompts originaux comme référence)
+- Intégrer le décor avec précision (utilise le prompt original comme référence)
+- Inclure l'action demandée: "${sceneDescription}" en identifiant clairement quel personnage fait l'action
+- FIDÉLITÉ MAXIMALE: Chaque détail visuel des images doit être reproduit (couleurs, formes, accessoires, expressions)
+- COHÉRENCE: Le personnage qui fait l'action doit correspondre exactement à l'image analysée
+- Respecter les paramètres: ${cameraAngle}, ${lighting}, ${mood}
+- Finir par "high quality, detailed, professional manga artwork, consistent art style, vibrant colors"
+
+RÉPONDS UNIQUEMENT avec le mega-prompt final, sans explication.`
+
+  // Préparer les images base64 pour Grok-2-Vision
+  console.log('🎨 Préparation des images base64 pour Grok-2-Vision...')
+  const processedImages = []
+
+  // Ajouter les personnages en base64
+  for (let i = 0; i < base64CharacterImages.length; i++) {
+    processedImages.push({
+      type: "image_url",
+      image_url: {
+        url: base64CharacterImages[i],
+        detail: "high"
+      }
+    })
+    console.log(`✅ Personnage ${i + 1} ajouté en base64`)
+  }
+
+  // Ajouter le décor en base64
+  processedImages.push({
+    type: "image_url",
+    image_url: {
+      url: base64DecorImage,
+      detail: "high"
+    }
+  })
+  console.log('✅ Décor ajouté en base64')
+
+  console.log(`📊 Envoi de ${processedImages.length} images à Grok-2-Vision`)
 
   try {
-    const images = [...characterImages, decorImage].map(url => ({
-      type: "image_url",
-      image_url: { url }
-    }))
 
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${XAI_API_KEY}`,
+        'Authorization': `Bearer ${XAI_VISION_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -111,7 +305,7 @@ RÉPONDS UNIQUEMENT avec le prompt optimisé, sans explication.`
             role: 'user',
             content: [
               { type: "text", text: analysisPrompt },
-              ...images
+              ...processedImages
             ]
           }
         ],
@@ -143,7 +337,43 @@ RÉPONDS UNIQUEMENT avec le prompt optimisé, sans explication.`
   }
 }
 
-// Fonction de fallback pour créer un prompt basique
+// Fonction de fallback intelligent basée sur les prompts originaux
+function createIntelligentFallbackPrompt(
+  characters: any[],
+  decor: any,
+  sceneDescription: string,
+  cameraAngle: string,
+  lighting: string,
+  mood: string,
+  additionalDetails?: string
+): string {
+  console.log('🧠 Création du mega-prompt intelligent sans analyse visuelle...')
+
+  const cameraTemplate = CAMERA_ANGLE_TEMPLATES[cameraAngle as keyof typeof CAMERA_ANGLE_TEMPLATES] || 'medium shot'
+  const lightingTemplate = LIGHTING_TEMPLATES[lighting as keyof typeof LIGHTING_TEMPLATES] || 'natural lighting'
+  const moodTemplate = MOOD_TEMPLATES[mood as keyof typeof MOOD_TEMPLATES] || 'balanced mood'
+
+  // Construire les descriptions détaillées des personnages
+  const characterDescriptions = characters.map((char, index) => {
+    const originalPrompt = char.original_prompt || 'personnage manga'
+    const metadata = char.metadata || {}
+
+    return `personnage ${index + 1}: ${originalPrompt}${metadata.style ? `, style ${metadata.style}` : ''}${metadata.archetype ? `, ${metadata.archetype}` : ''}`
+  }).join(', ')
+
+  // Description détaillée du décor
+  const decorDescription = decor.original_prompt || 'décor manga'
+  const decorMetadata = decor.metadata || {}
+  const decorDetails = `${decorDescription}${decorMetadata.style ? `, style ${decorMetadata.style}` : ''}${decorMetadata.mood ? `, ambiance ${decorMetadata.mood}` : ''}`
+
+  // Créer le mega-prompt intelligent
+  const megaPrompt = `manga style scene, ${characterDescriptions} dans ${decorDetails}, ${sceneDescription}${additionalDetails ? `, ${additionalDetails}` : ''}, ${cameraTemplate}, ${lightingTemplate}, ${moodTemplate}, high quality, detailed, professional manga artwork, consistent art style, vibrant colors, faithful character representation, detailed environment`
+
+  console.log('📝 Mega-prompt intelligent créé:', megaPrompt.length, 'caractères')
+  return megaPrompt
+}
+
+// Fonction de fallback basique (conservée pour compatibilité)
 function createFallbackPrompt(
   sceneDescription: string,
   cameraAngle: string,
@@ -157,16 +387,41 @@ function createFallbackPrompt(
   return `manga style scene, ${sceneDescription}, ${cameraTemplate}, ${lightingTemplate}, ${moodTemplate}, high quality, detailed, professional manga artwork, consistent art style, vibrant colors`
 }
 
-// Fonction pour générer l'image avec Grok-2-Image (utilise la même clé que l'API generate-image)
+// Fonction pour limiter le prompt à 1000 caractères SANS optimisation destructrice
+function limitPromptLength(prompt: string): string {
+  const MAX_LENGTH = 1000
+
+  if (prompt.length <= MAX_LENGTH) {
+    console.log(`✅ Prompt dans la limite: ${prompt.length}/${MAX_LENGTH} caractères`)
+    return prompt
+  }
+
+  console.log(`⚠️ Prompt trop long: ${prompt.length}/${MAX_LENGTH} caractères - Troncature à 1000`)
+
+  // Troncature intelligente à la dernière virgule complète
+  const truncateAt = prompt.lastIndexOf(',', MAX_LENGTH - 10)
+  const finalPrompt = truncateAt > MAX_LENGTH / 2
+    ? prompt.substring(0, truncateAt).trim()
+    : prompt.substring(0, MAX_LENGTH - 3).trim() + '...'
+
+  console.log(`✅ Prompt limité: ${finalPrompt.length}/${MAX_LENGTH} caractères`)
+  return finalPrompt
+}
+
+// Fonction pour générer l'image avec Grok-2-Image-1212 (utilise la clé de génération)
 async function generateSceneImage(optimizedPrompt: string): Promise<string> {
+  // Utiliser la clé spécifique pour la génération d'images
   const XAI_API_KEY = process.env.XAI_API_KEY
 
-  console.log('🎨 Génération de l\'image avec Grok-2-Image...')
+  console.log('🎨 Génération de l\'image avec Grok-2-Image-1212...')
 
   if (!XAI_API_KEY) {
-    console.error('❌ XAI_API_KEY non configurée')
+    console.error('❌ XAI_API_KEY not configured for image generation')
     throw new Error('XAI_API_KEY not configured')
   }
+
+  // Limiter le prompt à 1000 caractères sans optimisation destructrice
+  const finalPrompt = limitPromptLength(optimizedPrompt)
 
   try {
     // Tentative d'appel à l'API xAI avec timeout (même logique que generate-image)
@@ -183,7 +438,7 @@ async function generateSceneImage(optimizedPrompt: string): Promise<string> {
       },
       body: JSON.stringify({
         model: 'grok-2-image-1212',
-        prompt: optimizedPrompt
+        prompt: finalPrompt
       }),
       signal: controller.signal
     })
@@ -338,29 +593,59 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🚀 Début de la génération de scène orchestrée...')
+    console.log('📋 Workflow: Grok-2-Vision-1212 (analyse) → Grok-2-Image-1212 (génération)')
     const startTime = Date.now()
 
-    // Étape 1: Analyser les images avec Grok-2-Vision
+    // Étape 1: Analyser les images avec Grok-2-Vision-1212 (version sophistiquée)
+    console.log('🔍 Étape 1: Analyse sophistiquée avec Grok-2-Vision-1212...')
+    console.log(`📊 Données à analyser: ${characters.length} personnages + 1 décor`)
+
     const characterImageUrls = characters.map(char => char.image_url)
     const decorImageUrl = decor.image_url
 
-    const analysisPrompt = `${sceneDescription}${additionalDetails ? ` - ${additionalDetails}` : ''}`
+    let optimizedPrompt: string
 
-    const optimizedPrompt = await analyzeImagesWithVision(
-      characterImageUrls,
-      decorImageUrl,
-      analysisPrompt,
-      cameraAngle,
-      lighting,
-      mood
-    )
+    try {
+      // Tentative d'analyse sophistiquée avec Grok-2-Vision
+      optimizedPrompt = await analyzeImagesWithVision(
+        characterImageUrls,
+        decorImageUrl,
+        sceneDescription,
+        cameraAngle,
+        lighting,
+        mood,
+        characters,
+        decor,
+        additionalDetails,
+        supabase
+      )
+      console.log('✅ Analyse sophistiquée réussie')
+    } catch (error) {
+      console.error('⚠️ Analyse sophistiquée échouée, utilisation du fallback intelligent:', error)
 
-    console.log('📝 Prompt optimisé généré:', optimizedPrompt)
+      // Fallback intelligent : créer un mega-prompt basé sur les prompts originaux
+      optimizedPrompt = createIntelligentFallbackPrompt(
+        characters,
+        decor,
+        sceneDescription,
+        cameraAngle,
+        lighting,
+        mood,
+        additionalDetails
+      )
+      console.log('🔄 Fallback intelligent activé')
+    }
 
-    // Étape 2: Générer l'image avec Grok-2-Image
+    console.log('✅ Étape 1 terminée - Mega-prompt sophistiqué généré')
+    console.log('📝 Longueur du prompt:', optimizedPrompt.length, 'caractères')
+    console.log('🔍 Aperçu du prompt:', optimizedPrompt.substring(0, 150) + '...')
+
+    // Étape 2: Générer l'image avec Grok-2-Image-1212
+    console.log('🎨 Étape 2: Génération de l\'image avec Grok-2-Image-1212...')
     const temporaryImageUrl = await generateSceneImage(optimizedPrompt)
 
     const generationTime = Date.now() - startTime
+    console.log('✅ Étape 2 terminée - Image générée avec succès')
 
     // Générer un ID unique pour cette scène
     const sceneId = crypto.randomUUID()
@@ -480,7 +765,7 @@ export async function POST(request: NextRequest) {
         imageUrl: publicUrl,
         originalPrompt: sceneDescription,
         optimizedPrompt,
-        analysisPrompt,
+        analysisMethod: 'Grok-2-Vision-1212 sophisticated analysis',
         combinedAssets: {
           characters,
           decor

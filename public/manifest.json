@@ -1,0 +1,27 @@
+{
+  "name": "MANGAKA AI - Create manga without knowing how to draw",
+  "short_name": "MANGAKA AI",
+  "description": "The AI that transforms your ideas into professional manga stories",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#DC2626",
+  "theme_color": "#DC2626",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["entertainment", "productivity", "graphics"],
+  "lang": "en",
+  "scope": "/",
+  "id": "mangaka-ai"
+}
