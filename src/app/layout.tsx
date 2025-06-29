@@ -34,19 +34,9 @@ export const metadata: Metadata = {
   creator: "MANGAKA AI",
   publisher: "MANGAKA AI",
   icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: '16x16 32x32', type: 'image/x-icon' },
-      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
-      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon.svg', type: 'image/svg+xml' }
-    ],
-    apple: [
-      { url: '/apple-touch-icon-180x180.png', sizes: '180x180', type: 'image/png' },
-      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
-    ],
-    other: [
-      { rel: 'mask-icon', url: '/favicon.svg', color: '#DC2626' }
-    ]
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg'
   },
   manifest: '/manifest.json',
   themeColor: '#DC2626',
@@ -71,11 +61,11 @@ export const metadata: Metadata = {
     description: 'The AI that transforms your ideas into professional manga stories. Generate characters, backgrounds and scenes with just a few clicks.',
     images: [
       {
-        url: 'https://ai-manga-generator.com/og-image.svg',
+        url: 'https://ai-manga-generator.com/og-image.png',
         width: 1200,
         height: 630,
         alt: 'MANGAKA AI - Manga Creation Platform',
-        type: 'image/svg+xml',
+        type: 'image/png',
       },
     ],
   },
@@ -86,7 +76,7 @@ export const metadata: Metadata = {
     title: 'MANGAKA AI - Create manga without knowing how to draw',
     description: 'The AI that transforms your ideas into professional manga stories. Generate characters, backgrounds and scenes with just a few clicks.',
     images: {
-      url: 'https://ai-manga-generator.com/og-image.svg',
+      url: 'https://ai-manga-generator.com/og-image.png',
       alt: 'MANGAKA AI - Manga Creation Platform',
       width: 1200,
       height: 630,
@@ -135,16 +125,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Additional meta tags for better compatibility */}
+        {/* Essential meta tags */}
         <meta name="theme-color" content="#DC2626" />
-        <meta name="msapplication-TileColor" content="#DC2626" />
-        <meta name="msapplication-config" content="/browserconfig.xml" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="MANGAKA AI" />
-        <meta name="format-detection" content="telephone=no" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="application-name" content="MANGAKA AI" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="mask-icon" href="/favicon.svg" color="#DC2626" />
+
+        {/* Force social media cache refresh */}
+        <meta property="og:image:secure_url" content="https://ai-manga-generator.com/og-image.png" />
+        <meta property="og:updated_time" content={new Date().toISOString()} />
+        <meta name="twitter:image" content="https://ai-manga-generator.com/og-image.png" />
 
         {/* Structured data */}
         <script
