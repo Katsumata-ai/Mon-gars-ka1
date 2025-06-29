@@ -1,14 +1,30 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { STRIPE_CONFIG, getPricesByCurrency } from '@/lib/stripe/config'
 import { useCurrency } from '@/hooks/useCurrency'
 
 interface UpgradeButtonsProps {
   className?: string
+  monthlyPrice?: string
+  yearlyPrice?: string
+  currency?: 'eur' | 'usd'
 }
 
-export default function UpgradeButtons({ className = '' }: UpgradeButtonsProps) {
-  const { currency, formatPrice } = useCurrency()
+export default function UpgradeButtons({
+  className = '',
+  monthlyPrice,
+  yearlyPrice,
+  currency: propCurrency
+}: UpgradeButtonsProps) {
+  const { currency: hookCurrency, formatPrice } = useCurrency()
+  const currency = propCurrency || hookCurrency
+  const [forceUpdate, setForceUpdate] = useState(0)
+
+  // Force re-render when currency changes
+  useEffect(() => {
+    setForceUpdate(prev => prev + 1)
+  }, [currency])
 
   // Helper function to get price based on currency
   const getPrice = (interval: 'monthly' | 'yearly') => {
@@ -18,9 +34,17 @@ export default function UpgradeButtons({ className = '' }: UpgradeButtonsProps) 
     if (seniorPlan.price.eur && seniorPlan.price.usd) {
       return seniorPlan.price[currency][interval]
     } else {
-      return seniorPlan.price[interval]
+      // Fallback pour l'ancien format
+      return (seniorPlan.price as any)[interval]
     }
   }
+
+  // Use provided prices or calculate them
+  const displayMonthlyPrice = monthlyPrice || formatPrice(getPrice('monthly'))
+  const displayYearlyPrice = yearlyPrice || formatPrice(getPrice('yearly'))
+
+  // Debug: Log pour vérifier les changements
+  console.log('UpgradeButtons render - Currency:', currency, 'Monthly:', displayMonthlyPrice, 'Yearly:', displayYearlyPrice, 'ForceUpdate:', forceUpdate)
 
   const handleUpgrade = (plan: 'monthly' | 'yearly') => {
     const prices = getPricesByCurrency(currency)

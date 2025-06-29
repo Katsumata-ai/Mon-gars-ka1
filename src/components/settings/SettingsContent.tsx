@@ -231,7 +231,7 @@ export default function SettingsContent({ user }: SettingsContentProps) {
                           variant="subtle"
                         />
                       </div>
-                      <UpgradeButtons />
+                      <UpgradeButtons key={currency} />
                     </div>
                   </div>
                 </div>
