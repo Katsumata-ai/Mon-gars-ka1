@@ -56,7 +56,7 @@ interface PricingSectionProps {
 }
 
 function PricingSection({ tiers, className }: PricingSectionProps) {
-  const [isYearly, setIsYearly] = useState(false)
+  const [isYearly, setIsYearly] = useState(true) // Default to annual plan for better value proposition
   const { user } = useAuth()
 
   const buttonStyles = {

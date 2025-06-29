@@ -35,15 +35,22 @@ export const metadata: Metadata = {
   publisher: "MANGAKA AI",
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: '16x16', type: 'image/x-icon' },
+      { url: '/favicon.ico', sizes: '16x16 32x32', type: 'image/x-icon' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
       { url: '/favicon.svg', type: 'image/svg+xml' }
     ],
     apple: [
-      { url: '/favicon.svg', sizes: '180x180', type: 'image/svg+xml' }
+      { url: '/apple-touch-icon-180x180.png', sizes: '180x180', type: 'image/png' },
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
+    ],
+    other: [
+      { rel: 'mask-icon', url: '/favicon.svg', color: '#DC2626' }
     ]
   },
   manifest: '/manifest.json',
   themeColor: '#DC2626',
+  colorScheme: 'dark',
   robots: {
     index: true,
     follow: true,
@@ -57,26 +64,40 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    locale: 'fr_FR',
+    locale: 'en_US',
     url: 'https://ai-manga-generator.com',
     siteName: 'MANGAKA AI',
     title: 'MANGAKA AI - Create manga without knowing how to draw',
     description: 'The AI that transforms your ideas into professional manga stories. Generate characters, backgrounds and scenes with just a few clicks.',
     images: [
       {
+        url: 'https://ai-manga-generator.com/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'MANGAKA AI - Manga Creation Platform',
+        type: 'image/png',
+      },
+      {
         url: 'https://ai-manga-generator.com/og-image.svg',
         width: 1200,
         height: 630,
         alt: 'MANGAKA AI - Manga Creation Platform',
+        type: 'image/svg+xml',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
+    site: '@mangaka_ai',
+    creator: '@mangaka_ai',
     title: 'MANGAKA AI - Create manga without knowing how to draw',
     description: 'The AI that transforms your ideas into professional manga stories. Generate characters, backgrounds and scenes with just a few clicks.',
-    images: ['https://ai-manga-generator.com/og-image.svg'],
-    creator: '@mangaka_ai',
+    images: {
+      url: 'https://ai-manga-generator.com/og-image.png',
+      alt: 'MANGAKA AI - Manga Creation Platform',
+      width: 1200,
+      height: 630,
+    },
   },
   verification: {
     google: 'your-google-verification-code',
@@ -119,8 +140,20 @@ export default function RootLayout({
   }
 
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Additional meta tags for better compatibility */}
+        <meta name="theme-color" content="#DC2626" />
+        <meta name="msapplication-TileColor" content="#DC2626" />
+        <meta name="msapplication-config" content="/browserconfig.xml" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="MANGAKA AI" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="MANGAKA AI" />
+
+        {/* Structured data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
