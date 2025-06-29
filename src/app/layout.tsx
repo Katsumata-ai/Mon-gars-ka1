@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Bangers } from "next/font/google";
 import ClientToaster from "../components/ClientToaster";
 import "./globals.css";
@@ -40,7 +40,6 @@ export const metadata: Metadata = {
   },
   manifest: '/manifest.json',
   themeColor: '#DC2626',
-  colorScheme: 'dark',
   robots: {
     index: true,
     follow: true,
@@ -89,6 +88,15 @@ export const metadata: Metadata = {
     canonical: 'https://ai-manga-generator.com',
   },
 };
+
+export const viewport: Viewport = {
+  colorScheme: 'dark',
+  themeColor: '#DC2626',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
 
 export default function RootLayout({
   children,

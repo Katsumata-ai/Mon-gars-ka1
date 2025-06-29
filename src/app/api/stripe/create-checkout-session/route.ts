@@ -14,8 +14,12 @@ export async function GET(request: NextRequest) {
     // Récupérer les paramètres de l'URL
     const { searchParams } = new URL(request.url)
     const plan = searchParams.get('plan') || 'yearly'
+    const currency = searchParams.get('currency') as 'eur' | 'usd' || 'eur'
+    const priceId = searchParams.get('price_id')
     const returnUrl = searchParams.get('return_url') || '/dashboard'
     console.log('📋 Plan demandé:', plan)
+    console.log('💰 Devise:', currency)
+    console.log('🏷️ Price ID:', priceId)
     console.log('🔙 URL de retour:', returnUrl)
 
     // Vérifier les clés Stripe
@@ -39,20 +43,21 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Utilisateur authentifié:', user?.email || 'test-user@localhost')
 
-    // Utiliser les prix configurés de production
-    const priceId = plan === 'monthly'
-      ? STRIPE_CONFIG.prices.monthly.id
-      : STRIPE_CONFIG.prices.yearly.id
+    // Utiliser les prix configurés selon la devise
+    const finalPriceId = priceId || (plan === 'monthly'
+      ? STRIPE_CONFIG.prices[currency].monthly.id
+      : STRIPE_CONFIG.prices[currency].yearly.id)
 
-    if (!priceId) {
-      console.log('❌ Plan invalide:', plan)
+    if (!finalPriceId) {
+      console.log('❌ Plan invalide:', plan, 'ou devise:', currency)
       return NextResponse.json(
-        { error: 'Invalid plan' },
+        { error: 'Invalid plan or currency' },
         { status: 400 }
       )
     }
 
-    console.log('💰 Prix sélectionné:', priceId)
+    console.log('💰 Prix sélectionné:', finalPriceId)
+    console.log('🌍 Devise:', currency)
 
     // Create Stripe checkout session
     console.log('🏗️ Création de la session Stripe...')
@@ -60,7 +65,7 @@ export async function GET(request: NextRequest) {
       payment_method_types: ['card'],
       line_items: [
         {
-          price: priceId,
+          price: finalPriceId,
           quantity: 1,
         },
       ],
@@ -70,6 +75,7 @@ export async function GET(request: NextRequest) {
       metadata: {
         mode: isDevelopment ? 'development' : 'production',
         plan: plan,
+        currency: currency,
         user_id: user?.id || 'test-user-localhost', // IMPORTANT: Add user ID for webhooks
       },
       // Use logged-in user's email or test email

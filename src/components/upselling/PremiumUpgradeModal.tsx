@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import { X, Check, Zap, Crown, Infinity } from 'lucide-react'
-import { STRIPE_CONFIG } from '@/lib/stripe/config'
+import { STRIPE_CONFIG, getPricesByCurrency } from '@/lib/stripe/config'
 import { cn } from '@/lib/utils'
+import { useCurrency } from '@/hooks/useCurrency'
+import { CurrencyToggle } from '@/components/ui/CurrencyToggle'
 
 interface PremiumUpgradeModalProps {
   isOpen: boolean
@@ -16,13 +18,14 @@ interface PremiumUpgradeModalProps {
   }
 }
 
-export function PremiumUpgradeModal({ 
-  isOpen, 
-  onClose, 
+export function PremiumUpgradeModal({
+  isOpen,
+  onClose,
   limitType = 'general',
-  currentUsage 
+  currentUsage
 }: PremiumUpgradeModalProps) {
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual')
+  const { currency, setCurrency, formatPrice, formatSavings } = useCurrency()
 
   if (!isOpen) return null
 
@@ -86,10 +89,26 @@ export function PremiumUpgradeModal({
 
   const handleUpgrade = (plan: 'monthly' | 'annual') => {
     const interval = plan === 'annual' ? 'yearly' : 'monthly'
-    const paymentLink = STRIPE_CONFIG.paymentLinks[interval]
+    const prices = getPricesByCurrency(currency)
+    const priceId = prices[interval].id
 
-    if (paymentLink) {
-      window.location.href = paymentLink
+    // Créer l'URL de checkout avec la devise appropriée
+    const currentPath = window.location.pathname
+    const returnUrl = encodeURIComponent(currentPath)
+    const checkoutUrl = `/api/stripe/create-checkout-session?plan=${interval}&currency=${currency}&price_id=${priceId}&return_url=${returnUrl}`
+
+    window.location.href = checkoutUrl
+  }
+
+  // Helper function to get price based on currency
+  const getPrice = (interval: 'monthly' | 'yearly') => {
+    const seniorPlan = STRIPE_CONFIG.plans.find(p => p.id === 'senior')
+    if (!seniorPlan) return 0
+
+    if (seniorPlan.price.eur && seniorPlan.price.usd) {
+      return seniorPlan.price[currency][interval]
+    } else {
+      return seniorPlan.price[interval]
     }
   }
 
@@ -114,6 +133,19 @@ export function PremiumUpgradeModal({
                 {currentUsage.used}/{currentUsage.limit} {currentUsage.type} used
               </div>
             )}
+
+            {/* Currency Toggle */}
+            <div className="flex justify-center mt-4">
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span>Currency:</span>
+                <CurrencyToggle
+                  currency={currency}
+                  onCurrencyChange={setCurrency}
+                  size="xs"
+                  variant="subtle"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -124,7 +156,7 @@ export function PremiumUpgradeModal({
             <div className="bg-slate-800 rounded-xl p-6 border border-slate-600">
               <div className="text-center mb-6">
                 <h3 className="text-xl font-bold text-white mb-2">Free Plan</h3>
-                <div className="text-3xl font-bold text-slate-400">€0</div>
+                <div className="text-3xl font-bold text-slate-400">{formatPrice(0)}</div>
                 <div className="text-slate-500 text-sm">per month</div>
               </div>
               
@@ -185,24 +217,21 @@ export function PremiumUpgradeModal({
                     >
                       Annual
                       <span className="absolute -top-2 -right-1 bg-red-500 text-white text-xs px-1 rounded shadow-lg shadow-red-500/50">
-                        -€220
+                        Save {formatSavings(getPrice('monthly'), getPrice('yearly'))}
                       </span>
                     </button>
                   </div>
                 </div>
                 
                 <div className="text-3xl font-bold text-white">
-                  {selectedPlan === 'monthly'
-                    ? `${STRIPE_CONFIG.plans.find(p => p.id === 'senior')?.price.monthly || 25}€`
-                    : `${STRIPE_CONFIG.plans.find(p => p.id === 'senior')?.price.yearly || 80}€`
-                  }
+                  {formatPrice(getPrice(selectedPlan === 'monthly' ? 'monthly' : 'yearly'))}
                 </div>
                 <div className="text-red-300 text-sm">
                   {selectedPlan === 'monthly' ? 'per month' : 'per year'}
                 </div>
                 {selectedPlan === 'annual' && (
                   <div className="text-red-400 text-xs mt-1">
-                    🎉 Special launch offer - Save €{((STRIPE_CONFIG.plans.find(p => p.id === 'senior')?.price.monthly || 25) * 12) - (STRIPE_CONFIG.plans.find(p => p.id === 'senior')?.price.yearly || 80)}/year
+                    🎉 Special launch offer - Save {formatSavings(getPrice('monthly'), getPrice('yearly'))}/year
                   </div>
                 )}
               </div>
@@ -231,7 +260,7 @@ export function PremiumUpgradeModal({
               </button>
 
               <div className="text-center mt-3 text-red-300 text-xs">
-                Cancel anytime
+                7-day refund guarantee
               </div>
             </div>
           </div>
@@ -240,7 +269,7 @@ export function PremiumUpgradeModal({
           <div className="mt-6 text-center">
             <div className="inline-flex items-center bg-green-500/20 text-green-400 px-4 py-2 rounded-lg text-sm">
               <Check className="w-4 h-4 mr-2" />
-              Cancel anytime
+              7-day refund guarantee
             </div>
           </div>
         </div>

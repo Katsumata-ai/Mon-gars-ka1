@@ -7,6 +7,9 @@ import { useSubscriptionSafe } from '@/hooks/useSubscriptionSafe'
 import DeleteAccountButton from '@/components/settings/DeleteAccountButton'
 import UpgradeButtons from '@/components/settings/UpgradeButtons'
 import SubscriptionDetails from '@/components/settings/SubscriptionDetails'
+import { useCurrency } from '@/hooks/useCurrency'
+import { CurrencyToggle } from '@/components/ui/CurrencyToggle'
+import { STRIPE_CONFIG } from '@/lib/stripe/config'
 
 interface SettingsContentProps {
   user: {
@@ -16,14 +19,27 @@ interface SettingsContentProps {
 }
 
 export default function SettingsContent({ user }: SettingsContentProps) {
-  const { 
-    subscription, 
-    currentPlan, 
-    hasActiveSubscription, 
-    loading, 
-    error, 
-    fetchSubscription 
+  const {
+    subscription,
+    currentPlan,
+    hasActiveSubscription,
+    loading,
+    error,
+    fetchSubscription
   } = useSubscriptionSafe()
+  const { currency, setCurrency, formatPrice, formatSavings } = useCurrency()
+
+  // Helper function to get price based on currency
+  const getPrice = (interval: 'monthly' | 'yearly') => {
+    const seniorPlan = STRIPE_CONFIG.plans.find(p => p.id === 'senior')
+    if (!seniorPlan) return 0
+
+    if (seniorPlan.price.eur && seniorPlan.price.usd) {
+      return seniorPlan.price[currency][interval]
+    } else {
+      return seniorPlan.price[interval]
+    }
+  }
 
   const [cancelLoading, setCancelLoading] = useState(false)
 
@@ -199,12 +215,24 @@ export default function SettingsContent({ user }: SettingsContentProps) {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="flex items-baseline space-x-2">
-                        <span className="text-3xl font-bold text-white">25€</span>
+                        <span className="text-3xl font-bold text-white">{formatPrice(getPrice('monthly'))}</span>
                         <span className="text-dark-300">/month</span>
                       </div>
-                      <p className="text-sm text-dark-300">or 80€/year (🎉 Special launch offer - save 220€)</p>
+                      <p className="text-sm text-dark-300">or {formatPrice(getPrice('yearly'))}/year (🎉 Special launch offer - save {formatSavings(getPrice('monthly'), getPrice('yearly'))})</p>
                     </div>
-                    <UpgradeButtons />
+                    <div className="flex flex-col items-end gap-3">
+                      {/* Currency Toggle positioned above CTA buttons */}
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <span>Currency:</span>
+                        <CurrencyToggle
+                          currency={currency}
+                          onCurrencyChange={setCurrency}
+                          size="xs"
+                          variant="subtle"
+                        />
+                      </div>
+                      <UpgradeButtons />
+                    </div>
                   </div>
                 </div>
               )}

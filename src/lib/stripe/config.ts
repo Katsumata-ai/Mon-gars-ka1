@@ -13,21 +13,39 @@ export const STRIPE_CONFIG = {
   },
 
   prices: {
-    monthly: {
-      // Nouveaux prix 2025 - Mensuel 5€
-      id: 'price_1Rf5ydCAB3oSopcYe8Sp9Jok',
-      amount: 500, // 5€ in cents
-      currency: 'eur',
-      interval: 'month',
-      type: 'recurring'
+    // EUR Prices (Europe)
+    eur: {
+      monthly: {
+        id: 'price_1Rf5ydCAB3oSopcYe8Sp9Jok',
+        amount: 500, // 5€ in cents
+        currency: 'eur',
+        interval: 'month',
+        type: 'recurring'
+      },
+      yearly: {
+        id: 'price_1Rf5zZCAB3oSopcYoyVx9aY8',
+        amount: 3000, // 30€ in cents
+        currency: 'eur',
+        interval: 'year',
+        type: 'recurring'
+      }
     },
-    yearly: {
-      // Nouveaux prix 2025 - Annuel 30€ (50% de réduction vs mensuel)
-      id: 'price_1Rf5zZCAB3oSopcYoyVx9aY8',
-      amount: 3000, // 30€ in cents (save 30€/year vs monthly)
-      currency: 'eur',
-      interval: 'year',
-      type: 'recurring'
+    // USD Prices (US, Canada, etc.)
+    usd: {
+      monthly: {
+        id: 'price_1RfBIYCAB3oSopcYAjnPItIK', // Prix mensuel USD $5.99
+        amount: 599, // $5.99 in cents
+        currency: 'usd',
+        interval: 'month',
+        type: 'recurring'
+      },
+      yearly: {
+        id: 'price_1RfBXkCAB3oSopcYuvk5VlgH', // Prix annuel USD $35.99
+        amount: 3599, // $35.99 in cents
+        currency: 'usd',
+        interval: 'year',
+        type: 'recurring'
+      }
     }
   },
 
@@ -42,7 +60,10 @@ export const STRIPE_CONFIG = {
     {
       id: 'junior',
       name: 'Mangaka Junior',
-      price: { monthly: 0, yearly: 0 },
+      price: {
+        eur: { monthly: 0, yearly: 0 },
+        usd: { monthly: 0, yearly: 0 }
+      },
       description: 'Perfect for discovering manga creation',
       features: [
         { name: '2 characters', included: true },
@@ -58,7 +79,10 @@ export const STRIPE_CONFIG = {
     {
       id: 'senior',
       name: 'Mangaka Senior',
-      price: { monthly: 5, yearly: 30 },
+      price: {
+        eur: { monthly: 5, yearly: 30 },
+        usd: { monthly: 5.99, yearly: 35.99 }
+      },
       description: 'For serious manga creators',
       features: [
         { name: 'Unlimited characters', included: true, highlight: 'unlimited' },
@@ -115,7 +139,10 @@ export const STRIPE_CONFIG = {
 export interface StripePlan {
   id: string
   name: string
-  price: { monthly: number; yearly: number }
+  price: {
+    eur: { monthly: number; yearly: number }
+    usd: { monthly: number; yearly: number }
+  } | { monthly: number; yearly: number } // Support ancien format
   description: string
   features: Array<{
     name: string
@@ -134,15 +161,52 @@ export function getSeniorPlan(): StripePlan | undefined {
   return STRIPE_CONFIG.plans.find(plan => plan.id === 'senior')
 }
 
+// Détection automatique de la devise selon la localisation
+export function detectUserCurrency(): 'eur' | 'usd' {
+  if (typeof window === 'undefined') return 'eur' // SSR fallback
+
+  // Détection par timezone
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const usTimezones = [
+    'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+    'America/Phoenix', 'America/Anchorage', 'Pacific/Honolulu'
+  ]
+
+  if (usTimezones.some(tz => timezone.includes(tz.split('/')[1]))) {
+    return 'usd'
+  }
+
+  // Détection par langue du navigateur
+  const language = navigator.language || navigator.languages?.[0] || 'en-US'
+  if (language.startsWith('en-US') || language.startsWith('en-CA')) {
+    return 'usd'
+  }
+
+  return 'eur' // Défaut Europe
+}
+
+// Obtenir les prix selon la devise
+export function getPricesByCurrency(currency: 'eur' | 'usd' = 'eur') {
+  return STRIPE_CONFIG.prices[currency]
+}
+
 export function getPaymentLink(interval: 'monthly' | 'yearly'): string | null {
   return STRIPE_CONFIG.paymentLinks[interval] || null
 }
 
 export function formatPrice(amount: number, currency: string = 'EUR'): string {
-  return new Intl.NumberFormat('en-US', {
+  const locale = currency === 'USD' ? 'en-US' : 'fr-FR'
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency,
   }).format(amount)
+}
+
+// Formater le prix selon la devise détectée
+export function formatPriceAuto(amount: number): string {
+  const currency = detectUserCurrency()
+  const currencyCode = currency === 'usd' ? 'USD' : 'EUR'
+  return formatPrice(amount, currencyCode)
 }
 
 export function hasFeature(planId: string, feature: string): boolean {

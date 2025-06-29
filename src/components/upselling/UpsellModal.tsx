@@ -4,28 +4,54 @@ import { Fragment } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { X, Crown, Check, Zap, Star } from 'lucide-react'
 import { UpsellModalProps, UPSELL_CONTENT } from '@/types/upselling'
-import { STRIPE_CONFIG } from '@/lib/stripe/config'
+import { STRIPE_CONFIG, getPricesByCurrency } from '@/lib/stripe/config'
+import { useCurrency } from '@/hooks/useCurrency'
+import { CurrencyToggle } from '@/components/ui/CurrencyToggle'
 
-export function UpsellModal({ 
-  isOpen, 
-  onClose, 
-  limitationType, 
-  currentUsage, 
-  limit, 
-  onUpgrade 
+export function UpsellModal({
+  isOpen,
+  onClose,
+  limitationType,
+  currentUsage,
+  limit,
+  onUpgrade
 }: UpsellModalProps) {
   const content = UPSELL_CONTENT[limitationType]
   const seniorPlan = STRIPE_CONFIG.plans.find(plan => plan.id === 'senior')
+  const { currency, setCurrency, formatPrice, formatSavings } = useCurrency()
+
+  // Helper function to get price based on currency
+  const getPrice = (interval: 'monthly' | 'yearly') => {
+    if (!seniorPlan) return 0
+
+    if (seniorPlan.price.eur && seniorPlan.price.usd) {
+      return seniorPlan.price[currency][interval]
+    } else {
+      return seniorPlan.price[interval]
+    }
+  }
+
+  const handleUpgrade = (plan: 'monthly' | 'yearly') => {
+    const prices = getPricesByCurrency(currency)
+    const priceId = prices[plan].id
+
+    // Créer l'URL de checkout avec la devise appropriée
+    const currentPath = window.location.pathname
+    const returnUrl = encodeURIComponent(currentPath)
+    const checkoutUrl = `/api/stripe/create-checkout-session?plan=${plan}&currency=${currency}&price_id=${priceId}&return_url=${returnUrl}`
+
+    window.location.href = checkoutUrl
+  }
 
   if (!content || !seniorPlan) return null
 
-  const handleUpgrade = (planType: 'monthly' | 'yearly') => {
+  const handleUpgradeOld = (planType: 'monthly' | 'yearly') => {
     onUpgrade(planType)
     onClose()
   }
 
   const monthlyDiscount = 0
-  const yearlyDiscount = Math.round((1 - (seniorPlan.price.yearly / 12) / seniorPlan.price.monthly) * 100)
+  const yearlyDiscount = Math.round((1 - (getPrice('yearly') / 12) / getPrice('monthly')) * 100)
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -110,9 +136,22 @@ export function UpsellModal({
 
                 {/* Pricing Options */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white text-center mb-6">
-                    Choose your plan
-                  </h3>
+                  <div className="flex flex-col items-center gap-4">
+                    <h3 className="text-lg font-semibold text-white text-center">
+                      Choose your plan
+                    </h3>
+
+                    {/* Currency Toggle */}
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>Currency:</span>
+                      <CurrencyToggle
+                        currency={currency}
+                        onCurrencyChange={setCurrency}
+                        size="xs"
+                        variant="subtle"
+                      />
+                    </div>
+                  </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Monthly Plan */}
@@ -120,7 +159,7 @@ export function UpsellModal({
                       <div className="text-center">
                         <h4 className="text-lg font-semibold text-white mb-2">Monthly</h4>
                         <div className="mb-4">
-                          <span className="text-3xl font-bold text-white">{seniorPlan.price.monthly}€</span>
+                          <span className="text-3xl font-bold text-white">{formatPrice(getPrice('monthly'))}</span>
                           <span className="text-gray-400">/month</span>
                         </div>
                         <button
@@ -130,7 +169,7 @@ export function UpsellModal({
                           Start now
                         </button>
                         <p className="text-xs text-gray-400 mt-2">
-                          Cancel anytime
+                          7-day refund guarantee
                         </p>
                       </div>
                     </div>
@@ -148,12 +187,12 @@ export function UpsellModal({
                       <div className="text-center">
                         <h4 className="text-lg font-semibold text-white mb-2">Annual</h4>
                         <div className="mb-2">
-                          <span className="text-3xl font-bold text-white">{seniorPlan.price.yearly}€</span>
+                          <span className="text-3xl font-bold text-white">{formatPrice(getPrice('yearly'))}</span>
                           <span className="text-gray-400">/year</span>
                         </div>
                         <div className="mb-4">
                           <span className="text-sm text-primary-300">
-                            That's {Math.round(seniorPlan.price.yearly / 12)}€/month
+                            That's {formatPrice(getPrice('yearly') / 12)}/month
                           </span>
                         </div>
                         <button

@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowRightIcon, CheckIcon } from "@radix-ui/react-icons"
 import { cn } from "@/lib/utils"
-// Import dynamique pour éviter le chargement de Stripe sur la landing page
-// import { usePayment } from "@/hooks/useStripe"
 import { useAuth } from "@/hooks/useAuth"
-import { STRIPE_CONFIG } from "@/lib/stripe/config"
+import { STRIPE_CONFIG, getPricesByCurrency } from "@/lib/stripe/config"
+import { useCurrency } from "@/hooks/useCurrency"
+import { CurrencyToggle } from "@/components/ui/CurrencyToggle"
+import { PricingCTA } from "@/components/ui/SmartCTA"
 
 // Function to highlight all words containing "unlimited"
 function highlightUnlimited(text: string) {
@@ -58,6 +59,18 @@ interface PricingSectionProps {
 function PricingSection({ tiers, className }: PricingSectionProps) {
   const [isYearly, setIsYearly] = useState(true) // Default to annual plan for better value proposition
   const { user } = useAuth()
+  const { currency, setCurrency, formatPrice, formatSavings, getCurrencySymbol } = useCurrency()
+
+  // Helper function to get price based on currency
+  const getPrice = (tier: any, interval: 'monthly' | 'yearly') => {
+    if (tier.price.eur && tier.price.usd) {
+      // New multi-currency format
+      return tier.price[currency][interval]
+    } else {
+      // Legacy format (EUR only)
+      return tier.price[interval]
+    }
+  }
 
   const buttonStyles = {
     default: cn(
@@ -80,51 +93,9 @@ function PricingSection({ tiers, className }: PricingSectionProps) {
     "border-none shadow-lg",
   )
 
-  const handleStripeCheckout = (plan: 'monthly' | 'yearly') => {
-    const interval = plan === 'yearly' ? 'yearly' : 'monthly'
-    const paymentLink = STRIPE_CONFIG.paymentLinks[interval]
 
-    // Ajouter l'URL de retour actuelle
-    const currentPath = window.location.pathname
-    const returnUrl = encodeURIComponent(currentPath)
 
-    if (paymentLink) {
-      window.location.href = `${paymentLink}&return_url=${returnUrl}`
-    }
-  }
 
-  const handlePlanSelection = (tier: PricingTier) => {
-    // If it's the free plan, redirect to signup
-    if (tier.price.monthly === 0) {
-      if (!user) {
-        window.location.href = '/signup'
-      } else {
-        window.location.href = '/dashboard'
-      }
-      return
-    }
-
-    // For paid plans, check authentication
-    if (!user) {
-      // If user is not logged in, redirect to signup with plan info
-      const plan = isYearly ? 'yearly' : 'monthly'
-      const paymentLink = STRIPE_CONFIG.paymentLinks[plan]
-      if (paymentLink) {
-        // Ajouter l'URL de retour actuelle au lien de paiement
-        const currentPath = window.location.pathname
-        const returnUrl = encodeURIComponent(currentPath)
-        const fullPaymentLink = `${paymentLink}&return_url=${returnUrl}`
-        const encodedLink = encodeURIComponent(fullPaymentLink)
-        window.location.href = `/signup?redirect=${encodedLink}`
-      } else {
-        window.location.href = '/signup'
-      }
-      return
-    }
-
-    // If user is logged in, create a checkout session
-    handleStripeCheckout(isYearly ? 'yearly' : 'monthly')
-  }
 
   return (
     <section
@@ -211,6 +182,20 @@ function PricingSection({ tiers, className }: PricingSectionProps) {
           <p className="text-xl text-gray-300 text-center max-w-2xl">
             Start free, scale according to your manga creation needs
           </p>
+
+          {/* Currency Toggle - Subtle */}
+          <div className="flex justify-center">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span>Currency:</span>
+              <CurrencyToggle
+                currency={currency}
+                onCurrencyChange={setCurrency}
+                size="xs"
+                variant="subtle"
+              />
+            </div>
+          </div>
+
           <div className="relative">
             <div className={cn(
               "inline-flex items-center p-1.5 rounded-full border shadow-lg transition-all duration-500",
@@ -283,15 +268,15 @@ function PricingSection({ tiers, className }: PricingSectionProps) {
                 <div className="mb-8">
                   <div className="flex items-baseline gap-2">
                     <span className="text-5xl font-bold text-white font-comic">
-                      {isYearly ? tier.price.yearly : tier.price.monthly}€
+                      {getCurrencySymbol()}{getPrice(tier, isYearly ? 'yearly' : 'monthly')}
                     </span>
                     <span className="text-sm text-gray-400">
                       /{isYearly ? "year" : "month"}
                     </span>
                   </div>
-                  {isYearly && tier.price.monthly > 0 && (
+                  {isYearly && getPrice(tier, 'monthly') > 0 && (
                     <div className="mt-2 text-sm text-primary-400 font-medium">
-                      🎉 Special launch offer - Save {(tier.price.monthly * 12 - tier.price.yearly)}€/year
+                      🎉 Special launch offer - Save {formatSavings(getPrice(tier, 'monthly'), getPrice(tier, 'yearly'))}/year
                     </div>
                   )}
                   <p className="mt-3 text-base text-gray-300">
@@ -328,29 +313,17 @@ function PricingSection({ tiers, className }: PricingSectionProps) {
               </div>
 
               <div className="p-8 pt-0 mt-auto">
-                <Button
+                <PricingCTA
+                  tierName={tier.name}
+                  plan={isYearly ? 'yearly' : 'monthly'}
+                  isHighlight={tier.highlight}
                   className={cn(
-                    "w-full relative transition-all duration-300",
+                    "relative transition-all duration-300",
                     tier.highlight
                       ? buttonStyles.highlight
                       : buttonStyles.default,
                   )}
-                  onClick={() => handlePlanSelection(tier)}
-                >
-                  <span className="relative z-10 flex items-center justify-center gap-2">
-                    {tier.highlight ? (
-                      <>
-                        Get Started Now
-                        <ArrowRightIcon className="w-4 h-4" />
-                      </>
-                    ) : (
-                      <>
-                        Try Free
-                        <ArrowRightIcon className="w-4 h-4" />
-                      </>
-                    )}
-                  </span>
-                </Button>
+                />
               </div>
             </div>
           ))}
