@@ -417,7 +417,7 @@ async function generateSceneImage(optimizedPrompt: string): Promise<string> {
 
   if (!XAI_API_KEY) {
     console.error('❌ XAI_API_KEY not configured for image generation')
-    throw new Error('XAI_API_KEY not configured')
+    throw new Error('XAI_API_KEY not configured for image generation')
   }
 
   // Limiter le prompt à 1000 caractères sans optimisation destructrice

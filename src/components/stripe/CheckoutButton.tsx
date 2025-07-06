@@ -6,7 +6,8 @@ import { usePayment, useSubscription } from '@/hooks/useStripe'
 import { useAuth } from '@/hooks/useAuth'
 import { ArrowRightIcon } from '@radix-ui/react-icons'
 import { cn } from '@/lib/utils'
-import { STRIPE_CONFIG } from '@/lib/stripe/config'
+import { STRIPE_CONFIG, getCheckoutUrl } from '@/lib/stripe/config'
+import { useCurrency } from '@/hooks/useCurrency'
 
 interface CheckoutButtonProps {
   planId: string
@@ -17,17 +18,18 @@ interface CheckoutButtonProps {
   variant?: 'default' | 'highlight'
 }
 
-export function CheckoutButton({ 
-  planId, 
-  planName, 
-  price, 
-  className, 
+export function CheckoutButton({
+  planId,
+  planName,
+  price,
+  className,
   children,
   variant = 'default'
 }: CheckoutButtonProps) {
   const { user } = useAuth()
   const { redirectToCheckout, loading } = usePayment()
   const { currentPlan } = useSubscription()
+  const { currency } = useCurrency()
   const [isProcessing, setIsProcessing] = useState(false)
 
   const handleCheckout = async () => {
@@ -44,12 +46,11 @@ export function CheckoutButton({
     // Si l'utilisateur n'est pas connecté, rediriger vers l'inscription avec paramètres de redirection
     if (!user) {
       const plan = STRIPE_CONFIG.plans.find(p => p.id === planId)
-      if (plan?.paymentLinks?.monthly) {
+      if (plan?.paymentLinks?.[currency]?.monthly) {
         // Ajouter l'URL de retour actuelle au lien de paiement
         const currentPath = window.location.pathname
-        const returnUrl = encodeURIComponent(currentPath)
-        const fullPaymentLink = `${plan.paymentLinks.monthly}&return_url=${returnUrl}`
-        const encodedLink = encodeURIComponent(fullPaymentLink)
+        const checkoutUrl = getCheckoutUrl('monthly', currency, currentPath)
+        const encodedLink = encodeURIComponent(checkoutUrl)
         window.location.href = `/signup?redirect=${encodedLink}`
       } else {
         window.location.href = '/signup'
@@ -64,12 +65,14 @@ export function CheckoutButton({
     }
 
     // Use direct Stripe checkout links with return URL
-    const paymentLink = STRIPE_CONFIG.paymentLinks.monthly
-    if (paymentLink) {
-      // Ajouter l'URL de retour actuelle
+    try {
       const currentPath = window.location.pathname
-      const returnUrl = encodeURIComponent(currentPath)
-      window.location.href = `${paymentLink}&return_url=${returnUrl}`
+      const checkoutUrl = getCheckoutUrl('monthly', currency, currentPath)
+      window.location.href = checkoutUrl
+    } catch (error) {
+      console.error('Error generating checkout URL:', error)
+      // Fallback to dashboard
+      window.location.href = '/dashboard'
     }
   }
 

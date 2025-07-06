@@ -58,13 +58,14 @@ function optimizePromptInternal(originalPrompt: string, imageType: 'character' |
 }
 
 async function generateImageWithXai(prompt: string): Promise<string> {
+  // Use the specialized image generation key
   const XAI_API_KEY = process.env.XAI_API_KEY
 
   console.log('🎨 Image generation with prompt:', prompt.substring(0, 100) + '...')
 
   if (!XAI_API_KEY) {
-    console.error('❌ XAI_API_KEY not configured')
-    throw new Error('XAI_API_KEY not configured')
+    console.error('❌ XAI_API_KEY not configured for image generation')
+    throw new Error('XAI_API_KEY not configured for image generation')
   }
 
   // Mask API key in logs for security

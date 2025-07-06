@@ -51,8 +51,14 @@ export const STRIPE_CONFIG = {
 
   // Payment Links - PRODUCTION MODE (Recurring subscriptions)
   paymentLinks: {
-    monthly: '/api/stripe/create-checkout-session?plan=monthly',
-    yearly: '/api/stripe/create-checkout-session?plan=yearly'
+    eur: {
+      monthly: '/api/stripe/create-checkout-session?plan=monthly&currency=eur&price_id=price_1Rf5ydCAB3oSopcYe8Sp9Jok',
+      yearly: '/api/stripe/create-checkout-session?plan=yearly&currency=eur&price_id=price_1Rf5zZCAB3oSopcYoyVx9aY8'
+    },
+    usd: {
+      monthly: '/api/stripe/create-checkout-session?plan=monthly&currency=usd&price_id=price_1RfBIYCAB3oSopcYAjnPItIK',
+      yearly: '/api/stripe/create-checkout-session?plan=yearly&currency=usd&price_id=price_1RfBXkCAB3oSopcYuvk5VlgH'
+    }
   },
 
   // Pricing Plans for UI
@@ -94,8 +100,14 @@ export const STRIPE_CONFIG = {
       ],
       highlight: true,
       paymentLinks: {
-        monthly: '/api/stripe/create-checkout-session?plan=monthly',
-        yearly: '/api/stripe/create-checkout-session?plan=yearly'
+        eur: {
+          monthly: '/api/stripe/create-checkout-session?plan=monthly&currency=eur&price_id=price_1Rf5ydCAB3oSopcYe8Sp9Jok',
+          yearly: '/api/stripe/create-checkout-session?plan=yearly&currency=eur&price_id=price_1Rf5zZCAB3oSopcYoyVx9aY8'
+        },
+        usd: {
+          monthly: '/api/stripe/create-checkout-session?plan=monthly&currency=usd&price_id=price_1RfBIYCAB3oSopcYAjnPItIK',
+          yearly: '/api/stripe/create-checkout-session?plan=yearly&currency=usd&price_id=price_1RfBXkCAB3oSopcYuvk5VlgH'
+        }
       }
     }
   ],
@@ -151,8 +163,14 @@ export interface StripePlan {
   }>
   highlight: boolean
   paymentLinks?: {
-    monthly: string
-    yearly: string
+    eur: {
+      monthly: string
+      yearly: string
+    }
+    usd: {
+      monthly: string
+      yearly: string
+    }
   } | null
 }
 
@@ -190,8 +208,22 @@ export function getPricesByCurrency(currency: 'eur' | 'usd' = 'eur') {
   return STRIPE_CONFIG.prices[currency]
 }
 
-export function getPaymentLink(interval: 'monthly' | 'yearly'): string | null {
-  return STRIPE_CONFIG.paymentLinks[interval] || null
+export function getPaymentLink(interval: 'monthly' | 'yearly', currency: 'eur' | 'usd' = 'eur'): string | null {
+  return STRIPE_CONFIG.paymentLinks[currency]?.[interval] || null
+}
+
+export function getCheckoutUrl(
+  interval: 'monthly' | 'yearly',
+  currency: 'eur' | 'usd' = 'eur',
+  returnUrl: string = '/'
+): string {
+  const baseUrl = getPaymentLink(interval, currency)
+  if (!baseUrl) {
+    throw new Error(`No payment link found for ${interval} ${currency}`)
+  }
+
+  const encodedReturnUrl = encodeURIComponent(returnUrl)
+  return `${baseUrl}&return_url=${encodedReturnUrl}`
 }
 
 export function formatPrice(amount: number, currency: string = 'EUR'): string {

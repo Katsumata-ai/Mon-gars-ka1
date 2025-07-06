@@ -69,6 +69,8 @@ tasks/
 .env.local
 .env.production
 .env.production.local
+.env.production.new
+mcp-stripe-config.json
 
 # IDE and editor files
 .roomodes
